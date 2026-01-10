@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TDEE Tracker - Test Runner</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0d1117;
+            color: #c9d1d9;
+        }
+        h1 { color: #58a6ff; margin-bottom: 10px; }
+        .summary {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        .summary.pass { background: #238636; }
+        .summary.fail { background: #da3633; }
+        .summary.running { background: #1f6feb; }
+        .test-group {
+            background: #161b22;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        .test-group-header {
+            padding: 12px 15px;
+            background: #21262d;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+        }
+        .test-group-header:hover { background: #30363d; }
+        .test-item {
+            padding: 10px 15px;
+            border-top: 1px solid #21262d;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .test-item.pass::before { content: '✓'; color: #3fb950; }
+        .test-item.fail::before { content: '✗'; color: #f85149; }
+        .test-item.fail { background: rgba(248, 81, 73, 0.1); }
+        .test-name { flex: 1; }
+        .test-error {
+            color: #f85149;
+            font-size: 13px;
+            margin-top: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .test-time { color: #8b949e; font-size: 12px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>🧪 TDEE Tracker Tests</h1>
+    <div id="summary" class="summary running">Running tests...</div>
+    <div id="results"></div>
+
+    <!-- Load source files -->
+    <script src="../js/utils.js"></script>
+    <script src="../js/calculator.js"></script>
+    <script src="../js/storage.js"></script>
+
+    <!-- Test Framework -->
+    <script>
+        const TestRunner = (function() {
+            let passed = 0;
+            let failed = 0;
+            const results = {};
+            
+            function describe(groupName, fn) {
+                results[groupName] = [];
+                const originalIt = window.currentGroup;
+                window.currentGroup = groupName;
+                fn();
+                window.currentGroup = originalIt;
+            }
+            
+            function it(testName, fn) {
+                const group = window.currentGroup || 'Ungrouped';
+                if (!results[group]) results[group] = [];
+                
+                const start = performance.now();
+                try {
+                    fn();
+                    passed++;
+                    results[group].push({ name: testName, pass: true, time: performance.now() - start });
+                } catch (error) {
+                    failed++;
+                    results[group].push({ 
+                        name: testName, 
+                        pass: false, 
+                        error: error.message,
+                        time: performance.now() - start 
+                    });
+                }
+            }
+            
+            function expect(actual) {
+                return {
+                    toBe(expected) {
+                        if (actual !== expected) {
+                            throw new Error(`Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+                        }
+                    },
+                    toEqual(expected) {
+                        if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+                            throw new Error(`Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+                        }
+                    },
+                    toBeCloseTo(expected, precision = 2) {
+                        const factor = Math.pow(10, precision);
+                        if (Math.round(actual * factor) !== Math.round(expected * factor)) {
+                            throw new Error(`Expected ${expected} (±${1/factor}), got ${actual}`);
+                        }
+                    },
+                    toBeNull() {
+                        if (actual !== null) {
+                            throw new Error(`Expected null, got ${JSON.stringify(actual)}`);
+                        }
+                    },
+                    toBeTrue() {
+                        if (actual !== true) {
+                            throw new Error(`Expected true, got ${JSON.stringify(actual)}`);
+                        }
+                    },
+                    toBeFalse() {
+                        if (actual !== false) {
+                            throw new Error(`Expected false, got ${JSON.stringify(actual)}`);
+                        }
+                    },
+                    toContain(item) {
+                        if (!actual.includes(item)) {
+                            throw new Error(`Expected ${JSON.stringify(actual)} to contain ${JSON.stringify(item)}`);
+                        }
+                    },
+                    toHaveLength(length) {
+                        if (actual.length !== length) {
+                            throw new Error(`Expected length ${length}, got ${actual.length}`);
+                        }
+                    },
+                    toBeGreaterThan(expected) {
+                        if (!(actual > expected)) {
+                            throw new Error(`Expected ${actual} > ${expected}`);
+                        }
+                    },
+                    toBeLessThan(expected) {
+                        if (!(actual < expected)) {
+                            throw new Error(`Expected ${actual} < ${expected}`);
+                        }
+                    }
+                };
+            }
+            
+            function render() {
+                const summaryEl = document.getElementById('summary');
+                const resultsEl = document.getElementById('results');
+                
+                summaryEl.className = 'summary ' + (failed > 0 ? 'fail' : 'pass');
+                summaryEl.textContent = `${passed} passed, ${failed} failed`;
+                
+                let html = '';
+                for (const [group, tests] of Object.entries(results)) {
+                    const groupFailed = tests.some(t => !t.pass);
+                    html += `
+                        <div class="test-group">
+                            <div class="test-group-header">
+                                <span>${groupFailed ? '❌' : '✅'} ${group}</span>
+                                <span>${tests.filter(t => t.pass).length}/${tests.length}</span>
+                            </div>
+                            ${tests.map(t => `
+                                <div class="test-item ${t.pass ? 'pass' : 'fail'}">
+                                    <div class="test-name">
+                                        ${t.name}
+                                        ${t.error ? `<div class="test-error">${t.error}</div>` : ''}
+                                    </div>
+                                    <span class="test-time">${t.time.toFixed(1)}ms</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+                resultsEl.innerHTML = html;
+            }
+            
+            return { describe, it, expect, render, getResults: () => ({ passed, failed }) };
+        })();
+        
+        const { describe, it, expect } = TestRunner;
+    </script>
+
+    <!-- Test Files -->
+    <script src="calculator.test.js"></script>
+    <script src="storage.test.js"></script>
+    <script src="utils.test.js"></script>
+
+    <!-- Run -->
+    <script>
+        TestRunner.render();
+    </script>
+</body>
+</html>
