@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0d1117">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description"
+        content="Track your Total Daily Energy Expenditure with advanced EWMA smoothing and intelligent gap handling">
+
+    <title>TDEE Tracker</title>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">
+                    <span class="logo-icon">📊</span>
+                    TDEE Tracker
+                </h1>
+                <button class="btn-icon" id="settings-btn" aria-label="Settings">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Stats Dashboard Cards -->
+            <section class="dashboard" id="dashboard">
+                <div class="stat-card primary">
+                    <span class="stat-label">Current TDEE</span>
+                    <span class="stat-value" id="current-tdee">—</span>
+                    <span class="stat-unit">cal/day</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Target Intake</span>
+                    <span class="stat-value" id="target-intake">—</span>
+                    <span class="stat-unit">cal/day</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Current Weight</span>
+                    <span class="stat-value" id="current-weight">—</span>
+                    <span class="stat-unit" id="weight-unit-label">kg</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Weekly Change</span>
+                    <span class="stat-value" id="weekly-change">—</span>
+                    <span class="stat-unit" id="change-unit-label">kg/wk</span>
+                </div>
+            </section>
+
+            <!-- Daily Entry Form -->
+            <section class="card entry-card" id="daily-entry">
+                <h2 class="card-title">
+                    <span id="entry-date-display">Today</span>
+                    <button class="btn-icon btn-sm" id="date-picker-btn" aria-label="Select date">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                    </button>
+                </h2>
+                <input type="date" id="entry-date" class="hidden">
+
+                <div class="entry-form">
+                    <div class="input-group">
+                        <label for="weight-input">Weight</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="weight-input" placeholder="0.0" step="0.1" min="20" max="300"
+                                inputmode="decimal">
+                            <span class="input-unit" id="weight-input-unit">kg</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="calories-input">Calories</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="calories-input" placeholder="0" step="1" min="0" max="15000"
+                                inputmode="numeric">
+                            <span class="input-unit">cal</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group full-width">
+                        <label for="notes-input">Notes (optional)</label>
+                        <input type="text" id="notes-input" placeholder="e.g., cheat day, holiday...">
+                    </div>
+
+                    <button class="btn btn-primary" id="save-entry-btn">
+                        Save Entry
+                    </button>
+                </div>
+            </section>
+
+            <!-- Weekly View -->
+            <section class="card" id="weekly-view">
+                <div class="card-header">
+                    <h2 class="card-title">This Week</h2>
+                    <div class="week-nav">
+                        <button class="btn-icon btn-sm" id="prev-week-btn" aria-label="Previous week">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="15 18 9 12 15 6" />
+                            </svg>
+                        </button>
+                        <span id="week-label">—</span>
+                        <button class="btn-icon btn-sm" id="next-week-btn" aria-label="Next week">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="week-table-wrapper">
+                    <table class="week-table" id="week-table">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>Weight</th>
+                                <th>Calories</th>
+                            </tr>
+                        </thead>
+                        <tbody id="week-table-body">
+                            <!-- Dynamically populated -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="week-summary" id="week-summary">
+                    <div class="summary-item">
+                        <span class="summary-label">Avg Weight</span>
+                        <span class="summary-value" id="week-avg-weight">—</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Avg Cal</span>
+                        <span class="summary-value" id="week-avg-calories">—</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">TDEE Est</span>
+                        <span class="summary-value" id="week-tdee">—</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Confidence</span>
+                        <span class="summary-value" id="week-confidence">—</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Progress Chart (placeholder for now) -->
+            <section class="card" id="progress-section">
+                <h2 class="card-title">Progress</h2>
+                <div class="chart-container" id="chart-container">
+                    <canvas id="progress-chart"></canvas>
+                </div>
+                <div class="chart-legend" id="chart-legend">
+                    <span class="legend-item"><span class="legend-dot weight"></span> Weight</span>
+                    <span class="legend-item"><span class="legend-dot tdee"></span> TDEE</span>
+                </div>
+            </section>
+        </main>
+
+        <!-- Settings Modal -->
+        <div class="modal-overlay hidden" id="settings-modal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Settings</h2>
+                    <button class="btn-icon" id="close-settings-btn" aria-label="Close">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="setting-group">
+                        <h3>Profile</h3>
+                        <div class="input-group">
+                            <label for="starting-weight">Starting Weight</label>
+                            <input type="number" id="starting-weight" step="0.1" placeholder="0.0">
+                        </div>
+                        <div class="input-group">
+                            <label for="goal-weight">Goal Weight</label>
+                            <input type="number" id="goal-weight" step="0.1" placeholder="0.0">
+                        </div>
+                        <div class="input-group">
+                            <label for="target-deficit">Target Deficit/Surplus</label>
+                            <select id="target-deficit">
+                                <option value="-0.30">30% Deficit (Aggressive)</option>
+                                <option value="-0.20" selected>20% Deficit (Standard)</option>
+                                <option value="-0.10">10% Deficit (Slow)</option>
+                                <option value="0">Maintenance</option>
+                                <option value="0.10">10% Surplus (Lean Bulk)</option>
+                                <option value="0.20">20% Surplus (Bulk)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3>Units</h3>
+                        <div class="input-group">
+                            <label for="weight-unit">Weight Unit</label>
+                            <select id="weight-unit">
+                                <option value="kg" selected>Kilograms (kg)</option>
+                                <option value="lb">Pounds (lb)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="calorie-unit">Energy Unit</label>
+                            <select id="calorie-unit">
+                                <option value="cal" selected>Calories (cal)</option>
+                                <option value="kj">Kilojoules (kJ)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3>Theme</h3>
+                        <div class="theme-toggle">
+                            <button class="theme-btn active" data-theme="system">System</button>
+                            <button class="theme-btn" data-theme="light">Light</button>
+                            <button class="theme-btn" data-theme="dark">Dark</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3>Data</h3>
+                        <div class="btn-group">
+                            <button class="btn btn-secondary" id="export-data-btn">Export Data</button>
+                            <button class="btn btn-secondary" id="import-data-btn">Import Data</button>
+                        </div>
+                        <input type="file" id="import-file" accept=".json" class="hidden">
+                        <p class="help-text">
+                            <span id="storage-info">0 entries • 0 KB used</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/calculator.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/ui/components.js"></script>
+    <script src="js/ui/dailyEntry.js"></script>
+    <script src="js/ui/weeklyView.js"></script>
+    <script src="js/ui/dashboard.js"></script>
+    <script src="js/ui/settings.js"></script>
+    <script src="js/ui/chart.js"></script>
+    <script src="js/app.js"></script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('SW registered'))
+                .catch(err => console.log('SW registration failed:', err));
+        }
+    </script>
+</body>
+
+</html>
