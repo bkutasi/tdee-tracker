@@ -36,3 +36,4 @@ temp/
 # Python venv (used for xlsx parsing)
 __pycache__/
 *.pyc
+env/
