@@ -1,0 +1,304 @@
+{
+  "version": 1,
+  "exportedAt": "2026-01-10T17:21:44.249041Z",
+  "settings": {
+    "weightUnit": "kg",
+    "calorieUnit": "cal"
+  },
+  "entries": {
+    "2025-11-16": {
+      "weight": 82.0,
+      "calories": 1724.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248616Z"
+    },
+    "2025-11-17": {
+      "weight": 82.6,
+      "calories": 1711.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248628Z"
+    },
+    "2025-11-18": {
+      "weight": 83.6,
+      "calories": 1541.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248632Z"
+    },
+    "2025-11-19": {
+      "weight": 81.6,
+      "calories": 1675.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248634Z"
+    },
+    "2025-11-20": {
+      "weight": 81.4,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248636Z"
+    },
+    "2025-11-21": {
+      "weight": 81.0,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248639Z"
+    },
+    "2025-11-22": {
+      "weight": 81.1,
+      "calories": 1650.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248642Z"
+    },
+    "2025-11-23": {
+      "weight": 80.3,
+      "calories": 3450.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248645Z"
+    },
+    "2025-11-24": {
+      "weight": 81.5,
+      "calories": 1700.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248647Z"
+    },
+    "2025-11-25": {
+      "weight": 81.5,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248650Z"
+    },
+    "2025-11-26": {
+      "weight": 81.0,
+      "calories": 1700.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248653Z"
+    },
+    "2025-11-27": {
+      "weight": 80.3,
+      "calories": 1570.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248655Z"
+    },
+    "2025-11-28": {
+      "weight": 79.9,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248658Z"
+    },
+    "2025-11-29": {
+      "weight": 80.1,
+      "calories": 1560.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248660Z"
+    },
+    "2025-11-30": {
+      "weight": 80.2,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248662Z"
+    },
+    "2025-12-01": {
+      "weight": 80.0,
+      "calories": 4200.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248665Z"
+    },
+    "2025-12-02": {
+      "weight": 81.7,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248667Z"
+    },
+    "2025-12-03": {
+      "weight": 81.2,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248669Z"
+    },
+    "2025-12-04": {
+      "weight": 80.8,
+      "calories": 1500.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248672Z"
+    },
+    "2025-12-05": {
+      "weight": 80.2,
+      "calories": 1500.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248674Z"
+    },
+    "2025-12-06": {
+      "weight": 79.5,
+      "calories": 2300.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248677Z"
+    },
+    "2025-12-07": {
+      "weight": 80.5,
+      "calories": 1900.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248679Z"
+    },
+    "2025-12-08": {
+      "weight": 79.9,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248681Z"
+    },
+    "2025-12-09": {
+      "weight": 79.2,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248683Z"
+    },
+    "2025-12-10": {
+      "weight": 78.6,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248686Z"
+    },
+    "2025-12-11": {
+      "weight": 78.0,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248688Z"
+    },
+    "2025-12-12": {
+      "weight": 77.5,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248690Z"
+    },
+    "2025-12-13": {
+      "weight": 77.0,
+      "calories": 3300.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248692Z"
+    },
+    "2025-12-14": {
+      "weight": 78.3,
+      "calories": 1650.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248694Z"
+    },
+    "2025-12-15": {
+      "weight": 77.6,
+      "calories": 1650.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248696Z"
+    },
+    "2025-12-16": {
+      "weight": 77.5,
+      "calories": null,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248698Z"
+    },
+    "2025-12-17": {
+      "weight": null,
+      "calories": null,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248706Z"
+    },
+    "2025-12-18": {
+      "weight": null,
+      "calories": null,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248710Z"
+    },
+    "2025-12-19": {
+      "weight": null,
+      "calories": null,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248714Z"
+    },
+    "2025-12-20": {
+      "weight": null,
+      "calories": null,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248717Z"
+    },
+    "2025-12-21": {
+      "weight": 80.0,
+      "calories": null,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248720Z"
+    },
+    "2025-12-22": {
+      "weight": 80.5,
+      "calories": 1550.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248723Z"
+    },
+    "2025-12-23": {
+      "weight": 79.4,
+      "calories": 1600.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248725Z"
+    },
+    "2025-12-24": {
+      "weight": 78.6,
+      "calories": 1750.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248727Z"
+    },
+    "2025-12-25": {
+      "weight": 77.5,
+      "calories": 1500.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248730Z"
+    },
+    "2025-12-26": {
+      "weight": 77.4,
+      "calories": 3800.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248732Z"
+    },
+    "2025-12-27": {
+      "weight": 80.0,
+      "calories": 1900.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248734Z"
+    },
+    "2025-12-28": {
+      "weight": 77.6,
+      "calories": 1900.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248736Z"
+    },
+    "2025-12-29": {
+      "weight": 77.5,
+      "calories": 1950.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248740Z"
+    },
+    "2025-12-30": {
+      "weight": 77.2,
+      "calories": 2050.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248743Z"
+    },
+    "2025-12-31": {
+      "weight": 76.6,
+      "calories": 1985.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248747Z"
+    },
+    "2026-01-01": {
+      "weight": 76.4,
+      "calories": 1975.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248750Z"
+    },
+    "2026-01-02": {
+      "weight": 77.0,
+      "calories": 1900.0,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248754Z"
+    },
+    "2026-01-03": {
+      "weight": 76.4,
+      "calories": null,
+      "notes": "Imported from Excel",
+      "updatedAt": "2026-01-10T17:21:44.248756Z"
+    }
+  }
+}

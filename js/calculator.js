@@ -19,7 +19,7 @@ const Calculator = (function () {
     const DEFAULT_ALPHA = 0.3;     // EWMA smoothing factor
     const VOLATILE_ALPHA = 0.1;   // Lower alpha for volatile periods
     const OUTLIER_THRESHOLD = 3;  // Standard deviations for outlier detection
-    const ROLLING_WINDOW = 6;     // Weeks for rolling TDEE
+    const ROLLING_WINDOW = 4;     // Weeks for rolling TDEE (reduced from 6 for faster response)
 
     /**
      * Calculate Exponentially Weighted Moving Average

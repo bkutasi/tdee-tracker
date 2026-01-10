@@ -5,6 +5,7 @@
 - **Testing**: Always test changes with the test suite and small test scripts. Never use browser tool - rely on automated tests.
 - **Commit Messages**: Use conventional commit messages. And commit after you tested successfully.
 - **Gemini.md**: Update this file after every change, or important insights.
+- **Python scripting**: Use Python 3.12. with venv with `python3 -m venv env` and `source venv/bin/activate`.
 
 ## Project Structure
 - `js/calculator.js` - EWMA, TDEE calculation, gap handling (core math)

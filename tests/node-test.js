@@ -128,6 +128,118 @@ test('validateCalories accepts valid values', () => {
     expect(Utils.validateCalories(1600).valid).toBe(true);
 });
 
+console.log('\n=== TDEE Sanity Check Tests ===\n');
+
+// Scenario 1: Maintenance - eating at TDEE, weight stable
+test('Sanity: maintenance calories = stable weight → TDEE equals intake', () => {
+    // If eating 2000 cal/day and weight stays same after 7 days
+    const tdee = Calculator.calculateTDEE({
+        avgCalories: 2000,
+        weightDelta: 0,  // No change
+        trackedDays: 7,
+        unit: 'kg'
+    });
+    expect(tdee).toBe(2000);
+});
+
+// Scenario 2: Aggressive deficit - losing 1kg/week
+test('Sanity: 1600 cal + losing 1kg/week → TDEE ~2700', () => {
+    // 1kg = 7716 cal deficit over 7 days = 1102/day deficit
+    // TDEE = 1600 + 1102 = 2702
+    const tdee = Calculator.calculateTDEE({
+        avgCalories: 1600,
+        weightDelta: -1,
+        trackedDays: 7,
+        unit: 'kg'
+    });
+    expect(tdee).toBe(2702);
+});
+
+// Scenario 3: Moderate deficit - losing 0.5kg/week
+test('Sanity: 1800 cal + losing 0.5kg/week → TDEE ~2350', () => {
+    const tdee = Calculator.calculateTDEE({
+        avgCalories: 1800,
+        weightDelta: -0.5,
+        trackedDays: 7,
+        unit: 'kg'
+    });
+    expect(tdee).toBe(2351);
+});
+
+// Scenario 4: Bulk - gaining weight
+test('Sanity: 3000 cal + gaining 0.25kg/week → TDEE ~2725', () => {
+    const tdee = Calculator.calculateTDEE({
+        avgCalories: 3000,
+        weightDelta: 0.25,
+        trackedDays: 7,
+        unit: 'kg'
+    });
+    expect(tdee).toBe(2724);
+});
+
+// Scenario 5: Real data from import - Week 1 (Nov 16-22)
+test('Sanity: Real data week 1 - starting weight', () => {
+    // Week 1: weights 82.0→81.1, calories avg ~1643
+    // Delta = 81.1 - 82.0 = -0.9kg, but this is first week
+    // For first week, use EWMA endpoint to endpoint
+    const tdee = Calculator.calculateTDEE({
+        avgCalories: 1643,
+        weightDelta: -0.9,
+        trackedDays: 7,
+        unit: 'kg'
+    });
+    // TDEE = 1643 + (0.9 * 7716 / 7) = 1643 + 992 = 2635
+    expect(tdee).toBe(2635);
+});
+
+// Scenario 6: Partial week tracking (5 days)
+test('Sanity: Partial week 5 days tracked - adjusted correctly', () => {
+    const tdee = Calculator.calculateTDEE({
+        avgCalories: 1600,
+        weightDelta: -0.5,
+        trackedDays: 5,  // Only 5 days tracked
+        unit: 'kg'
+    });
+    // TDEE = 1600 + (0.5 * 7716 / 5) = 1600 + 771.6 = 2372
+    expect(tdee).toBe(2372);
+});
+
+// Scenario 7: Using pounds
+test('Sanity: pounds - 1500 cal + losing 2lb/week → TDEE ~2500', () => {
+    const tdee = Calculator.calculateTDEE({
+        avgCalories: 1500,
+        weightDelta: -2,
+        trackedDays: 7,
+        unit: 'lb'
+    });
+    // TDEE = 1500 + (2 * 3500 / 7) = 1500 + 1000 = 2500
+    expect(tdee).toBe(2500);
+});
+
+// Scenario 8: Activity change - increased cardio should show lower TDEE from same food
+test('Sanity: Adding cardio - same intake but faster weight loss → higher TDEE', () => {
+    // Week without cardio: 1600 cal, -0.3kg loss
+    const tdeeNoCardio = Calculator.calculateTDEE({
+        avgCalories: 1600,
+        weightDelta: -0.3,
+        trackedDays: 7,
+        unit: 'kg'
+    });
+
+    // Week with cardio: 1600 cal, -0.6kg loss (burning more)
+    const tdeeWithCardio = Calculator.calculateTDEE({
+        avgCalories: 1600,
+        weightDelta: -0.6,
+        trackedDays: 7,
+        unit: 'kg'
+    });
+
+    // TDEE with cardio should be higher
+    if (tdeeWithCardio <= tdeeNoCardio) {
+        throw new Error(`Expected TDEE with cardio (${tdeeWithCardio}) > without (${tdeeNoCardio})`);
+    }
+});
+
 // Summary
 console.log(`\n${'='.repeat(40)}`);
 console.log(`Results: ${passed} passed, ${failed} failed`);

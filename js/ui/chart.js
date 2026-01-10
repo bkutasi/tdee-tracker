@@ -1,6 +1,6 @@
 /**
  * Chart UI Component
- * Simple canvas-based chart for weight and TDEE trends
+ * Dual Y-axis chart for weight (left) and TDEE (right) trends
  * No external dependencies - vanilla canvas rendering
  */
 
@@ -128,7 +128,8 @@ const Chart = (function () {
     function drawChart(data, width, height) {
         const { weights, tdees, labels } = data;
 
-        const padding = { top: 20, right: 20, bottom: 30, left: 45 };
+        // Increase right padding for TDEE axis
+        const padding = { top: 20, right: 50, bottom: 30, left: 45 };
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
 
@@ -140,12 +141,26 @@ const Chart = (function () {
         const textColor = style.getPropertyValue('--color-text-tertiary').trim() || '#8b949e';
         const borderColor = style.getPropertyValue('--color-border-light').trim() || '#21262d';
 
-        // Calculate scales
+        // Colors
+        const weightColor = '#667eea';
+        const tdeeColor = '#38ef7d';
+
+        // Calculate weight scale
         const weightMin = Math.min(...weights) - 1;
         const weightMax = Math.max(...weights) + 1;
         const weightRange = weightMax - weightMin;
 
-        const xStep = chartWidth / (weights.length - 1);
+        // Calculate TDEE scale (only for valid values)
+        const validTdees = tdees.filter(t => t !== null && !isNaN(t));
+        let tdeeMin = 1500, tdeeMax = 3000, tdeeRange = 1500;
+
+        if (validTdees.length > 0) {
+            tdeeMin = Math.floor(Math.min(...validTdees) / 100) * 100 - 100;
+            tdeeMax = Math.ceil(Math.max(...validTdees) / 100) * 100 + 100;
+            tdeeRange = tdeeMax - tdeeMin;
+        }
+
+        const xStep = chartWidth / Math.max(1, weights.length - 1);
 
         // Draw grid
         ctx.strokeStyle = borderColor;
@@ -160,16 +175,62 @@ const Chart = (function () {
             ctx.lineTo(width - padding.right, y);
             ctx.stroke();
 
-            // Labels
-            const value = weightMax - (weightRange / numLines) * i;
-            ctx.fillStyle = textColor;
+            // Left Y-axis labels (Weight)
+            const weightValue = weightMax - (weightRange / numLines) * i;
+            ctx.fillStyle = weightColor;
             ctx.font = '11px -apple-system, sans-serif';
             ctx.textAlign = 'right';
-            ctx.fillText(value.toFixed(1), padding.left - 8, y + 4);
+            ctx.fillText(weightValue.toFixed(1), padding.left - 8, y + 4);
+
+            // Right Y-axis labels (TDEE) - only if we have TDEE data
+            if (validTdees.length > 0) {
+                const tdeeValue = Math.round(tdeeMax - (tdeeRange / numLines) * i);
+                ctx.fillStyle = tdeeColor;
+                ctx.textAlign = 'left';
+                ctx.fillText(tdeeValue.toString(), width - padding.right + 8, y + 4);
+            }
+        }
+
+        // Draw TDEE line first (behind weight)
+        if (validTdees.length > 1) {
+            ctx.strokeStyle = tdeeColor;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            ctx.beginPath();
+            let started = false;
+            for (let i = 0; i < tdees.length; i++) {
+                if (tdees[i] === null) continue;
+
+                const x = padding.left + i * xStep;
+                const y = padding.top + ((tdeeMax - tdees[i]) / tdeeRange) * chartHeight;
+
+                if (!started) {
+                    ctx.moveTo(x, y);
+                    started = true;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+
+            // Draw TDEE points
+            ctx.fillStyle = tdeeColor;
+            for (let i = 0; i < tdees.length; i++) {
+                if (tdees[i] === null) continue;
+
+                const x = padding.left + i * xStep;
+                const y = padding.top + ((tdeeMax - tdees[i]) / tdeeRange) * chartHeight;
+
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         // Draw weight line
-        ctx.strokeStyle = '#667eea';
+        ctx.strokeStyle = weightColor;
         ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -188,7 +249,7 @@ const Chart = (function () {
         ctx.stroke();
 
         // Draw weight points
-        ctx.fillStyle = '#667eea';
+        ctx.fillStyle = weightColor;
         for (let i = 0; i < weights.length; i++) {
             const x = padding.left + i * xStep;
             const y = padding.top + ((weightMax - weights[i]) / weightRange) * chartHeight;
@@ -196,27 +257,6 @@ const Chart = (function () {
             ctx.beginPath();
             ctx.arc(x, y, 4, 0, Math.PI * 2);
             ctx.fill();
-        }
-
-        // Draw TDEE as bars (if available)
-        const validTdees = tdees.filter(t => t !== null);
-        if (validTdees.length > 0) {
-            const tdeeMin = Math.min(...validTdees) * 0.9;
-            const tdeeMax = Math.max(...validTdees) * 1.1;
-            const tdeeRange = tdeeMax - tdeeMin;
-
-            ctx.fillStyle = 'rgba(56, 239, 125, 0.3)';
-            const barWidth = Math.max(xStep * 0.6, 8);
-
-            for (let i = 0; i < tdees.length; i++) {
-                if (tdees[i] === null) continue;
-
-                const x = padding.left + i * xStep - barWidth / 2;
-                const barHeight = ((tdees[i] - tdeeMin) / tdeeRange) * (chartHeight * 0.3);
-                const y = height - padding.bottom - barHeight;
-
-                ctx.fillRect(x, y, barWidth, barHeight);
-            }
         }
 
         // X-axis labels
