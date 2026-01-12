@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0d1117">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description"
@@ -42,9 +43,11 @@
             <!-- Stats Dashboard Cards -->
             <section class="dashboard" id="dashboard">
                 <div class="stat-card primary">
-                    <span class="stat-label">Current TDEE</span>
+                    <span class="stat-label">TDEE (14-day)</span>
                     <span class="stat-value" id="current-tdee">—</span>
                     <span class="stat-unit">cal/day</span>
+                    <span class="confidence-badge" id="tdee-confidence"></span>
+                    <span class="outlier-warning" id="tdee-outlier-warning"></span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-label">Target Intake</span>
@@ -60,6 +63,14 @@
                     <span class="stat-label">Weekly Change</span>
                     <span class="stat-value" id="weekly-change">—</span>
                     <span class="stat-unit" id="change-unit-label">kg/wk</span>
+                </div>
+
+                <!-- TDEE Trends -->
+                <div class="stat-card full-width" id="tdee-trends-card">
+                    <span class="stat-label">TDEE Trends (Smoothed)</span>
+                    <div class="trends-grid" id="tdee-trends-container">
+                        <!-- Populated by JS -->
+                    </div>
                 </div>
             </section>
 
@@ -248,6 +259,9 @@
                         <div class="btn-group">
                             <button class="btn btn-secondary" id="export-data-btn">Export Data</button>
                             <button class="btn btn-secondary" id="import-data-btn">Import Data</button>
+                            <button class="btn btn-error" id="clear-data-btn"
+                                style="color: var(--color-error); border-color: var(--color-error-subtle); background: var(--color-bg-card);">Clear
+                                Data</button>
                         </div>
                         <input type="file" id="import-file" accept=".json" class="hidden">
                         <p class="help-text">

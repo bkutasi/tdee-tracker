@@ -90,39 +90,67 @@ const WeeklyView = (function () {
     function renderSummary(entries, weightUnit) {
         const summary = Calculator.calculateWeeklySummary(entries);
 
-        // Get previous week for delta calculation
-        const prevWeekStart = new Date(currentWeekStart);
-        prevWeekStart.setDate(prevWeekStart.getDate() - 7);
-        const prevWeekEnd = new Date(currentWeekStart);
-        prevWeekEnd.setDate(prevWeekEnd.getDate() - 1);
+        // Fetch previous week's data to form a 14-day window for stable TDEE
+        // 'entries' contains the current week (7 days)
+        // We need the 7 days BEFORE the first entry of this week
+        let stableResult;
 
-        const prevEntries = Storage.getEntriesInRange(
-            Utils.formatDate(prevWeekStart),
-            Utils.formatDate(prevWeekEnd)
-        );
-        const prevProcessed = Calculator.processEntriesWithGaps(prevEntries);
-        const prevSummary = Calculator.calculateWeeklySummary(prevProcessed);
+        if (entries.length > 0) {
+            const firstDate = new Date(entries[0].date);
+            const prevWeekStart = new Date(firstDate);
+            prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+            const prevWeekEnd = new Date(firstDate);
+            prevWeekEnd.setDate(prevWeekEnd.getDate() - 1);
 
-        // Calculate TDEE if we have both weeks
-        let weekTdee = null;
-        if (summary.avgWeight !== null && summary.avgCalories !== null &&
-            prevSummary.avgWeight !== null) {
-            weekTdee = Calculator.calculateTDEE({
-                avgCalories: summary.avgCalories,
-                weightDelta: summary.avgWeight - prevSummary.avgWeight,
-                trackedDays: summary.trackedDays,
-                unit: weightUnit
-            });
+            const prevEntries = Storage.getEntriesInRange(
+                Utils.formatDate(prevWeekStart),
+                Utils.formatDate(prevWeekEnd)
+            );
+
+            // Combine previous week + current week = 14 days
+            const twoWeekContext = [...prevEntries, ...entries];
+
+            // Calculate Stable TDEE (14-day window)
+            stableResult = Calculator.calculateStableTDEE(twoWeekContext, weightUnit, 14);
+        } else {
+            stableResult = { tdee: null, confidence: 'none' };
         }
 
         Components.setText('week-avg-weight',
             summary.avgWeight !== null ? `${Components.formatValue(summary.avgWeight, 1)} ${weightUnit}` : '—');
         Components.setText('week-avg-calories',
             summary.avgCalories !== null ? Components.formatValue(summary.avgCalories, 0) : '—');
-        Components.setText('week-tdee',
-            weekTdee !== null ? Components.formatValue(weekTdee, 0) : '—');
-        Components.setText('week-confidence',
-            `${Math.round(summary.confidence * 100)}%`);
+
+        // Show TDEE with appropriate messaging
+        const tdeeEl = document.getElementById('week-tdee');
+        if (stableResult.tdee !== null) {
+            Components.setText('week-tdee', Components.formatValue(stableResult.tdee, 0));
+            tdeeEl?.classList.remove('confidence-low');
+        } else if (stableResult.neededDays) {
+            Components.setText('week-tdee', `Need ${stableResult.neededDays} more`);
+            tdeeEl?.classList.add('confidence-low');
+        } else {
+            Components.setText('week-tdee', '—');
+            tdeeEl?.classList.remove('confidence-low');
+        }
+
+        // Show confidence with color coding
+        const confEl = document.getElementById('week-confidence');
+        if (confEl) {
+            confEl.className = `summary-value confidence-${stableResult.confidence}`;
+
+            let confText = '—';
+            if (stableResult.confidence === 'high') confText = 'High';
+            else if (stableResult.confidence === 'medium') confText = 'Med';
+            else if (stableResult.confidence === 'low') confText = 'Low';
+
+            if (stableResult.hasLargeGap) {
+                confText += ' (Gap)';
+                confEl.style.fontSize = '0.7em'; // Make fit
+            }
+
+            Components.setText('week-confidence', confText);
+        }
     }
 
     function refresh() {

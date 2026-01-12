@@ -1,6 +1,6 @@
 /**
  * Chart UI Component
- * Dual Y-axis chart for weight (left) and TDEE (right) trends
+ * Dual Y-axis chart for weight (line) and TDEE (bars) trends
  * No external dependencies - vanilla canvas rendering
  */
 
@@ -9,6 +9,7 @@ const Chart = (function () {
 
     let canvas = null;
     let ctx = null;
+    let hitAreas = []; // Store interactive zones {x, y, w, h, type, value, date, label}
 
     function init() {
         canvas = document.getElementById('progress-chart');
@@ -19,10 +20,17 @@ const Chart = (function () {
         // Handle resize
         window.addEventListener('resize', Utils.debounce(refresh, 250));
 
+        // Interaction listeners
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseleave', handleMouseLeave);
+
         refresh();
     }
 
-    function refresh() {
+    // Cache data to avoid recalculating on every mousemove
+    let cachedData = null;
+
+    function refresh(recalcCallback = true) {
         if (!canvas || !ctx) return;
 
         // Set canvas size (account for device pixel ratio)
@@ -37,16 +45,18 @@ const Chart = (function () {
         canvas.style.height = `${height}px`;
         ctx.scale(dpr, dpr);
 
-        // Get data for last 8 weeks
-        const settings = Storage.getSettings();
-        const data = getChartData(56, settings.weightUnit || 'kg');
+        if (recalcCallback || !cachedData) {
+            // Get data for last 8 weeks
+            const settings = Storage.getSettings();
+            cachedData = getChartData(56, settings.weightUnit || 'kg');
+        }
 
-        if (data.weights.length < 2) {
+        if (cachedData.weights.length < 2) {
             drawEmptyState(width, height);
             return;
         }
 
-        drawChart(data, width, height);
+        drawChart(cachedData, width, height);
     }
 
     function getChartData(days, weightUnit) {
@@ -54,20 +64,25 @@ const Chart = (function () {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
 
+        // Fetch extra 7 days prior for 14-day window context on the first week
+        const contextStartDate = new Date(startDate);
+        contextStartDate.setDate(contextStartDate.getDate() - 7);
+
+        // Get all entries needed including context
         const entries = Storage.getEntriesInRange(
-            Utils.formatDate(startDate),
+            Utils.formatDate(contextStartDate),
             Utils.formatDate(endDate)
         );
 
         const processed = Calculator.processEntriesWithGaps(entries);
 
-        // Extract EWMA weights
+        // Group by week for smoother display
+        const weeklyData = groupByWeek(processed, weightUnit, startDate);
+
+        // Extract EWMA weights and TDEEs
         const weights = [];
         const tdees = [];
         const labels = [];
-
-        // Group by week for smoother display
-        const weeklyData = groupByWeek(processed, weightUnit);
 
         for (const week of weeklyData) {
             if (week.ewmaWeight !== null) {
@@ -80,13 +95,14 @@ const Chart = (function () {
         return { weights, tdees, labels };
     }
 
-    function groupByWeek(entries, weightUnit) {
+    function groupByWeek(entries, weightUnit, displayStartDate) {
         const weeks = {};
+        const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        for (const entry of entries) {
+        for (const entry of sortedEntries) {
             const weekStart = Utils.formatDate(Utils.getWeekStart(entry.date));
             if (!weeks[weekStart]) {
-                weeks[weekStart] = { entries: [], label: '' };
+                weeks[weekStart] = { entries: [], label: '', weekStartDate: weekStart };
             }
             weeks[weekStart].entries.push(entry);
             weeks[weekStart].label = weekStart;
@@ -94,22 +110,33 @@ const Chart = (function () {
 
         const result = [];
         const sortedWeeks = Object.keys(weeks).sort();
+        const displayStartStr = Utils.formatDate(displayStartDate);
 
         for (let i = 0; i < sortedWeeks.length; i++) {
-            const weekData = weeks[sortedWeeks[i]];
+            const weekKey = sortedWeeks[i];
+
+            // Skip weeks before our display start (they were just for context)
+            if (weekKey < displayStartStr) continue;
+
+            const weekData = weeks[weekKey];
             const summary = Calculator.calculateWeeklySummary(weekData.entries);
 
             let tdee = null;
-            if (i > 0 && summary.avgWeight !== null && summary.avgCalories !== null) {
-                const prevSummary = result[i - 1];
-                if (prevSummary && prevSummary.avgWeight !== null) {
-                    tdee = Calculator.calculateTDEE({
-                        avgCalories: summary.avgCalories,
-                        weightDelta: summary.avgWeight - prevSummary.avgWeight,
-                        trackedDays: summary.trackedDays,
-                        unit: weightUnit
-                    });
-                }
+
+            // Build 14-day context: need previous week's entries + current week
+            // Since we sorted keys, i-1 is the previous week
+            let contextEntries = [...weekData.entries];
+            if (i > 0) {
+                const prevWeekKey = sortedWeeks[i - 1];
+                contextEntries = [...weeks[prevWeekKey].entries, ...weekData.entries];
+            }
+
+            // Calculate 14-day Stable TDEE
+            if (contextEntries.length >= 7) {
+                const stableResult = Calculator.calculateStableTDEE(contextEntries, weightUnit, 14);
+                // Only show TDEE if confidence is reasonable (or allow low but hide if very bad?)
+                // For chart, strictly hiding nulls
+                tdee = stableResult.tdee;
             }
 
             const lastEntry = weekData.entries.filter(e => e.ewmaWeight).pop();
@@ -127,9 +154,10 @@ const Chart = (function () {
 
     function drawChart(data, width, height) {
         const { weights, tdees, labels } = data;
+        hitAreas = []; // Reset hit areas
 
-        // Increase right padding for TDEE axis
-        const padding = { top: 20, right: 50, bottom: 30, left: 45 };
+        // Increase right/left padding to prevent side overlap
+        const padding = { top: 30, right: 60, bottom: 40, left: 60 };
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
 
@@ -150,7 +178,7 @@ const Chart = (function () {
         const weightMax = Math.max(...weights) + 1;
         const weightRange = weightMax - weightMin;
 
-        // Calculate TDEE scale (only for valid values)
+        // Calculate TDEE scale
         const validTdees = tdees.filter(t => t !== null && !isNaN(t));
         let tdeeMin = 1500, tdeeMax = 3000, tdeeRange = 1500;
 
@@ -162,11 +190,10 @@ const Chart = (function () {
 
         const xStep = chartWidth / Math.max(1, weights.length - 1);
 
-        // Draw grid
+        // Horizontal lines
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 1;
 
-        // Horizontal lines
         const numLines = 4;
         for (let i = 0; i <= numLines; i++) {
             const y = padding.top + (chartHeight / numLines) * i;
@@ -182,7 +209,7 @@ const Chart = (function () {
             ctx.textAlign = 'right';
             ctx.fillText(weightValue.toFixed(1), padding.left - 8, y + 4);
 
-            // Right Y-axis labels (TDEE) - only if we have TDEE data
+            // Right Y-axis labels (TDEE)
             if (validTdees.length > 0) {
                 const tdeeValue = Math.round(tdeeMax - (tdeeRange / numLines) * i);
                 ctx.fillStyle = tdeeColor;
@@ -191,45 +218,46 @@ const Chart = (function () {
             }
         }
 
-        // Draw TDEE line first (behind weight)
-        if (validTdees.length > 1) {
-            ctx.strokeStyle = tdeeColor;
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
+        // Draw TDEE as BARS
+        if (validTdees.length > 0) {
+            const barWidth = Math.max(xStep * 0.5, 12);
+            // Cap max bar width to look nice
+            const finalBarWidth = Math.min(barWidth, 40);
 
-            ctx.beginPath();
-            let started = false;
             for (let i = 0; i < tdees.length; i++) {
                 if (tdees[i] === null) continue;
 
-                const x = padding.left + i * xStep;
-                const y = padding.top + ((tdeeMax - tdees[i]) / tdeeRange) * chartHeight;
+                const x = padding.left + i * xStep - finalBarWidth / 2;
+                const barHeight = ((tdees[i] - tdeeMin) / tdeeRange) * chartHeight;
+                const y = padding.top + chartHeight - barHeight;
 
-                if (!started) {
-                    ctx.moveTo(x, y);
-                    started = true;
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            }
-            ctx.stroke();
+                // Bar gradient
+                const gradient = ctx.createLinearGradient(x, y, x, padding.top + chartHeight);
+                gradient.addColorStop(0, 'rgba(56, 239, 125, 0.6)');
+                gradient.addColorStop(1, 'rgba(56, 239, 125, 0.2)');
 
-            // Draw TDEE points
-            ctx.fillStyle = tdeeColor;
-            for (let i = 0; i < tdees.length; i++) {
-                if (tdees[i] === null) continue;
-
-                const x = padding.left + i * xStep;
-                const y = padding.top + ((tdeeMax - tdees[i]) / tdeeRange) * chartHeight;
-
+                ctx.fillStyle = gradient;
                 ctx.beginPath();
-                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.roundRect(x, y, finalBarWidth, barHeight, 3);
                 ctx.fill();
+
+                // Bar outline
+                ctx.strokeStyle = tdeeColor;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Store hit area
+                hitAreas.push({
+                    x, y, w: finalBarWidth, h: barHeight,
+                    type: 'bar',
+                    value: tdees[i],
+                    label: `TDEE: ${Math.round(tdees[i])}`,
+                    date: labels[i]
+                });
             }
         }
 
-        // Draw weight line
+        // Draw weight line (Stroke)
         ctx.strokeStyle = weightColor;
         ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
@@ -239,12 +267,8 @@ const Chart = (function () {
         for (let i = 0; i < weights.length; i++) {
             const x = padding.left + i * xStep;
             const y = padding.top + ((weightMax - weights[i]) / weightRange) * chartHeight;
-
-            if (i === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
         }
         ctx.stroke();
 
@@ -257,6 +281,15 @@ const Chart = (function () {
             ctx.beginPath();
             ctx.arc(x, y, 4, 0, Math.PI * 2);
             ctx.fill();
+
+            // Store hit area (point)
+            hitAreas.push({
+                x, y,
+                type: 'point',
+                value: weights[i],
+                label: `Weight: ${weights[i].toFixed(1)}`,
+                date: labels[i]
+            });
         }
 
         // X-axis labels
@@ -271,6 +304,107 @@ const Chart = (function () {
             const label = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
             ctx.fillText(label, x, height - 8);
         }
+    }
+
+    function handleMouseMove(e) {
+        if (!canvas || hitAreas.length === 0) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+
+        // Mouse pos relative to canvas
+        const x = (e.clientX - rect.left) * dpr;
+        const y = (e.clientY - rect.top) * dpr;
+
+        // Find hit
+        // Prioritize points over bars if they overlap
+        const hit = hitAreas.slice().reverse().find(area => {
+            if (area.type === 'point') {
+                // Circular hit area for points (generous radius)
+                const dx = x - area.x;
+                const dy = y - area.y;
+                return (dx * dx + dy * dy) <= (10 * 10 * dpr * dpr);
+            } else {
+                // Rect for bars
+                return x >= area.x && x <= area.x + area.w &&
+                    y >= area.y && y <= area.y + area.h;
+            }
+        });
+
+        if (hit) {
+            canvas.style.cursor = 'pointer';
+            // Redraw chart then tooltip to clear previous tooltip
+            refresh(false); // false = don't re-calculate data, just redraw
+            drawTooltip(hit);
+        } else {
+            canvas.style.cursor = 'default';
+            refresh(false);
+        }
+    }
+
+    function handleMouseLeave() {
+        if (!canvas) return;
+        canvas.style.cursor = 'default';
+        refresh(false);
+    }
+
+    function drawTooltip(hit) {
+        if (!ctx) return;
+
+        ctx.save();
+        const dpr = window.devicePixelRatio || 1;
+
+        const padding = 8;
+        const dateStr = new Date(hit.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        const text = `${dateStr}\n${hit.label}`;
+
+        ctx.font = '12px -apple-system, sans-serif';
+        const lines = text.split('\n');
+
+        // Measure info
+        let maxWidth = 0;
+        lines.forEach(l => maxWidth = Math.max(maxWidth, ctx.measureText(l).width));
+
+        const tooltipW = maxWidth + padding * 2;
+        const tooltipH = (lines.length * 16) + padding * 2;
+
+        // Position tooltip near target but constraint to canvas
+        let x = hit.x;
+        let y = hit.y - tooltipH - 10;
+
+        // Adjust for edges
+        if (x + tooltipW > canvas.width / dpr) x -= tooltipW;
+        if (x < 0) x = 0;
+        if (y < 0) y = hit.y + hit.h + 10; // Flip down if clipping top for bars
+
+        // If point tooltip is too high, flip
+        if (hit.type === 'point' && y < 0) y = hit.y + 15;
+
+        // Draw bg
+        ctx.fillStyle = 'rgba(23, 25, 28, 0.9)'; // Dark bg
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+
+        ctx.beginPath();
+        // roundRect support might vary, use fallback or standard
+        if (ctx.roundRect) {
+            ctx.roundRect(x, y, tooltipW, tooltipH, 4);
+        } else {
+            ctx.rect(x, y, tooltipW, tooltipH);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        // Draw text
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        lines.forEach((line, i) => {
+            ctx.fillText(line, x + padding, y + padding + (i * 16));
+        });
+
+        ctx.restore();
     }
 
     function drawEmptyState(width, height) {

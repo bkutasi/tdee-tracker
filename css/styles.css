@@ -300,6 +300,96 @@ body {
     color: var(--color-text-tertiary);
 }
 
+.stat-card.full-width {
+    grid-column: 1 / -1;
+}
+
+.trends-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+}
+
+.trend-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-hover);
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    transition: background var(--transition-fast);
+}
+
+.trend-item:hover {
+    background: var(--color-bg-tertiary);
+}
+
+.trend-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--space-1);
+}
+
+.trend-value {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-accent);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Confidence Badges */
+.confidence-badge {
+    display: inline-block;
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-full);
+    margin-top: var(--space-1);
+    font-weight: var(--font-weight-medium);
+}
+
+.confidence-high {
+    background: var(--color-success-subtle);
+    color: var(--color-success);
+}
+
+.confidence-medium {
+    background: var(--color-warning-subtle);
+    color: var(--color-warning);
+}
+
+.confidence-low,
+.confidence-none {
+    background: var(--color-error-subtle);
+    color: var(--color-error);
+}
+
+.outlier-warning {
+    display: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-warning);
+    margin-top: var(--space-1);
+}
+
+.stat-value.low-confidence {
+    font-size: var(--font-size-sm);
+    opacity: 0.7;
+}
+
+/* Week summary confidence colors */
+.summary-value.confidence-high {
+    color: var(--color-success);
+}
+
+.summary-value.confidence-medium {
+    color: var(--color-warning);
+}
+
+.summary-value.confidence-low {
+    color: var(--color-error);
+}
+
 /* ========================================
    Cards
 ======================================== */

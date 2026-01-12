@@ -20,6 +20,7 @@ const Calculator = (function () {
     const VOLATILE_ALPHA = 0.1;   // Lower alpha for volatile periods
     const OUTLIER_THRESHOLD = 3;  // Standard deviations for outlier detection
     const ROLLING_WINDOW = 4;     // Weeks for rolling TDEE (reduced from 6 for faster response)
+    const MIN_TRACKED_DAYS = 4;   // Minimum calorie-tracked days required for valid TDEE
 
     /**
      * Calculate Exponentially Weighted Moving Average
@@ -131,6 +132,347 @@ const Calculator = (function () {
         }
 
         return Math.abs(Math.round(delta / weeklyRate));
+    }
+
+    /**
+     * Calculate EWMA weight delta between first and last entries
+     * More robust than raw weight delta - smooths out daily fluctuations
+     * @param {Object[]} processedEntries - Array of processed entries with ewmaWeight
+     * @returns {number|null} EWMA-smoothed weight change, or null if insufficient data
+     */
+    function calculateEWMAWeightDelta(processedEntries) {
+        // Find first and last entries with EWMA weight
+        const withEWMA = processedEntries.filter(e => e.ewmaWeight !== null && e.ewmaWeight !== undefined);
+
+        if (withEWMA.length < 2) return null;
+
+        const firstEWMA = withEWMA[0].ewmaWeight;
+        const lastEWMA = withEWMA[withEWMA.length - 1].ewmaWeight;
+
+        return round(lastEWMA - firstEWMA, 3);
+    }
+
+    /**
+     * Exclude calorie outliers from calculation
+     * Detects "cheat days" that would skew the average
+     * @param {number[]} calories - Array of calorie values
+     * @param {number} threshold - Standard deviations for outlier detection (default: 2.5)
+     * @returns {Object} { filteredCalories, filteredAvg, outliers, originalAvg }
+     */
+    function excludeCalorieOutliers(calories, threshold = 2.5) {
+        if (calories.length < 3) {
+            const avg = calories.length > 0
+                ? round(calories.reduce((a, b) => a + b, 0) / calories.length, 0)
+                : null;
+            return {
+                filteredCalories: calories,
+                filteredAvg: avg,
+                outliers: [],
+                originalAvg: avg
+            };
+        }
+
+        const stats = calculateStats(calories);
+        const outliers = [];
+        const filtered = [];
+
+        for (const cal of calories) {
+            if (Math.abs(cal - stats.mean) > (threshold * stats.stdDev)) {
+                outliers.push(cal);
+            } else {
+                filtered.push(cal);
+            }
+        }
+
+        const filteredAvg = filtered.length > 0
+            ? round(filtered.reduce((a, b) => a + b, 0) / filtered.length, 0)
+            : null;
+
+        return {
+            filteredCalories: filtered,
+            filteredAvg,
+            outliers,
+            originalAvg: round(stats.mean, 0)
+        };
+    }
+
+    /**
+     * Calculate "Fast" TDEE - reactive 7-day estimate for dashboard
+     * Uses EWMA weight delta and requires minimum tracked days
+     * @param {Object[]} entries - Array of daily entries (should be last 7+ days)
+     * @param {string} unit - 'kg' or 'lb'
+     * @param {number} minDays - Minimum calorie-tracked days required
+     * @returns {Object} { tdee, confidence, trackedDays, hasOutliers }
+     */
+    function calculateFastTDEE(entries, unit = 'kg', minDays = MIN_TRACKED_DAYS) {
+        if (!entries || entries.length === 0) {
+            return { tdee: null, confidence: 'none', trackedDays: 0, hasOutliers: false };
+        }
+
+        // Process entries to get EWMA weights
+        const processed = processEntriesWithGaps(entries);
+
+        // Get calorie entries
+        const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
+        const trackedDays = calorieEntries.length;
+
+        // Determine confidence level
+        let confidence = 'none';
+        if (trackedDays >= 6) confidence = 'high';
+        else if (trackedDays >= minDays) confidence = 'medium';
+        else if (trackedDays > 0) confidence = 'low';
+
+        // Return null TDEE if below minimum threshold
+        if (trackedDays < minDays) {
+            return { tdee: null, confidence, trackedDays, hasOutliers: false, neededDays: minDays - trackedDays };
+        }
+
+        // Check for weight data
+        const weightEntries = processed.filter(e => e.ewmaWeight !== null);
+        if (weightEntries.length < 2) {
+            return { tdee: null, confidence, trackedDays, hasOutliers: false };
+        }
+
+        // Calculate calories (with outlier detection)
+        const calories = calorieEntries.map(e => e.calories);
+        const calResult = excludeCalorieOutliers(calories);
+        const avgCalories = calResult.filteredAvg;
+        const hasOutliers = calResult.outliers.length > 0;
+
+        // Calculate EWMA weight delta
+        const weightDelta = calculateEWMAWeightDelta(processed);
+        if (weightDelta === null) {
+            return { tdee: null, confidence, trackedDays, hasOutliers };
+        }
+
+        // Calculate TDEE
+        const tdee = calculateTDEE({
+            avgCalories,
+            weightDelta,
+            trackedDays: entries.length, // Use total period length for proper scaling
+            unit
+        });
+
+        return { tdee, confidence, trackedDays, hasOutliers, outliers: calResult.outliers };
+    }
+
+    /**
+     * Calculate "Smooth" TDEE - EWMA over weekly TDEEs for chart display
+     * More stable but slightly lagging
+     * @param {number[]} weeklyTdees - Array of weekly TDEE values (nulls are skipped)
+     * @param {number} alpha - EWMA smoothing factor
+     * @returns {number[]} Array of smoothed TDEE values
+     */
+    function calculateSmoothTDEEArray(weeklyTdees, alpha = DEFAULT_ALPHA) {
+        const smoothed = [];
+        let previousSmoothed = null;
+
+        for (const tdee of weeklyTdees) {
+            if (tdee === null || isNaN(tdee)) {
+                smoothed.push(null);
+                continue;
+            }
+
+            if (previousSmoothed === null) {
+                smoothed.push(tdee);
+                previousSmoothed = tdee;
+            } else {
+                const s = calculateEWMA(tdee, previousSmoothed, alpha);
+                smoothed.push(s);
+                previousSmoothed = s;
+            }
+        }
+
+        return smoothed;
+    }
+
+    /**
+     * Calculate "Stable" TDEE - uses linear regression on EWMA weights over longer window
+     * Much more stable than single-week calculations, resistant to water/glycogen fluctuations
+     * @param {Object[]} entries - Array of daily entries (should be 14+ days)
+     * @param {string} unit - 'kg' or 'lb'
+     * @param {number} windowDays - Window size for regression (default: 14)
+     * @param {number} minDays - Minimum calorie-tracked days required
+     * @returns {Object} { tdee, confidence, trackedDays, slope, hasLargeGap }
+     */
+    function calculateStableTDEE(entries, unit = 'kg', windowDays = 14, minDays = MIN_TRACKED_DAYS) {
+        if (!entries || entries.length < 7) {
+            return { tdee: null, confidence: 'none', trackedDays: 0 };
+        }
+
+        // Process entries to get EWMA weights
+        const processed = processEntriesWithGaps(entries);
+
+        // Detect large gaps in weight data (>2 consecutive days without weight)
+        let hasLargeGap = false;
+        let maxGap = 0;
+        let consecutiveNoWeight = 0;
+        for (const entry of entries) {
+            if (entry.weight === null || entry.weight === undefined) {
+                consecutiveNoWeight++;
+                maxGap = Math.max(maxGap, consecutiveNoWeight);
+            } else {
+                consecutiveNoWeight = 0;
+            }
+        }
+        hasLargeGap = maxGap > 2;
+
+        // Get calorie entries
+        const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
+        const trackedDays = calorieEntries.length;
+
+        // Determine confidence based on window coverage AND gap presence
+        let confidence = 'none';
+        const windowCoverage = trackedDays / windowDays;
+        if (hasLargeGap) {
+            // Large gap reduces max confidence to 'low'
+            if (trackedDays >= minDays) confidence = 'low';
+        } else if (windowCoverage >= 0.7) {
+            confidence = 'high';       // 70%+ tracked, no gaps
+        } else if (windowCoverage >= 0.5) {
+            confidence = 'medium';     // 50%+ tracked
+        } else if (trackedDays >= minDays) {
+            confidence = 'low';
+        }
+
+        if (trackedDays < minDays) {
+            return { tdee: null, confidence, trackedDays, neededDays: minDays - trackedDays, hasLargeGap };
+        }
+
+        // Build regression data from EWMA weights
+        const ewmaData = processed
+            .filter(e => e.ewmaWeight !== null && e.ewmaWeight !== undefined)
+            .map((e, i, arr) => {
+                // Calculate day index from first entry
+                const dayIndex = Math.round(
+                    (new Date(e.date) - new Date(arr[0].date)) / (1000 * 60 * 60 * 24)
+                );
+                return { dayIndex, weight: e.ewmaWeight };
+            });
+
+        if (ewmaData.length < 2) {
+            return { tdee: null, confidence, trackedDays, hasLargeGap };
+        }
+
+        // Linear regression on EWMA weights
+        const n = ewmaData.length;
+        const sumX = ewmaData.reduce((a, b) => a + b.dayIndex, 0);
+        const sumY = ewmaData.reduce((a, b) => a + b.weight, 0);
+        const sumXY = ewmaData.reduce((a, b) => a + (b.dayIndex * b.weight), 0);
+        const sumXX = ewmaData.reduce((a, b) => a + (b.dayIndex * b.dayIndex), 0);
+
+        const denominator = (n * sumXX - sumX * sumX);
+        if (denominator === 0) {
+            return { tdee: null, confidence, trackedDays, hasLargeGap };
+        }
+
+        const slope = (n * sumXY - sumX * sumY) / denominator;
+
+        // Slope is kg/day. Positive = gaining, Negative = losing
+        // Calculate average calories (with outlier exclusion)
+        const calories = calorieEntries.map(e => e.calories);
+        const calResult = excludeCalorieOutliers(calories);
+        const avgCalories = calResult.filteredAvg;
+
+        if (avgCalories === null) {
+            return { tdee: null, confidence, trackedDays, hasLargeGap };
+        }
+
+        // TDEE = avgCalories - (slope * cal_per_unit)
+        // If slope is negative (losing), we subtract negative = add
+        // If slope is positive (gaining), we subtract positive = lower TDEE
+        const calPerUnit = unit === 'kg' ? CALORIES_PER_KG : CALORIES_PER_LB;
+        const tdee = round(avgCalories - (slope * calPerUnit), 0);
+
+        return {
+            tdee,
+            confidence,
+            trackedDays,
+            slope: round(slope * 7, 3), // kg/week for display
+            hasOutliers: calResult.outliers.length > 0,
+            outliers: calResult.outliers,
+            hasLargeGap,
+            maxGap
+        };
+    }
+
+    /**
+     * Calculate slope of weight change using Linear Regression
+     * @param {Object[]} entries - Array of entries with date and weight
+     * @returns {number} Slope (weight change per day)
+     */
+    function calculateSlope(entries) {
+        // Filter for entries with weight
+        const data = entries
+            .filter(e => e.weight !== null && !isNaN(e.weight))
+            .map((e, i) => ({
+                x: i, // We use index as a proxy for days if contiguous, but better to use date diff if gaps
+                // However, for standard period calculation on processed contiguous array, index is fine.
+                // NOTE: If entries are daily and sorted (even with gaps filled with null), 
+                // we should map true day index relative to start.
+                dayIndex: Math.round((new Date(e.date) - new Date(entries[0].date)) / (1000 * 60 * 60 * 24)),
+                y: e.weight
+            }));
+
+        const n = data.length;
+        if (n < 2) return 0; // Need at least 2 points for a line
+
+        const sumX = data.reduce((a, b) => a + b.dayIndex, 0);
+        const sumY = data.reduce((a, b) => a + b.y, 0);
+        const sumXY = data.reduce((a, b) => a + (b.dayIndex * b.y), 0);
+        const sumXX = data.reduce((a, b) => a + (b.dayIndex * b.dayIndex), 0);
+
+        const denominator = (n * sumXX - sumX * sumX);
+        if (denominator === 0) return 0; // Vertical line or single x point
+
+        const slope = (n * sumXY - sumX * sumY) / denominator;
+        return slope;
+    }
+
+    /**
+     * Calculate TDEE for a specific period of entries using Linear Regression
+     * @param {Object[]} entries - Array of daily entries (should be a contiguous range)
+     * @param {string} unit - 'kg' or 'lb'
+     * @returns {number|null} Estimated TDEE or null if insufficient data
+     */
+    function calculatePeriodTDEE(entries, unit = 'kg') {
+        if (!entries || entries.length === 0) return null;
+
+        // 1. Calculate Average Calories (ignore nulls)
+        const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
+        if (calorieEntries.length === 0) return null;
+
+        const avgCalories = calorieEntries.reduce((a, b) => a + b.calories, 0) / calorieEntries.length;
+
+        // 2. Calculate Weight Slope
+        const slope = calculateSlope(entries);
+
+        // If slope is near 0 but we have weights, it means maintenance. 
+        // If we have no weights (<2 data points), slope returns 0, which might mislead.
+        // Let's check data point count inside calculateSlope or here.
+        const weightEntries = entries.filter(e => e.weight !== null && !isNaN(e.weight));
+        if (weightEntries.length < 2) return null; // Cannot estimate TDEE without weight trend
+
+        // 3. Calculate Weight Delta for the period
+        // TDEE formula expects total weight delta over the period to calculate deficit/surplus
+        // Delta = Slope * Days
+        const trackedDays = entries.length; // Length of the period for TDEE scaling
+        const weightDelta = slope * trackedDays;
+
+        // 4. Calculate TDEE
+        return calculateTDEE({
+            avgCalories,
+            weightDelta,
+            trackedDays, // Formula divides by trackedDays, so (Slope * Days) / Days = Slope * CalPerUnit + AvgCals
+            // Actually wait, existing formula:
+            // tdee = avgCalories + ((-weightDelta * calPerUnit) / trackedDays);
+            // If weightDelta = Slope * trackedDays, then:
+            // tdee = avgCalories + ((-Slope * trackedDays * calPerUnit) / trackedDays)
+            // tdee = avgCalories - (Slope * calPerUnit)
+            // This makes sense: Slope is Rate of Gain. 
+            // Gains (Slope > 0) -> Subtract from Intake to get Maintenance.
+            unit
+        });
     }
 
     /**
@@ -302,6 +644,15 @@ const Calculator = (function () {
         calculateSmoothedTDEE,
         calculateDailyTarget,
         calculateWeeksToGoal,
+        calculateSlope,
+        calculatePeriodTDEE,
+
+        // Robust TDEE (new)
+        calculateFastTDEE,
+        calculateStableTDEE,
+        calculateEWMAWeightDelta,
+        excludeCalorieOutliers,
+        calculateSmoothTDEEArray,
 
         // Data processing
         processEntriesWithGaps,
@@ -322,7 +673,8 @@ const Calculator = (function () {
         CALORIES_PER_KG,
         CALORIES_PER_LB,
         DEFAULT_ALPHA,
-        ROLLING_WINDOW
+        ROLLING_WINDOW,
+        MIN_TRACKED_DAYS
     };
 })();
 

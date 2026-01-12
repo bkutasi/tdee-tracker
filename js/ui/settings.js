@@ -67,6 +67,21 @@ const Settings = (function () {
         });
 
         document.getElementById('import-file').addEventListener('change', importData);
+
+        // Clear data
+        document.getElementById('clear-data-btn').addEventListener('click', clearData);
+    }
+
+    function clearData() {
+        if (confirm('Are you sure you want to delete ALL data? This cannot be undone.')) {
+            Storage.clearAll();
+            loadSettings();
+            DailyEntry.refresh();
+            WeeklyView.refresh();
+            Dashboard.refresh();
+            Chart.refresh();
+            Components.showToast('All data deleted', 'success');
+        }
     }
 
     function loadSettings() {

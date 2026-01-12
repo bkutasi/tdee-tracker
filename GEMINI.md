@@ -12,11 +12,20 @@
 - `js/storage.js` - LocalStorage persistence with import/export
 - `js/utils.js` - Date handling, validation, helpers
 - `js/ui/*.js` - UI components (dashboard, entries, weekly, chart, settings)
-- `tests/node-test.js` - Quick Node.js test runner (15 tests)
+- `tests/node-test.js` - Quick Node.js test runner (29 tests)
 - `tests/test-runner.html` - Full browser test suite
 
 ## Key Formulas (from Excel)
 - **EWMA**: `current * 0.3 + previous * 0.7`
 - **TDEE**: `avgCalories + ((-weightDelta * 7716) / trackedDays)` (kg)
-- **6-week rolling TDEE**: Smoothed average over 6 weeks
+- **4-week rolling TDEE**: Smoothed average over 4 weeks
 - **Gap handling**: Conservative mode - excludes non-tracked days from TDEE calc
+
+## Robust TDEE Functions (Jan 2026)
+- **calculateFastTDEE**: 7-day reactive TDEE using EWMA weight delta, min 4 tracked days
+- **calculateStableTDEE**: 14-day sliding window regression on EWMA weights, robust to water/glycogen
+- **calculateEWMAWeightDelta**: Smoothed weight change (first/last EWMA values)
+- **excludeCalorieOutliers**: Detects cheat days >2.5 std dev from mean
+- **calculateSmoothTDEEArray**: EWMA smoothing over weekly TDEEs for chart
+- **MIN_TRACKED_DAYS**: Constant (4) - minimum calorie-tracked days for valid TDEE
+- **Confidence levels**: high (6+ days), medium (4-5 days), low (<4 days or >2 day weight gap)

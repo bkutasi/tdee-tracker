@@ -240,6 +240,119 @@ test('Sanity: Adding cardio - same intake but faster weight loss → higher TDEE
     }
 });
 
+console.log('\n=== Robust TDEE Tests ===\n');
+
+test('EWMA weight delta smooths daily noise', () => {
+    // Simulating noisy but overall flat weight
+    const entries = [
+        { date: '2025-01-01', weight: 80, calories: 1600 },
+        { date: '2025-01-02', weight: 81.5, calories: 1700 }, // spike
+        { date: '2025-01-03', weight: 79.5, calories: 1600 }, // dip
+        { date: '2025-01-04', weight: 80.5, calories: 1650 },
+        { date: '2025-01-05', weight: 80.2, calories: 1600 },
+        { date: '2025-01-06', weight: 80.0, calories: 1700 },
+        { date: '2025-01-07', weight: 80.3, calories: 1650 },
+    ];
+    const processed = Calculator.processEntriesWithGaps(entries);
+    const delta = Calculator.calculateEWMAWeightDelta(processed);
+    // EWMA should smooth out the noise - delta should be near 0
+    if (Math.abs(delta) > 0.5) {
+        throw new Error(`Expected EWMA delta near 0, got ${delta}`);
+    }
+});
+
+test('Exclude calorie outliers detects cheat days', () => {
+    // Need more data points for std dev to work properly
+    const calories = [1600, 1700, 1500, 1650, 1600, 1550, 1620, 4200]; // 4200 is outlier
+    const result = Calculator.excludeCalorieOutliers(calories);
+    expect(result.outliers.length).toBe(1);
+    if (!result.outliers.includes(4200)) {
+        throw new Error('Expected 4200 to be detected as outlier');
+    }
+});
+
+test('calculateFastTDEE returns null with insufficient data', () => {
+    const entries = [
+        { date: '2025-01-01', weight: 80, calories: 1600 },
+        { date: '2025-01-02', weight: 80.5, calories: 1700 },
+        { date: '2025-01-03', weight: 80.2, calories: null }, // Only 2 calorie days
+    ];
+    const result = Calculator.calculateFastTDEE(entries, 'kg');
+    expect(result.tdee).toBeNull();
+    expect(result.neededDays).toBe(2); // Needs 2 more (MIN_TRACKED_DAYS - 2)
+});
+
+test('calculateFastTDEE works with sufficient data', () => {
+    const entries = [
+        { date: '2025-01-01', weight: 80, calories: 1600 },
+        { date: '2025-01-02', weight: 80.3, calories: 1700 },
+        { date: '2025-01-03', weight: 80.1, calories: 1600 },
+        { date: '2025-01-04', weight: 80.0, calories: 1650 },
+        { date: '2025-01-05', weight: 79.8, calories: 1600 },
+    ];
+    const result = Calculator.calculateFastTDEE(entries, 'kg');
+    // Should have a valid TDEE
+    if (result.tdee === null) {
+        throw new Error('Expected TDEE to be calculated');
+    }
+    expect(result.confidence).toBe('medium'); // 4-5 days = medium
+});
+
+test('calculateFastTDEE high confidence with 6+ days', () => {
+    const entries = [
+        { date: '2025-01-01', weight: 80, calories: 1600 },
+        { date: '2025-01-02', weight: 80.2, calories: 1700 },
+        { date: '2025-01-03', weight: 80.1, calories: 1600 },
+        { date: '2025-01-04', weight: 80.0, calories: 1650 },
+        { date: '2025-01-05', weight: 79.9, calories: 1600 },
+        { date: '2025-01-06', weight: 79.8, calories: 1700 },
+        { date: '2025-01-07', weight: 79.6, calories: 1650 },
+    ];
+    const result = Calculator.calculateFastTDEE(entries, 'kg');
+    expect(result.confidence).toBe('high');
+});
+
+test('calculateStableTDEE detects large gaps and downgrades confidence', () => {
+    // 14 days of data with a 4-day gap in weight in the middle
+    const entries = [];
+    for (let i = 0; i < 14; i++) {
+        const date = new Date('2025-01-01');
+        date.setDate(date.getDate() + i);
+        const dateStr = date.toISOString().split('T')[0];
+
+        let weight = 80;
+        // Create 4-day gap (days 5, 6, 7, 8)
+        if (i >= 5 && i <= 8) {
+            weight = null;
+        }
+
+        entries.push({
+            date: dateStr,
+            weight: weight,
+            calories: 2000
+        });
+    }
+
+    const result = Calculator.calculateStableTDEE(entries, 'kg', 14, 4);
+
+    // Should have valid TDEE but low confidence due to gap
+    if (result.tdee === null) {
+        throw new Error('Expected TDEE to be calculated even with gap');
+    }
+
+    if (!result.hasLargeGap) {
+        throw new Error('Expected hasLargeGap to be true');
+    }
+
+    if (result.confidence !== 'low') {
+        throw new Error(`Expected low confidence due to gap, got ${result.confidence}`);
+    }
+});
+
+test('MIN_TRACKED_DAYS constant is exported', () => {
+    expect(Calculator.MIN_TRACKED_DAYS).toBe(4);
+});
+
 // Summary
 console.log(`\n${'='.repeat(40)}`);
 console.log(`Results: ${passed} passed, ${failed} failed`);

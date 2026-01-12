@@ -1,113 +1,121 @@
+#!/usr/bin/env python3
+"""
+Extract TDEE data from Excel file and convert to app import format.
+Excel structure:
+- Column B: Date (Saturday = end of week)
+- Column C: Type ('Weight' or 'Cal.')
+- Columns D-J: Mon-Sun values for that week (D=Mon, J=Sun)
+"""
+
 import openpyxl
 import json
 import datetime
 import os
+import sys
 
 def extract():
-    input_file = 'Improved_TDEE_Tracker.xlsx'
+    # Try multiple locations for the Excel file
+    possible_paths = [
+        'Improved_TDEE_Tracker.xlsx',
+        '/home/bkutasi/Downloads/Improved_TDEE_Tracker.xlsx',
+        '../Improved_TDEE_Tracker.xlsx'
+    ]
+    
+    input_file = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            input_file = path
+            break
+    
+    if not input_file:
+        print(f"Error: Could not find Improved_TDEE_Tracker.xlsx")
+        print(f"Tried: {possible_paths}")
+        return
+    
     output_file = 'import_data.json'
     
-    if not os.path.exists(input_file):
-        print(f"Error: {input_file} not found.")
-        return
-
+    print(f"Reading from: {input_file}")
     wb = openpyxl.load_workbook(input_file, data_only=True)
     sheet = wb['TDEE']
     
-    entries = {}
-    
-    # We iterate over the rows, looking for date rows (Weight rows)
-    # The date is in Column B (index 1)
-    # Weight values: Col D-J (indices 3-9)
-    # Calorie values are in the PREVIOUS or NEXT row?
-    # Based on inspection:
-    # Row 19: Cal.
-    # Row 20: Weight (Date: 2025-12-20)
-    # This suggests Weight row has the date, and the calorie row is immediately above it.
-    
-    # Actually, let's just collect all rows with Type 'Weight' or 'Cal.'
-    weights_by_date = {} # date -> [d1, d2, d3... d7]
-    cals_by_date = {}    # date -> [d1, d2, d3... d7]
-    
-    current_date = None
-    
-    # Start from row 12 where data begins
-    for row in sheet.iter_rows(min_row=12, max_row=500, values_only=True):
-        row_date = row[1]
-        row_type = row[2]
-        
-        if isinstance(row_date, datetime.datetime):
-            current_date = row_date.date()
-            
-        if not current_date:
-            continue
-            
-        daily_values = row[3:10]
-        
-        if row_type == 'Weight':
-            weights_by_date[current_date] = daily_values
-        elif row_type == 'Cal.':
-            cals_by_date[current_date] = daily_values
-
-    # Now flatten into daily entries
-    # the date in Col B is Saturday (Day 7)
-    all_dates = sorted(list(set(weights_by_date.keys()) | set(cals_by_date.keys())))
-    
     import_entries = {}
     
-    for saturation_date in all_dates:
-        w_vals = weights_by_date.get(saturation_date, [None]*7)
-        c_vals = cals_by_date.get(saturation_date, [None]*7)
+    # Iterate looking for Date/Weight rows
+    # The structure pattern is:
+    # Row N-1: Calories
+    # Row N: Date (Col B), Weight (Col C='Weight')
+    # Week is Sunday (Col D) to Saturday (Col J/Date B)
+    
+    for row in range(12, 100):
+        cell_date = sheet.cell(row=row, column=2).value
+        cell_type = sheet.cell(row=row, column=3).value
         
-        for i in range(7):
-            # i=0 is Day 1, i=6 is Day 7
-            delta_days = 6 - i
-            actual_date = saturation_date - datetime.timedelta(days=delta_days)
-            date_str = actual_date.isoformat()
+        # We process key on the Weight row (which has the date)
+        if isinstance(cell_date, datetime.datetime) and cell_type == 'Weight':
+            saturday_date = cell_date.date()
             
-            w = w_vals[i]
-            c = c_vals[i]
+            # Weight values in CURRENT row (D-J)
+            w_vals = [sheet.cell(row=row, column=c).value for c in range(4, 11)]
             
-            def safe_float(val):
-                if val is None:
-                    return None
-                try:
-                    return float(val)
-                except (ValueError, TypeError):
-                    return None
-
-            if w is not None or c is not None:
-                if date_str not in import_entries:
-                    import_entries[date_str] = {
-                        "weight": None,
-                        "calories": None,
-                        "notes": "Imported from Excel",
-                        "updatedAt": datetime.datetime.now().isoformat() + "Z"
-                    }
+            # Calorie values in PREVIOUS row (D-J)
+            c_vals = [sheet.cell(row=row-1, column=c).value for c in range(4, 11)]
+            
+            # D=Sunday, J=Saturday (Date B)
+            # D = Saturday - 6 days
+            
+            for i in range(7):
+                # i=0 is Dim (Sunday), i=6 is Sat
+                days_before_sat = 6 - i
+                actual_date = saturday_date - datetime.timedelta(days=days_before_sat)
+                date_str = actual_date.isoformat()
+                
+                w = w_vals[i] 
+                c = c_vals[i]
+                
+                def safe_float(val):
+                    if val is None:
+                        return None
+                    try:
+                        return float(val)
+                    except (ValueError, TypeError):
+                        return None
                 
                 w_float = safe_float(w)
-                if w_float is not None:
-                    import_entries[date_str]["weight"] = w_float
-                
                 c_float = safe_float(c)
-                if c_float is not None:
-                    import_entries[date_str]["calories"] = c_float
+                
+                # Only add if there is data
+                if w_float is not None or c_float is not None:
+                    import_entries[date_str] = {
+                        "weight": w_float,
+                        "calories": c_float,
+                        "notes": "Imported from Excel",
+                        "updatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    }
 
+    # Sort entries by date
+    sorted_entries = dict(sorted(import_entries.items()))
+    
     # Format for Storage.importData
     data_to_export = {
         "version": 1,
-        "exportedAt": datetime.datetime.now().isoformat() + "Z",
+        "exportedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "settings": {
             "weightUnit": "kg",
             "calorieUnit": "cal"
         },
-        "entries": import_entries
+        "entries": sorted_entries
     }
     
     with open(output_file, 'w') as f:
         json.dump(data_to_export, f, indent=2)
-        
-    print(f"Successfully exported {len(import_entries)} entries to {output_file}")
+    
+    # Print summary
+    dates = sorted(import_entries.keys())
+    if dates:
+        print(f"Successfully exported {len(import_entries)} entries to {output_file}")
+        print(f"Date range: {dates[0]} to {dates[-1]}")
+    else:
+        print("No entries found!")
 
 if __name__ == "__main__":
     extract()
