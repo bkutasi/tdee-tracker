@@ -38,6 +38,12 @@ const Settings = (function () {
         });
 
         // Settings changes
+        // User Profile changes
+        document.getElementById('user-gender').addEventListener('change', saveSettings);
+        document.getElementById('user-age').addEventListener('change', saveSettings);
+        document.getElementById('user-height').addEventListener('change', saveSettings);
+        document.getElementById('activity-level').addEventListener('change', saveSettings);
+
         document.getElementById('starting-weight').addEventListener('change', saveSettings);
         document.getElementById('goal-weight').addEventListener('change', saveSettings);
         document.getElementById('target-deficit').addEventListener('change', saveSettings);
@@ -87,6 +93,11 @@ const Settings = (function () {
     function loadSettings() {
         const settings = Storage.getSettings();
 
+        document.getElementById('user-gender').value = settings.gender ?? 'male';
+        document.getElementById('user-age').value = settings.age ?? '';
+        document.getElementById('user-height').value = settings.height ?? '';
+        document.getElementById('activity-level').value = settings.activityLevel ?? '1.2';
+
         document.getElementById('starting-weight').value = settings.startingWeight ?? '';
         document.getElementById('goal-weight').value = settings.goalWeight ?? '';
         document.getElementById('target-deficit').value = settings.targetDeficit ?? -0.2;
@@ -101,6 +112,10 @@ const Settings = (function () {
 
     function saveSettings() {
         const settings = {
+            gender: document.getElementById('user-gender').value,
+            age: parseInt(document.getElementById('user-age').value) || null,
+            height: parseInt(document.getElementById('user-height').value) || null,
+            activityLevel: parseFloat(document.getElementById('activity-level').value),
             startingWeight: parseFloat(document.getElementById('starting-weight').value) || null,
             goalWeight: parseFloat(document.getElementById('goal-weight').value) || null,
             targetDeficit: parseFloat(document.getElementById('target-deficit').value),

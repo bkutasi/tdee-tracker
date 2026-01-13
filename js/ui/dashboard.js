@@ -13,23 +13,18 @@ const Dashboard = (function () {
     function refresh() {
         const settings = Storage.getSettings();
         const weightUnit = settings.weightUnit || 'kg';
-        const entries = Storage.getAllEntries();
 
-        // Update unit labels
-        Components.setText('weight-unit-label', weightUnit);
-        Components.setText('change-unit-label', `${weightUnit}/wk`);
-
-        // Get last 14 days for stable TDEE (more resistant to water/glycogen fluctuations)
+        // Get last 14 days for stable TDEE
         const today = new Date();
         const fourteenDaysAgo = new Date(today);
-        fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13); // 14 days including today
+        fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
 
         const recentEntries = Storage.getEntriesInRange(
             Utils.formatDate(fourteenDaysAgo),
             Utils.formatDate(today)
         );
 
-        // Get last 8 weeks for weekly summaries and trends
+        // Get longer history for trends/weekly
         const eightWeeksAgo = new Date(today);
         eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
         const allRecentEntries = Storage.getEntriesInRange(
@@ -37,55 +32,103 @@ const Dashboard = (function () {
             Utils.formatDate(today)
         );
 
-        // Process entries for weight tracking
         const processed = Calculator.processEntriesWithGaps(allRecentEntries);
 
-        // Get latest weight (EWMA smoothed)
+        // Latest weight
         const latestWithWeight = [...processed].reverse().find(e => e.ewmaWeight !== null);
         const currentWeight = latestWithWeight?.ewmaWeight ?? null;
 
-        // Calculate Stable TDEE (14-day, linear regression on EWMA weights)
+        // Calculate TDEE Hierarchy
+        // 1. Stable (14-day regression)
         const stableResult = Calculator.calculateStableTDEE(recentEntries, weightUnit, 14);
-        const currentTdee = stableResult.tdee ? Calculator.mround(stableResult.tdee, 10) : null;
 
-        // Target intake
-        const targetDeficit = settings.targetDeficit || -0.2;
-        const targetIntake = currentTdee ? Calculator.calculateDailyTarget(currentTdee, targetDeficit) : null;
+        // 2. Fast (7-day EWMA delta) for fallback
+        // We need last 7 days of entries
+        const fastEntries = recentEntries.slice(-7);
+        const fastResult = Calculator.calculateFastTDEE(fastEntries, weightUnit);
 
-        // Weekly change rate from longer data
-        const weeklyData = calculateWeeklySummaries(processed, weightUnit);
-        const weeklyChange = calculateWeeklyChange(weeklyData);
+        let tdee = stableResult.tdee;
+        let confidence = stableResult.confidence;
+        let isTheoretical = false;
 
-        // Update display
-        const tdeeElement = document.getElementById('current-tdee');
-        if (currentTdee) {
-            Components.setText('current-tdee', Components.formatValue(currentTdee, 0));
-            // Remove any warning classes
-            tdeeElement?.classList.remove('low-confidence');
+        // Fallback to Fast TDEE
+        if (!tdee && fastResult.tdee) {
+            tdee = fastResult.tdee;
+            confidence = fastResult.confidence;
+        }
+
+        // Fallback to Theoretical
+        if ((!tdee || confidence === 'none') && settings.age && settings.height && settings.gender) {
+            const weightForBMR = currentWeight || settings.startingWeight;
+            if (weightForBMR) {
+                const bmr = Calculator.calculateBMR(
+                    weightForBMR,
+                    settings.height,
+                    settings.age,
+                    settings.gender
+                );
+                const theoretical = Calculator.calculateTheoreticalTDEE(bmr, settings.activityLevel);
+                if (theoretical) {
+                    tdee = theoretical;
+                    confidence = 'theoretical'; // Custom confidence level for display
+                    isTheoretical = true;
+                }
+            }
+        }
+
+        // Update DOM
+        const tdeeEl = document.getElementById('current-tdee');
+        const confidenceEl = document.getElementById('tdee-confidence');
+
+        if (tdee) {
+            tdee = Calculator.mround(tdee, 10);
+            Components.setText('current-tdee', Components.formatValue(tdee, 0));
+            tdeeEl?.classList.remove('low-confidence');
+
+            if (isTheoretical) {
+                confidenceEl.className = 'confidence-badge confidence-low';
+                confidenceEl.textContent = 'ESTIMATED (PROFILE)';
+            } else {
+                confidenceEl.className = `confidence-badge confidence-${confidence}`;
+                if (confidence === 'high') {
+                    confidenceEl.textContent = '● High';
+                } else if (confidence === 'medium') {
+                    confidenceEl.textContent = '◐ Medium';
+                } else {
+                    confidenceEl.textContent = '○ Low';
+                }
+            }
         } else {
-            // Show message based on why TDEE is unavailable
             if (stableResult.neededDays) {
                 Components.setText('current-tdee', `Need ${stableResult.neededDays} more days`);
             } else {
                 Components.setText('current-tdee', '—');
             }
-            tdeeElement?.classList.add('low-confidence');
+            tdeeEl?.classList.add('low-confidence');
+            confidenceEl.className = 'confidence-badge';
+            confidenceEl.textContent = 'NEEDS DATA';
         }
 
-        // Show confidence indicator
-        const confidenceEl = document.getElementById('tdee-confidence');
-        if (confidenceEl) {
-            confidenceEl.className = `confidence-badge confidence-${stableResult.confidence}`;
-            if (stableResult.confidence === 'high') {
-                confidenceEl.textContent = '● High';
-            } else if (stableResult.confidence === 'medium') {
-                confidenceEl.textContent = '◐ Medium';
-            } else {
-                confidenceEl.textContent = '○ Low';
-            }
+        // Target Intake
+        const targetDeficit = settings.targetDeficit || -0.2;
+        const targetIntake = tdee ? Calculator.calculateDailyTarget(tdee, targetDeficit) : null;
+        Components.setText('target-intake', targetIntake ? Components.formatValue(targetIntake, 0) : '—');
+
+        // Current Weight
+        Components.setText('current-weight', currentWeight ? Components.formatValue(currentWeight, 1) : '—');
+
+        // Weekly Change
+        const weeklyData = calculateWeeklySummaries(processed, weightUnit);
+        const weeklyChange = calculateWeeklyChange(weeklyData);
+
+        if (weeklyChange !== null) {
+            const sign = weeklyChange >= 0 ? '+' : '';
+            Components.setText('weekly-change', `${sign}${Components.formatValue(weeklyChange, 2)}`);
+        } else {
+            Components.setText('weekly-change', '—');
         }
 
-        // Show outlier warning if cheat days detected
+        // Outlier Warning
         const outlierEl = document.getElementById('tdee-outlier-warning');
         if (outlierEl) {
             if (stableResult.hasOutliers && stableResult.outliers) {
@@ -94,17 +137,6 @@ const Dashboard = (function () {
             } else {
                 outlierEl.style.display = 'none';
             }
-        }
-
-        Components.setText('target-intake', targetIntake ? Components.formatValue(targetIntake, 0) : '—');
-        Components.setText('current-weight', currentWeight ? Components.formatValue(currentWeight, 1) : '—');
-
-        // Format weekly change with sign
-        if (weeklyChange !== null) {
-            const sign = weeklyChange >= 0 ? '+' : '';
-            Components.setText('weekly-change', `${sign}${Components.formatValue(weeklyChange, 2)}`);
-        } else {
-            Components.setText('weekly-change', '—');
         }
 
         renderTrends(processed, weightUnit);

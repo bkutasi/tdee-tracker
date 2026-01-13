@@ -66,6 +66,10 @@ const Storage = (function () {
         return {
             weightUnit: 'kg',
             calorieUnit: 'cal',
+            gender: 'male',
+            age: null,
+            height: null,
+            activityLevel: 1.2,
             startingWeight: null,
             goalWeight: null,
             targetDeficit: 0.2,  // 20% deficit

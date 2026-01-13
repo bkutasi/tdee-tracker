@@ -48,7 +48,7 @@ const Chart = (function () {
         if (recalcCallback || !cachedData) {
             // Get data for last 8 weeks
             const settings = Storage.getSettings();
-            cachedData = getChartData(56, settings.weightUnit || 'kg');
+            cachedData = getChartData(56, settings);
         }
 
         if (cachedData.weights.length < 2) {
@@ -59,7 +59,8 @@ const Chart = (function () {
         drawChart(cachedData, width, height);
     }
 
-    function getChartData(days, weightUnit) {
+    function getChartData(days, settings) {
+        const weightUnit = settings.weightUnit || 'kg';
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
@@ -77,7 +78,7 @@ const Chart = (function () {
         const processed = Calculator.processEntriesWithGaps(entries);
 
         // Group by week for smoother display
-        const weeklyData = groupByWeek(processed, weightUnit, startDate);
+        const weeklyData = groupByWeek(processed, settings, startDate);
 
         // Extract EWMA weights and TDEEs
         const weights = [];
@@ -95,7 +96,8 @@ const Chart = (function () {
         return { weights, tdees, labels };
     }
 
-    function groupByWeek(entries, weightUnit, displayStartDate) {
+    function groupByWeek(entries, settings, displayStartDate) {
+        const weightUnit = settings.weightUnit || 'kg';
         const weeks = {};
         const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -134,9 +136,30 @@ const Chart = (function () {
             // Calculate 14-day Stable TDEE
             if (contextEntries.length >= 7) {
                 const stableResult = Calculator.calculateStableTDEE(contextEntries, weightUnit, 14);
-                // Only show TDEE if confidence is reasonable (or allow low but hide if very bad?)
-                // For chart, strictly hiding nulls
                 tdee = stableResult.tdee;
+
+                // HYBRID FALLBACK:
+                // If TDEE is missing or has low confidence (due to gaps), try Theoretical
+                if ((!tdee || stableResult.confidence === 'low' || stableResult.confidence === 'none') &&
+                    settings.age && settings.height && settings.gender) {
+
+                    // Need a weight for BMR. Use EWMA weight from this week, or fallback to any we can find
+                    const lastEntry = weekData.entries.filter(e => e.ewmaWeight).pop();
+                    const bmrWeight = lastEntry?.ewmaWeight || settings.startingWeight;
+
+                    if (bmrWeight) {
+                        const bmr = Calculator.calculateBMR(bmrWeight, settings.height, settings.age, settings.gender);
+                        const theoretical = Calculator.calculateTheoreticalTDEE(bmr, settings.activityLevel);
+
+                        if (theoretical) {
+                            // If we had no TDEE, take theoretical
+                            // If we had 'low' confidence TDEE, we might prefer theoretical IF the difference is huge?
+                            // User complaint was "996 kcal" (likely low tracked days).
+                            // Let's rely on Theoretical if confidence is LOW/NONE.
+                            tdee = theoretical;
+                        }
+                    }
+                }
             }
 
             const lastEntry = weekData.entries.filter(e => e.ewmaWeight).pop();

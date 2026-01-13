@@ -3,7 +3,7 @@
 - **Verification**: Always verify changes with small test scripts or by modifying `tests/`.
 - **Style**: Maintain the vanilla JS structure. Do not introduce build tools (Webpack/Vite) unless explicitly requested.
 - **Testing**: Always test changes with the test suite and small test scripts. Never use browser tool - rely on automated tests.
-- **Commit Messages**: Use conventional commit messages. And commit after you tested successfully.
+- **Commit Messages**: Always- **Commit Messages**: Always commit after changes. Use conventional commit messages. And commit after you tested successfully.
 - **Gemini.md**: Update this file after every change, or important insights.
 - **Python scripting**: Use Python 3.12. with venv with `python3 -m venv env` and `source venv/bin/activate`.
 
@@ -29,3 +29,5 @@
 - **calculateSmoothTDEEArray**: EWMA smoothing over weekly TDEEs for chart
 - **MIN_TRACKED_DAYS**: Constant (4) - minimum calorie-tracked days for valid TDEE
 - **Confidence levels**: high (6+ days), medium (4-5 days), low (<4 days or >2 day weight gap)
+- **Theoretical TDEE**: Fallback using Mifflin-St Jeor BMR * Activity Level when data is missing.
+- **Hybrid History**: Chart uses Theoretical TDEE when calculated TDEE has low confidence (missing days), preventing artificially low dips.

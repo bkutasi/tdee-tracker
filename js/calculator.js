@@ -598,6 +598,43 @@ const Calculator = (function () {
     /**
      * Convert between units
      */
+    /**
+     * Calculate Basal Metabolic Rate (BMR) using Mifflin-St Jeor Equation
+     * @param {number} weight - Weight in kg
+     * @param {number} height - Height in cm
+     * @param {number} age - Age in years
+     * @param {string} gender - 'male' or 'female'
+     * @returns {number} BMR in calories
+     */
+    function calculateBMR(weight, height, age, gender) {
+        if (!weight || !height || !age) return null;
+
+        // Mifflin-St Jeor Equation
+        // Men: (10 × weight in kg) + (6.25 × height in cm) - (5 × age in years) + 5
+        // Women: (10 × weight in kg) + (6.25 × height in cm) - (5 × age in years) - 161
+
+        let bmr = (10 * weight) + (6.25 * height) - (5 * age);
+
+        if (gender === 'male') {
+            bmr += 5;
+        } else {
+            bmr -= 161;
+        }
+
+        return round(bmr, 0);
+    }
+
+    /**
+     * Calculate Theoretical TDEE based on BMR and Activity Level
+     * @param {number} bmr - Calculated BMR
+     * @param {number} activityLevel - Activity multiplier (1.2 to 1.9)
+     * @returns {number} Theoretical TDEE
+     */
+    function calculateTheoreticalTDEE(bmr, activityLevel) {
+        if (!bmr || !activityLevel) return null;
+        return round(bmr * activityLevel, 0);
+    }
+
     function convertWeight(value, from, to) {
         if (from === to) return value;
         if (from === 'kg' && to === 'lb') return round(value * 2.20462, 2);
@@ -645,7 +682,10 @@ const Calculator = (function () {
         calculateDailyTarget,
         calculateWeeksToGoal,
         calculateSlope,
+        calculateSlope,
         calculatePeriodTDEE,
+        calculateBMR,
+        calculateTheoreticalTDEE,
 
         // Robust TDEE (new)
         calculateFastTDEE,
