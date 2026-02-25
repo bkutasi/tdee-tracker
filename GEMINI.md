@@ -1,9 +1,13 @@
+> ⚠️ **DEPRECATED**: This file is deprecated. See [`AGENTS.md`](./AGENTS.md) for comprehensive agent guidelines.
+
+---
+
 ## Agent Guidelines
 - **Precision**: Fix floating-point issues (`0.0000002`) wherever found.
 - **Verification**: Always verify changes with small test scripts or by modifying `tests/`.
 - **Style**: Maintain the vanilla JS structure. Do not introduce build tools (Webpack/Vite) unless explicitly requested.
 - **Testing**: Always test changes with the test suite and small test scripts. Never use browser tool - rely on automated tests.
-- **Commit Messages**: Always- **Commit Messages**: Always commit after changes. Use conventional commit messages. And commit after you tested successfully.
+- **Commit Messages**: Always commit after changes. Use conventional commit messages. And commit after you tested successfully.
 - **Gemini.md**: Update this file after every change, or important insights.
 - **Python scripting**: Use Python 3.12. with venv with `python3 -m venv env` and `source venv/bin/activate`.
 
