@@ -205,17 +205,23 @@ const Storage = (function () {
         // Validate date range
         const validation = Utils.validateDateRange(startDate, endDate);
         if (!validation.success) {
-            console.error('getEntriesInRange:', validation.error);
-            return [];  // Return empty array on validation failure
+            return [];
+        }
+
+        // Safety check: ensure validation returned proper data
+        if (!validation.data || !validation.data.start || !validation.data.end) {
+            return [];
         }
 
         const allEntries = getAllEntries();
         const result = [];
-        const current = new Date(validation.start);
-        const end = validation.end;
+        
+        // validation.data.start and .end are already Date objects - use them directly
+        const current = new Date(validation.data.start.getTime());
+        const end = new Date(validation.data.end.getTime());
 
         while (current <= end) {
-            const dateStr = current.toISOString().split('T')[0];
+            const dateStr = Utils.formatDate(current);
             const entry = allEntries[dateStr];
             result.push({
                 date: dateStr,
@@ -229,6 +235,8 @@ const Storage = (function () {
         return result;
     }
 
+    /**
+     * Delete entry for a specific date
     /**
      * Delete entry for a specific date
      * @param {string} date - Date in YYYY-MM-DD format
@@ -323,16 +331,21 @@ const Storage = (function () {
             }
 
             if (!data || typeof data !== 'object') {
-                return error('Invalid data format', 'INVALID_FORMAT');
+                console.error('[Storage.importData] Invalid data format: expected object, got', typeof data);
+                return error('Invalid data format. Expected a JSON object with "entries" and/or "settings".', 'INVALID_FORMAT');
             }
 
             // Import settings if present
             if (data.settings) {
+                console.log('[Storage.importData] Importing settings...');
                 saveSettings(data.settings);
             }
 
             // Import entries
             let entriesImported = 0;
+            let entriesSkipped = 0;
+            const skippedDates = [];
+            
             if (data.entries && typeof data.entries === 'object') {
                 const existingEntries = getAllEntries();
                 const mergedEntries = { ...existingEntries };
@@ -343,22 +356,34 @@ const Storage = (function () {
                         // Sanitize entry data to prevent XSS
                         mergedEntries[date] = sanitizeEntry(entry);
                         entriesImported++;
+                    } else {
+                        // Log skipped dates for debugging
+                        console.warn('[Storage.importData] Skipped invalid date format:', date, '- Expected YYYY-MM-DD');
+                        entriesSkipped++;
+                        skippedDates.push(date);
                     }
                 }
 
                 localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(mergedEntries));
+                
+                // Log summary
+                if (entriesSkipped > 0) {
+                    console.error(`[Storage.importData] WARNING: ${entriesSkipped} entries were skipped due to invalid date format. Skipped dates:`, skippedDates);
+                }
+                console.log(`[Storage.importData] Successfully imported ${entriesImported} entries`);
             }
 
-            return success({ entriesImported });
+            return success({ entriesImported, entriesSkipped });
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
-                console.error('Storage limit reached during import');
+                console.error('[Storage.importData] Storage limit reached during import');
                 return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
             }
-            console.error('Import failed:', err);
+            console.error('[Storage.importData] Import failed:', err.message, '\nFull error:', err);
             return error(err.message);
         }
     }
+
 
     /**
      * Clear all data (use with caution!)

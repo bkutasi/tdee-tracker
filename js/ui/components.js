@@ -20,10 +20,40 @@ const Components = (function () {
 
         container.appendChild(toast);
 
+        // Announce to screen readers (WCAG 4.1.3 Status Messages)
+        announceToScreenReader(message, type);
+
         setTimeout(() => {
             toast.style.animation = 'toastOut 0.3s ease forwards';
             setTimeout(() => toast.remove(), 300);
         }, duration);
+    }
+
+    /**
+     * Announce message to screen readers via live region
+     * @param {string} message - Message to announce
+     * @param {string} type - Message type for context
+     */
+    function announceToScreenReader(message, type) {
+        // Create or reuse live region for screen reader announcements
+        let liveRegion = document.getElementById('toast-live-region');
+        
+        if (!liveRegion) {
+            liveRegion = document.createElement('div');
+            liveRegion.id = 'toast-live-region';
+            liveRegion.setAttribute('role', 'status');
+            liveRegion.setAttribute('aria-live', 'polite');
+            liveRegion.setAttribute('aria-atomic', 'true');
+            liveRegion.className = 'sr-only';
+            liveRegion.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;';
+            document.body.appendChild(liveRegion);
+        }
+        
+        // Clear and set message (triggers announcement)
+        liveRegion.textContent = '';
+        setTimeout(() => {
+            liveRegion.textContent = message;
+        }, 100);
     }
 
     /**

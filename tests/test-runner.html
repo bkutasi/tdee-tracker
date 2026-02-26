@@ -107,6 +107,15 @@
             }
             
             function expect(actual) {
+                const isNot = {
+                    toBe(expected) {
+                        if (actual === expected) throw new Error(`Expected not ${JSON.stringify(expected)}`);
+                    },
+                    toBeNull() {
+                        if (actual === null) throw new Error(`Expected not null`);
+                    }
+                };
+                
                 return {
                     toBe(expected) {
                         if (actual !== expected) {
@@ -139,12 +148,25 @@
                             throw new Error(`Expected false, got ${JSON.stringify(actual)}`);
                         }
                     },
+                    toBeUndefined() {
+                        if (actual !== undefined) {
+                            throw new Error(`Expected undefined, got ${JSON.stringify(actual)}`);
+                        }
+                    },
+                    toBeDefined() {
+                        if (actual === undefined) {
+                            throw new Error(`Expected defined, got ${JSON.stringify(actual)}`);
+                        }
+                    },
                     toContain(item) {
-                        if (!actual.includes(item)) {
+                        if (!Array.isArray(actual) || !actual.includes(item)) {
                             throw new Error(`Expected ${JSON.stringify(actual)} to contain ${JSON.stringify(item)}`);
                         }
                     },
                     toHaveLength(length) {
+                        if (!Array.isArray(actual)) {
+                            throw new Error(`Expected array, got ${typeof actual}`);
+                        }
                         if (actual.length !== length) {
                             throw new Error(`Expected length ${length}, got ${actual.length}`);
                         }
@@ -158,7 +180,24 @@
                         if (!(actual < expected)) {
                             throw new Error(`Expected ${actual} < ${expected}`);
                         }
-                    }
+                    },
+                    toMatch(pattern) {
+                        if (!actual || !pattern.test || !pattern.test(actual)) {
+                            throw new Error(`Expected ${JSON.stringify(actual)} to match ${pattern}`);
+                        }
+                    },
+                    toThrow() {
+                        let threw = false;
+                        try {
+                            if (typeof actual === 'function') actual();
+                        } catch (e) {
+                            threw = true;
+                        }
+                        if (!threw) {
+                            throw new Error(`Expected function to throw`);
+                        }
+                    },
+                    not: isNot
                 };
             }
             
@@ -203,6 +242,10 @@
     <script src="calculator.test.js"></script>
     <script src="storage.test.js"></script>
     <script src="utils.test.js"></script>
+    <script src="calculator-validation.test.js"></script>
+    <script src="utils-date.test.js"></script>
+    <script src="utils-validation.test.js"></script>
+    <script src="storage-migration.test.js"></script>
 
     <!-- Run -->
     <script>

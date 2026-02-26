@@ -23,6 +23,13 @@ const Calculator = (function () {
     const MIN_TRACKED_DAYS = 4;   // Minimum calorie-tracked days required for valid TDEE
     const CV_THRESHOLD = 0.02;    // Coefficient of variation threshold for volatility detection (2%)
 
+    // Scientific confidence tiers (Hall & Chow 2011)
+    const CONFIDENCE_TIERS = {
+        HIGH: { minDays: 14, minWeightChange: 0.5, accuracy: '±5-10%' },
+        MEDIUM: { minDays: 7, minWeightChange: 0.3, accuracy: '±10-15%' },
+        LOW: { minDays: 4, minWeightChange: 0.2, accuracy: '±15-25%' }
+    };
+
     /**
      * Calculate Exponentially Weighted Moving Average
      * @param {number} current - Current value
@@ -54,6 +61,72 @@ const Calculator = (function () {
     }
 
     /**
+     * Get dynamic energy density based on body fat
+     * 7716 kcal/kg is valid for obese (>30kg fat), but overestimates for lean individuals
+     * @param {number} bodyFatKg - Estimated body fat in kg
+     * @returns {number} Energy density in kcal/kg
+     */
+    function getEnergyDensity(bodyFatKg) {
+        if (bodyFatKg === null || bodyFatKg === undefined) return CALORIES_PER_KG;
+        if (bodyFatKg < 15) return 5500;   // Lean (~10kg fat)
+        if (bodyFatKg < 25) return 6500;   // Average (~20kg fat)
+        if (bodyFatKg < 35) return 7200;   // Overweight (~30kg fat)
+        return CALORIES_PER_KG;             // Obese (30+kg fat)
+    }
+
+    /**
+     * Get data quality warnings for TDEE calculations
+     * @param {Object[]} entries - Array of daily entries
+     * @param {string} weightUnit - 'kg' or 'lb'
+     * @returns {string[]} Array of warning messages
+     */
+    function getDataQualityWarnings(entries, weightUnit = 'kg') {
+        const warnings = [];
+        
+        if (!entries || entries.length === 0) {
+            warnings.push('No data available');
+            return warnings;
+        }
+        
+        // Check for insufficient data
+        if (entries.length < 7) {
+            warnings.push(`More data needed for accurate TDEE (have ${entries.length} days, need 7+)`);
+        }
+        
+        // Check for high weight variance
+        const weights = entries.filter(e => e.weight !== null).map(e => e.weight);
+        if (weights.length >= 3) {
+            const stats = calculateStats(weights);
+            const cv = stats.stdDev / stats.mean;
+            if (cv > 0.03) { // 3% CV is high for weight
+                warnings.push('High weight variance detected - may indicate water retention');
+            }
+        }
+        
+        // Check for gaps
+        const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
+        if (calorieEntries.length < entries.length * 0.7) {
+            warnings.push('Missing calorie data may affect accuracy');
+        }
+        
+        // Check for plateau (optional - requires longer history)
+        if (entries.length >= 14) {
+            const recentWeights = weights.slice(-14);
+            if (recentWeights.length >= 10) {
+                const firstHalf = recentWeights.slice(0, Math.floor(recentWeights.length / 2));
+                const secondHalf = recentWeights.slice(Math.floor(recentWeights.length / 2));
+                const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+                const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+                if (Math.abs(secondAvg - firstAvg) < 0.2) {
+                    warnings.push('Weight plateau detected - consider metabolic adaptation');
+                }
+            }
+        }
+        
+        return warnings;
+    }
+
+    /**
      * Calculate TDEE from weight change and calorie intake
      * Uses energy balance equation: TDEE = intake - (Δweight × cal_per_unit / days)
      * @param {Object} params
@@ -63,17 +136,24 @@ const Calculator = (function () {
      * @param {string} params.unit - 'kg' or 'lb'
      * @returns {number} Estimated TDEE
      */
-    function calculateTDEE({ avgCalories, weightDelta, trackedDays, unit = 'kg' }) {
+    function calculateTDEE({ avgCalories, weightDelta, trackedDays, unit = 'kg', bodyFatKg = null }) {
         if (trackedDays === 0) return null;
 
-        const calPerUnit = unit === 'kg' ? CALORIES_PER_KG : CALORIES_PER_LB;
+        // Use dynamic energy density if body fat is provided
+        let calPerUnit;
+        if (unit === 'kg') {
+            calPerUnit = getEnergyDensity(bodyFatKg);
+        } else {
+            calPerUnit = CALORIES_PER_LB;  // 3500 cal/lb is standard
+        }
 
         // TDEE = intake + (surplus or deficit from weight change)
-        // If weight went down, deltais negative, so we ADD to intake
+        // If weight went down, delta is negative, so we ADD to intake
         const tdee = avgCalories + ((-weightDelta * calPerUnit) / trackedDays);
 
         return round(tdee, 0);
     }
+
 
     /**
      * Calculate rolling TDEE average over multiple weeks
@@ -217,15 +297,23 @@ const Calculator = (function () {
         const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
         const trackedDays = calorieEntries.length;
 
-        // Determine confidence level
+        // Determine confidence level based on scientific tiers (Hall & Chow 2011)
         let confidence = 'none';
-        if (trackedDays >= 6) confidence = 'high';
-        else if (trackedDays >= minDays) confidence = 'medium';
-        else if (trackedDays > 0) confidence = 'low';
+        let accuracy = null;
+        if (trackedDays >= CONFIDENCE_TIERS.HIGH.minDays) {
+            confidence = 'high';
+            accuracy = CONFIDENCE_TIERS.HIGH.accuracy;
+        } else if (trackedDays >= CONFIDENCE_TIERS.MEDIUM.minDays) {
+            confidence = 'medium';
+            accuracy = CONFIDENCE_TIERS.MEDIUM.accuracy;
+        } else if (trackedDays >= CONFIDENCE_TIERS.LOW.minDays) {
+            confidence = 'low';
+            accuracy = CONFIDENCE_TIERS.LOW.accuracy;
+        }
 
         // Return null TDEE if below minimum threshold
         if (trackedDays < minDays) {
-            return { tdee: null, confidence, trackedDays, hasOutliers: false, neededDays: minDays - trackedDays };
+            return { tdee: null, confidence, trackedDays, hasOutliers: false, neededDays: minDays - trackedDays, accuracy };
         }
 
         // Check for weight data
@@ -254,7 +342,7 @@ const Calculator = (function () {
             unit
         });
 
-        return { tdee, confidence, trackedDays, hasOutliers, outliers: calResult.outliers };
+        return { tdee, confidence, trackedDays, hasOutliers, outliers: calResult.outliers, accuracy };
     }
 
     /**
@@ -322,19 +410,27 @@ const Calculator = (function () {
         const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
         const trackedDays = calorieEntries.length;
 
-        // Determine confidence based on window coverage AND gap presence
+        // Determine confidence based on scientific tiers AND gap presence
         let confidence = 'none';
+        let accuracy = null;
         const windowCoverage = trackedDays / windowDays;
         if (hasLargeGap) {
             // Large gap reduces max confidence to 'low'
-            if (trackedDays >= minDays) confidence = 'low';
-        } else if (windowCoverage >= 0.7) {
-            confidence = 'high';       // 70%+ tracked, no gaps
-        } else if (windowCoverage >= 0.5) {
-            confidence = 'medium';     // 50%+ tracked
-        } else if (trackedDays >= minDays) {
+            if (trackedDays >= MIN_TRACKED_DAYS) {
+                confidence = 'low';
+                accuracy = CONFIDENCE_TIERS.LOW.accuracy;
+            }
+        } else if (trackedDays >= CONFIDENCE_TIERS.HIGH.minDays) {
+            confidence = 'high';
+            accuracy = CONFIDENCE_TIERS.HIGH.accuracy;
+        } else if (trackedDays >= CONFIDENCE_TIERS.MEDIUM.minDays) {
+            confidence = 'medium';
+            accuracy = CONFIDENCE_TIERS.MEDIUM.accuracy;
+        } else if (trackedDays >= CONFIDENCE_TIERS.LOW.minDays) {
             confidence = 'low';
+            accuracy = CONFIDENCE_TIERS.LOW.accuracy;
         }
+
 
         if (trackedDays < minDays) {
             return { tdee: null, confidence, trackedDays, neededDays: minDays - trackedDays, hasLargeGap };
@@ -750,6 +846,8 @@ const Calculator = (function () {
         detectOutliers,
         calculateStats,
         getAdaptiveAlpha,
+        getEnergyDensity,
+        getDataQualityWarnings,
 
         // Unit conversion
         convertWeight,

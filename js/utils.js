@@ -65,6 +65,9 @@ const Utils = (function () {
      * @returns {string} Formatted date string
      */
     function formatDate(date) {
+        if (!date) {
+            return '';
+        }
         if (typeof date === 'string') {
             date = new Date(date);
         }
@@ -76,25 +79,35 @@ const Utils = (function () {
 
     /**
      * Parse date string to Date object
-     * @param {string} dateStr - Date in YYYY-MM-DD format
+     * @param {string|Date} dateStr - Date in YYYY-MM-DD format or Date object
      * @returns {Date} Date object
      */
     function parseDate(dateStr) {
+        // Handle Date objects directly (clone to avoid mutation)
+        if (dateStr instanceof Date) {
+            return new Date(dateStr.getTime());
+        }
+        
+        // Handle null/undefined/invalid input
+        if (!dateStr || typeof dateStr !== 'string') {
+            return new Date(); // Return current date as fallback
+        }
+        
         const [year, month, day] = dateStr.split('-').map(Number);
         return new Date(year, month - 1, day);
     }
 
     /**
-     * Get start of week (Monday) for a given date
+     * Get start of week (Sunday) for a given date
      * @param {Date|string} date - Date to find week start for
-     * @returns {Date} Monday of that week
+     * @returns {Date} Sunday of that week
      */
     function getWeekStart(date) {
         if (typeof date === 'string') date = parseDate(date);
         const d = new Date(date);
         const day = d.getDay();
-        // Convert to Monday-based: Sunday (0) becomes 6, Mon-Sat (1-6) become 0-5
-        const diff = day === 0 ? 6 : day - 1;
+        // Sunday-based: Sunday (0) becomes 0, Mon-Sat (1-6) become 1-6
+        const diff = day;
         d.setDate(d.getDate() - diff);
         d.setHours(0, 0, 0, 0);
         return d;

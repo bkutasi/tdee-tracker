@@ -115,6 +115,71 @@ describe('Storage.exportData and importData', () => {
 
         expect(result.success).toBeTrue();
         expect(result.entriesImported).toBe(1);
+        expect(result.entriesSkipped).toBe(0);
+        expect(Storage.getEntry('2025-02-01').weight).toBe(83);
+    });
+
+    it('imports multiple entries and tracks skipped count', () => {
+        const importData = {
+            settings: { weightUnit: 'kg' },
+            entries: {
+                '2025-01-01': { weight: 80, calories: 2000, notes: '' },
+                '2025-01-02': { weight: 79.5, calories: 1900, notes: '' },
+                '2025-01-03': { weight: 79, calories: 1950, notes: '' }
+            }
+        };
+
+        const result = Storage.importData(importData);
+
+        expect(result.success).toBeTrue();
+        expect(result.entriesImported).toBe(3);
+        expect(result.entriesSkipped).toBe(0);
+    });
+
+    it('handles old imported data correctly', () => {
+        // Simulate importing data from 3 months ago
+        const oldData = {
+            version: 1,
+            exportedAt: '2025-11-01T00:00:00.000Z',
+            settings: { weightUnit: 'kg' },
+            entries: {
+                '2025-11-01': { weight: 82, calories: 1700, notes: 'Old data' },
+                '2025-11-02': { weight: 81.8, calories: 1750, notes: 'Old data' },
+                '2025-11-03': { weight: 81.5, calories: 1800, notes: 'Old data' }
+            }
+        };
+
+        const result = Storage.importData(oldData);
+
+        expect(result.success).toBeTrue();
+        expect(result.entriesImported).toBe(3);
+        expect(Storage.getEntry('2025-11-01').weight).toBe(82);
+    });
+
+    it('validates date format during import', () => {
+    it('exports all data', () => {
+        Storage.saveSettings({ weightUnit: 'kg' });
+        Storage.saveEntry('2025-01-25', { weight: 82 });
+
+        const exported = Storage.exportData();
+
+        expect(exported.version).toBe(Storage.CURRENT_SCHEMA_VERSION);
+        expect(exported.settings.weightUnit).toBe('kg');
+        expect(exported.entries['2025-01-25'].weight).toBe(82);
+    });
+
+    it('imports data from JSON string', () => {
+        const importData = {
+            settings: { goalWeight: 75 },
+            entries: {
+                '2025-02-01': { weight: 83, calories: 1800, notes: '' }
+            }
+        };
+
+        const result = Storage.importData(JSON.stringify(importData));
+
+        expect(result.success).toBeTrue();
+        expect(result.entriesImported).toBe(1);
         expect(Storage.getEntry('2025-02-01').weight).toBe(83);
     });
 

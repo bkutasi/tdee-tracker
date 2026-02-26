@@ -23,7 +23,14 @@ const Chart = (function () {
         const style = getComputedStyle(document.documentElement);
         cachedStyles = {
             textColor: style.getPropertyValue('--color-text-tertiary').trim() || '#8b949e',
-            borderColor: style.getPropertyValue('--color-border-light').trim() || '#21262d'
+            borderColor: style.getPropertyValue('--color-border-light').trim() || '#21262d',
+            weightColor: style.getPropertyValue('--chart-weight').trim() || '#FF6F20',
+            weightLight: style.getPropertyValue('--chart-weight-light').trim() || 'rgba(255, 111, 32, 0.1)',
+            tdeeColor: style.getPropertyValue('--chart-tdee').trim() || '#00C897',
+            tdeeLight: style.getPropertyValue('--chart-tdee-light').trim() || 'rgba(0, 200, 151, 0.1)',
+            tooltipBg: style.getPropertyValue('--chart-tooltip-bg').trim() || 'rgba(23, 25, 28, 0.9)',
+            tooltipText: style.getPropertyValue('--chart-tooltip-text').trim() || '#FFFFFF',
+            tooltipBorder: style.getPropertyValue('--chart-tooltip-border').trim() || 'rgba(255, 255, 255, 0.1)'
         };
         return cachedStyles;
     }
@@ -67,7 +74,9 @@ const Chart = (function () {
     let cachedData = null;
 
     function refresh(recalcCallback = true) {
-        if (!canvas || !ctx) return;
+        if (!canvas || !ctx) {
+            return;
+        }
 
         // Set canvas size (account for device pixel ratio)
         const container = canvas.parentElement;
@@ -82,35 +91,41 @@ const Chart = (function () {
         ctx.scale(dpr, dpr);
 
         if (recalcCallback || !cachedData) {
-            // Get data for last 8 weeks
+            const settings = Storage.getSettings();
+            cachedData = getChartData(180, settings);  // Extended from 56 to 180 days
+        } else {
             const settings = Storage.getSettings();
             cachedData = getChartData(56, settings);
         }
-
+        
         if (cachedData.weights.length < 2) {
             drawEmptyState(width, height);
-            chartImageCache = null; // Clear cache on empty state
+            updateChartAccessibility(null, null, 0);
+            chartImageCache = null;
             return;
         }
 
         drawChart(cachedData, width, height);
         
+        // Update accessibility attributes
+        const currentWeight = cachedData.weights[cachedData.weights.length - 1];
+        const trendDirection = cachedData.weights.length > 1 
+            ? (cachedData.weights[cachedData.weights.length - 1] > cachedData.weights[0] ? 'increasing' : 'decreasing')
+            : 'stable';
+        updateChartAccessibility(currentWeight, trendDirection, cachedData.weights.length);
+        
         // Cache the chart rendering for fast tooltip updates
         try {
             chartImageCache = ctx.getImageData(0, 0, canvas.width, canvas.height);
         } catch (e) {
-            // getImageData can fail with tainted canvas (CORS), fallback to redraw
             chartImageCache = null;
         }
     }
-
     function getChartData(days, settings) {
         const weightUnit = settings.weightUnit || 'kg';
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
-
-        // Fetch extra 7 days prior for 14-day window context on the first week
         const contextStartDate = new Date(startDate);
         contextStartDate.setDate(contextStartDate.getDate() - 7);
 
@@ -119,7 +134,7 @@ const Chart = (function () {
             Utils.formatDate(contextStartDate),
             Utils.formatDate(endDate)
         );
-
+        
         const processed = Calculator.processEntriesWithGaps(entries);
 
         // Group by week for smoother display
@@ -137,6 +152,8 @@ const Chart = (function () {
                 labels.push(week.label);
             }
         }
+        
+        console.log('[Chart.getChartData] Extracted', weights.length, 'EWMA weights for chart');
 
         return { weights, tdees, labels };
     }
@@ -239,10 +256,8 @@ const Chart = (function () {
         const styles = getChartStyles();
         const textColor = styles.textColor;
         const borderColor = styles.borderColor;
-
-        // Colors
-        const weightColor = '#667eea';
-        const tdeeColor = '#38ef7d';
+        const weightColor = styles.weightColor;
+        const tdeeColor = styles.tdeeColor;
 
         // Calculate weight scale
         const weightMin = Math.min(...weights) - 1;
@@ -304,8 +319,8 @@ const Chart = (function () {
 
                 // Bar gradient
                 const gradient = ctx.createLinearGradient(x, y, x, padding.top + chartHeight);
-                gradient.addColorStop(0, 'rgba(56, 239, 125, 0.6)');
-                gradient.addColorStop(1, 'rgba(56, 239, 125, 0.2)');
+                gradient.addColorStop(0, styles.tdeeLight.replace('0.1', '0.6'));
+                gradient.addColorStop(1, styles.tdeeLight);
 
                 ctx.fillStyle = gradient;
                 ctx.beginPath();
@@ -441,6 +456,9 @@ const Chart = (function () {
         ctx.save();
         const dpr = window.devicePixelRatio || 1;
 
+        // Get styles from cached CSS
+        const styles = getChartStyles();
+
         const padding = 8;
         const dateStr = new Date(hit.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         const text = `${dateStr}\n${hit.label}`;
@@ -468,8 +486,8 @@ const Chart = (function () {
         if (hit.type === 'point' && y < 0) y = hit.y + 15;
 
         // Draw bg
-        ctx.fillStyle = 'rgba(23, 25, 28, 0.9)'; // Dark bg
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillStyle = styles.tooltipBg;
+        ctx.strokeStyle = styles.tooltipBorder;
         ctx.lineWidth = 1;
 
         ctx.beginPath();
@@ -483,7 +501,7 @@ const Chart = (function () {
         ctx.stroke();
 
         // Draw text
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle = styles.tooltipText;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
 
@@ -501,10 +519,50 @@ const Chart = (function () {
         const textColor = styles.textColor;
 
         ctx.fillStyle = textColor;
-        ctx.font = '14px -apple-system, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Add more data to see your progress', width / 2, height / 2);
+        
+        // Check if we have calorie-only data
+        const hasCalories = cachedData && cachedData.tdees && cachedData.tdees.length > 0;
+        const hasAnyWeights = cachedData && cachedData.weights && cachedData.weights.length > 0;
+        
+        if (hasCalories && !hasAnyWeights) {
+            // User has calorie data but no weight measurements
+            ctx.font = '14px -apple-system, sans-serif';
+            ctx.fillText('Add weight measurements to see the chart', width / 2, height / 2 - 10);
+            ctx.font = '12px -apple-system, sans-serif';
+            ctx.fillStyle = styles.textColor.replace(')', ', 0.7)').replace('rgb', 'rgba');
+            ctx.fillText('(You have calorie data, but no weight entries)', width / 2, height / 2 + 15);
+        } else if (hasAnyWeights && cachedData.weights.length < 2) {
+            // Only 1 weight entry - need at least 2 for a trend
+            ctx.font = '14px -apple-system, sans-serif';
+            ctx.fillText('Add more weight entries to see the trend', width / 2, height / 2 - 10);
+            ctx.font = '12px -apple-system, sans-serif';
+            ctx.fillStyle = styles.textColor.replace(')', ', 0.7)').replace('rgb', 'rgba');
+            ctx.fillText('(Need at least 2 weight measurements)', width / 2, height / 2 + 15);
+        } else {
+            // No data at all
+            ctx.font = '14px -apple-system, sans-serif';
+            ctx.fillText('Add more data to see your progress', width / 2, height / 2);
+        }
     }
+
+    function updateChartAccessibility(currentWeight, trendDirection, dataPoints) {
+        if (!canvas) return;
+        
+        let description;
+        if (currentWeight === null || dataPoints === 0) {
+            description = 'Weight trend chart. No data available yet. Add weight entries to see your progress.';
+        } else {
+            description = `Weight trend chart showing ${dataPoints} data points. ` +
+                `Current weight: ${currentWeight.toFixed(1)}kg. ` +
+                `Trend: ${trendDirection}. ` +
+                `Green bars show TDEE estimates. Purple line shows weight trend.`;
+        }
+        
+        canvas.setAttribute('aria-label', description);
+        canvas.setAttribute('role', 'img');
+    }
+
 
     return {
         init,

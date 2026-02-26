@@ -157,7 +157,17 @@ const Settings = (function () {
             const result = Storage.importData(event.target.result);
 
             if (result.success) {
-                Components.showToast(`Imported ${result.entriesImported} entries!`, 'success');
+                // Check if any entries were skipped
+                if (result.entriesSkipped > 0) {
+                    Components.showToast(
+                        `Imported ${result.entriesImported} entries. ${result.entriesSkipped} skipped (check console).`,
+                        'error'
+                    );
+                } else if (result.entriesImported > 0) {
+                    Components.showToast(`Imported ${result.entriesImported} entries!`, 'success');
+                } else {
+                    Components.showToast('No entries imported. Check file format.', 'error');
+                }
                 loadSettings();
                 DailyEntry.refresh();
                 WeeklyView.refresh();
@@ -177,6 +187,7 @@ const Settings = (function () {
         // Reset file input
         e.target.value = '';
     }
+
 
     return {
         init,

@@ -88,10 +88,14 @@ const Dashboard = (function () {
                 confidenceEl.textContent = 'ESTIMATED (PROFILE)';
             } else {
                 confidenceEl.className = `confidence-badge confidence-${confidence}`;
+                // Display accuracy range based on scientific tiers
+                const accuracy = stableResult.accuracy || fastResult.accuracy;
                 if (confidence === 'high') {
-                    confidenceEl.textContent = '● High';
+                    confidenceEl.textContent = `● High (${accuracy})`;
                 } else if (confidence === 'medium') {
-                    confidenceEl.textContent = '◐ Medium';
+                    confidenceEl.textContent = `◐ Medium (${accuracy})`;
+                } else if (confidence === 'low') {
+                    confidenceEl.textContent = `○ Low (${accuracy})`;
                 } else {
                     confidenceEl.textContent = '○ Low';
                 }

@@ -9,6 +9,15 @@ let passed = 0;
 let failed = 0;
 
 function expect(actual) {
+    const isNot = {
+        toBe(expected) {
+            if (actual === expected) throw new Error(`Expected not ${expected}, but got ${actual}`);
+        },
+        toBeNull() {
+            if (actual === null) throw new Error(`Expected not null, but got ${actual}`);
+        }
+    };
+    
     return {
         toBe(expected) {
             if (actual !== expected) throw new Error(`Expected ${expected}, got ${actual}`);
@@ -21,6 +30,34 @@ function expect(actual) {
         },
         toBeNull() {
             if (actual !== null) throw new Error(`Expected null, got ${actual}`);
+        },
+        toBeTrue() {
+            if (actual !== true) throw new Error(`Expected true, got ${actual}`);
+        },
+        toBeFalse() {
+            if (actual !== false) throw new Error(`Expected false, got ${actual}`);
+        },
+        toBeUndefined() {
+            if (actual !== undefined) throw new Error(`Expected undefined, got ${actual}`);
+        },
+        toBeDefined() {
+            if (actual === undefined) throw new Error(`Expected defined, got ${actual}`);
+        },
+        toHaveLength(length) {
+            if (!Array.isArray(actual)) throw new Error(`Expected array, got ${typeof actual}`);
+            if (actual.length !== length) throw new Error(`Expected length ${length}, got ${actual.length}`);
+        },
+        toMatch(pattern) {
+            if (!pattern.test(actual)) throw new Error(`Expected ${actual} to match ${pattern}`);
+        },
+        toEqual(expected) {
+            // Simple deep equality check via JSON stringify
+            const actualStr = JSON.stringify(actual);
+            const expectedStr = JSON.stringify(expected);
+            if (actualStr !== expectedStr) throw new Error(`Expected ${expectedStr}, got ${actualStr}`);
+        },
+        get not() {
+            return isNot;
         }
     };
 }
@@ -38,8 +75,10 @@ function test(name, fn) {
 }
 
 // Load modules
+// Note: Storage expects Utils as global (browser pattern), so attach to global first
 const Calculator = require('../js/calculator.js');
 const Utils = require('../js/utils.js');
+global.Utils = Utils;  // Make Utils available as global for storage.js
 const Storage = require('../js/storage.js');
 
 console.log('\n=== Calculator Tests ===\n');
@@ -449,6 +488,236 @@ test('calculateStableTDEE detects large gaps and downgrades confidence', () => {
 
 test('MIN_TRACKED_DAYS constant is exported', () => {
     expect(Calculator.MIN_TRACKED_DAYS).toBe(4);
+});
+
+console.log('\n=== Utils Date Type Safety Tests ===\n');
+
+test('parseDate handles string input correctly', () => {
+    const result = Utils.parseDate('2026-02-26');
+    expect(result instanceof Date).toBe(true);
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(1);
+    expect(result.getDate()).toBe(26);
+});
+
+test('parseDate handles Date object without throwing', () => {
+    const date = new Date('2026-02-26');
+    const result = Utils.parseDate(date);
+    expect(result instanceof Date).toBe(true);
+});
+
+test('parseDate handles null gracefully', () => {
+    const result = Utils.parseDate(null);
+    expect(result instanceof Date).toBe(true);
+});
+
+test('parseDate handles undefined gracefully', () => {
+    const result = Utils.parseDate(undefined);
+    expect(result instanceof Date).toBe(true);
+});
+
+test('parseDate handles empty string gracefully', () => {
+    const result = Utils.parseDate('');
+    expect(result instanceof Date).toBe(true);
+});
+
+test('formatDate formats Date object correctly', () => {
+    const date = new Date(2026, 1, 26);
+    const result = Utils.formatDate(date);
+    expect(result).toBe('2026-02-26');
+});
+
+test('formatDate handles null gracefully', () => {
+    const result = Utils.formatDate(null);
+    expect(result).toBe('');
+});
+
+test('formatDate handles undefined gracefully', () => {
+    const result = Utils.formatDate(undefined);
+    expect(result).toBe('');
+});
+
+test('validateDateFormat returns success structure', () => {
+    const result = Utils.validateDateFormat('2026-02-26');
+    expect(result.success).toBe(true);
+    expect(result.data instanceof Date).toBe(true);
+});
+
+test('validateDateFormat returns error structure for null', () => {
+    const result = Utils.validateDateFormat(null);
+    expect(result.success).toBe(false);
+    expect(result.code).toBe('MISSING_INPUT');
+});
+
+test('validateDateFormat returns INVALID_FORMAT for wrong format', () => {
+    const result = Utils.validateDateFormat('02-26-2026');
+    expect(result.success).toBe(false);
+    expect(result.code).toBe('INVALID_FORMAT');
+});
+
+test('validateDateRange returns nested data structure', () => {
+    const result = Utils.validateDateRange('2026-01-01', '2026-01-31');
+    expect(result.success).toBe(true);
+    expect(result.data).toBeDefined();
+    expect(result.data.start instanceof Date).toBe(true);
+    expect(result.data.end instanceof Date).toBe(true);
+    expect(result.data.days).toBe(30);
+});
+
+test('validateDateRange returns MISSING_INPUT for null', () => {
+    const result = Utils.validateDateRange(null, '2026-01-31');
+    expect(result.success).toBe(false);
+    expect(result.code).toBe('MISSING_INPUT');
+});
+
+test('validateDateRange returns INVALID_RANGE when start > end', () => {
+    const result = Utils.validateDateRange('2026-01-31', '2026-01-01');
+    expect(result.success).toBe(false);
+    expect(result.code).toBe('INVALID_RANGE');
+});
+
+test('validateWeight returns success with data', () => {
+    const result = Utils.validateWeight(80, 'kg');
+    expect(result.success).toBe(true);
+    expect(result.data).toBe(80);
+});
+
+test('validateWeight returns OUT_OF_RANGE for invalid value', () => {
+    const result = Utils.validateWeight(10, 'kg');
+    expect(result.success).toBe(false);
+    expect(result.code).toBe('OUT_OF_RANGE');
+});
+
+test('validateCalories returns success with data', () => {
+    const result = Utils.validateCalories(1600);
+    expect(result.success).toBe(true);
+    expect(result.data).toBe(1600);
+});
+
+test('validateCalories returns OUT_OF_RANGE for excessive value', () => {
+    const result = Utils.validateCalories(20000);
+    expect(result.success).toBe(false);
+    expect(result.code).toBe('OUT_OF_RANGE');
+});
+
+console.log('\n=== Storage Migration Tests ===\n');
+
+// Mock localStorage for Node.js
+global.localStorage = {
+    data: {},
+    getItem(key) { return this.data[key] || null; },
+    setItem(key, value) { this.data[key] = value; },
+    removeItem(key) { delete this.data[key]; },
+    clear() { this.data = {}; }
+};
+
+test('Storage migration v0 to v1 initializes defaults', () => {
+    global.localStorage.clear();
+    Storage.init();
+    expect(global.localStorage.data.tdee_schema_version).toBe('1');
+    expect(global.localStorage.data.tdee_settings).toBeDefined();
+});
+
+test('Storage preserves entry structure', () => {
+    global.localStorage.clear();
+    Storage.init();
+    const result = Storage.saveEntry('2026-02-26', { weight: 80.5, calories: 1600, notes: 'Test' });
+    expect(result).toBe(true);
+    const retrieved = Storage.getEntry('2026-02-26');
+    expect(retrieved.weight).toBe(80.5);
+    expect(retrieved.calories).toBe(1600);
+    expect(retrieved.notes).toBe('Test');
+});
+
+test('Storage preserves 91 entries through migration', () => {
+    global.localStorage.clear();
+    
+    // Create 91 entries
+    const entries = {};
+    for (let i = 0; i < 91; i++) {
+        const date = new Date('2026-01-01');
+        date.setDate(date.getDate() + i);
+        const dateStr = Utils.formatDate(date);
+        entries[dateStr] = {
+            weight: 80 + (i * 0.1),
+            calories: 1600 + (i * 10),
+            notes: `Entry ${i + 1}`,
+            updatedAt: new Date().toISOString()
+        };
+    }
+    global.localStorage.data.tdee_entries = JSON.stringify(entries);
+    global.localStorage.data.tdee_schema_version = '0';
+    
+    // Run migration
+    Storage.init();
+    
+    // Verify count preserved
+    const allEntries = Storage.getAllEntries();
+    expect(Object.keys(allEntries).length).toBe(91);
+});
+
+test('Storage import preserves entry count', () => {
+    global.localStorage.clear();
+    Storage.init();
+    
+    const exportData = {
+        version: 1,
+        settings: { weightUnit: 'kg' },
+        entries: {}
+    };
+    
+    for (let i = 0; i < 50; i++) {
+        const date = new Date('2026-01-01');
+        date.setDate(date.getDate() + i);
+        const dateStr = Utils.formatDate(date);
+        exportData.entries[dateStr] = { weight: 80, calories: 1600 };
+    }
+    
+    const result = Storage.importData(exportData);
+    expect(result.success).toBe(true);
+    expect(result.entriesImported).toBe(50);
+});
+
+test('Storage getEntriesInRange validates dates', () => {
+    global.localStorage.clear();
+    Storage.init();
+    
+    const result1 = Storage.getEntriesInRange('bad', '2026-01-31');
+    expect(result1).toEqual([]);
+    
+    const result2 = Storage.getEntriesInRange('2026-01-31', '2026-01-01');
+    expect(result2).toEqual([]);
+});
+
+test('Storage saveEntry validates date format', () => {
+    global.localStorage.clear();
+    Storage.init();
+    
+    const result = Storage.saveEntry('invalid-date', { weight: 80 });
+    expect(result.success).toBe(false);
+    expect(result.code).toBe('INVALID_FORMAT');
+});
+
+test('Storage export/import round-trip preserves data', () => {
+    global.localStorage.clear();
+    Storage.init();
+    
+    Storage.saveEntry('2026-01-01', { weight: 80, calories: 1600, notes: 'Test' });
+    Storage.saveSettings({ weightUnit: 'lb' });
+    
+    const exported = Storage.exportData();
+    
+    global.localStorage.clear();
+    Storage.init();
+    
+    const importResult = Storage.importData(exported);
+    expect(importResult.success).toBe(true);
+    
+    const entry = Storage.getEntry('2026-01-01');
+    expect(entry.weight).toBe(80);
+    
+    const settings = Storage.getSettings();
+    expect(settings.weightUnit).toBe('lb');
 });
 
 // Summary
