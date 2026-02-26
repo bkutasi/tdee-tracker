@@ -14,23 +14,18 @@ const Dashboard = (function () {
         const settings = Storage.getSettings();
         const weightUnit = settings.weightUnit || 'kg';
 
-        // Get last 14 days for stable TDEE
+        // Single fetch for all data needed (56 days = 8 weeks)
         const today = new Date();
-        const fourteenDaysAgo = new Date(today);
-        fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
-
-        const recentEntries = Storage.getEntriesInRange(
-            Utils.formatDate(fourteenDaysAgo),
-            Utils.formatDate(today)
-        );
-
-        // Get longer history for trends/weekly
         const eightWeeksAgo = new Date(today);
         eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
+
         const allRecentEntries = Storage.getEntriesInRange(
             Utils.formatDate(eightWeeksAgo),
             Utils.formatDate(today)
         );
+
+        // Slice for 14-day stable TDEE (no extra fetch!)
+        const recentEntries = allRecentEntries.slice(-14);
 
         const processed = Calculator.processEntriesWithGaps(allRecentEntries);
 
@@ -61,17 +56,20 @@ const Dashboard = (function () {
         if ((!tdee || confidence === 'none') && settings.age && settings.height && settings.gender) {
             const weightForBMR = currentWeight || settings.startingWeight;
             if (weightForBMR) {
-                const bmr = Calculator.calculateBMR(
+                const bmrResult = Calculator.calculateBMR(
                     weightForBMR,
                     settings.height,
                     settings.age,
                     settings.gender
                 );
-                const theoretical = Calculator.calculateTheoreticalTDEE(bmr, settings.activityLevel);
-                if (theoretical) {
-                    tdee = theoretical;
-                    confidence = 'theoretical'; // Custom confidence level for display
-                    isTheoretical = true;
+                // Handle new return format {valid, bmr, error}
+                if (bmrResult.valid) {
+                    const theoretical = Calculator.calculateTheoreticalTDEE(bmrResult, settings.activityLevel);
+                    if (theoretical) {
+                        tdee = theoretical;
+                        confidence = 'theoretical'; // Custom confidence level for display
+                        isTheoretical = true;
+                    }
                 }
             }
         }

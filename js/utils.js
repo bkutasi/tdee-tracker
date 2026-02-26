@@ -7,6 +7,59 @@ const Utils = (function () {
     'use strict';
 
     /**
+     * Result object pattern for consistent error handling
+     * @typedef {Object} Result
+     * @property {boolean} success - Operation succeeded
+     * @property {*} [data] - Result data (if success)
+     * @property {string} [error] - Error message (if failed)
+     * @property {string} [code] - Error code for programmatic handling
+     */
+
+    /**
+     * Create success result
+     * @param {*} data - Result data
+     * @returns {Result} Success result
+     */
+    function success(data) {
+        return { success: true, data };
+    }
+
+    /**
+     * Create error result
+     * @param {string} message - Error message
+     * @param {string} [code='ERROR'] - Error code
+     * @returns {Result} Error result
+     */
+    function error(message, code = 'ERROR') {
+        return { success: false, error: message, code };
+    }
+
+    /**
+     * Validation bounds for weight by unit
+     * Based on realistic human weight ranges
+     */
+    const WEIGHT_BOUNDS = {
+        kg: { min: 20, max: 300 },
+        lb: { min: 44, max: 660 }
+    };
+
+    /**
+     * Validation bounds for calorie intake
+     * Allows for extreme outliers while catching obvious errors
+     */
+    const CALORIE_BOUNDS = { min: 0, max: 15000 };
+
+    /**
+     * Debounce default wait time in milliseconds
+     */
+    const DEBOUNCE_DELAY = 300;
+
+    /**
+     * Throttle default limit in milliseconds
+     */
+    const THROTTLE_LIMIT = 100;
+
+    /**
      * Format date as YYYY-MM-DD
      * @param {Date|string} date - Date to format
      * @returns {string} Formatted date string
@@ -108,41 +161,46 @@ const Utils = (function () {
      * Validate weight value
      * @param {*} value - Weight value
      * @param {string} unit - 'kg' or 'lb'
-     * @returns {Object} { valid: boolean, error?: string, value?: number }
+     * @returns {Result} Success with validated value or error with message
      */
     function validateWeight(value, unit = 'kg') {
         if (!isValidNumber(value)) {
-            return { valid: false, error: 'Invalid weight value' };
+            return error('Invalid weight value', 'INVALID_INPUT');
         }
 
         const num = Number(value);
-        const minWeight = unit === 'kg' ? 20 : 44;
-        const maxWeight = unit === 'kg' ? 300 : 660;
+        const bounds = WEIGHT_BOUNDS[unit];
 
-        if (num < minWeight || num > maxWeight) {
-            return { valid: false, error: `Weight must be between ${minWeight} and ${maxWeight} ${unit}` };
+        if (num < bounds.min || num > bounds.max) {
+            return error(
+                `Weight must be between ${bounds.min} and ${bounds.max} ${unit}`,
+                'OUT_OF_RANGE'
+            );
         }
 
-        return { valid: true, value: num };
+        return success(num);
     }
 
     /**
      * Validate calorie value
      * @param {*} value - Calorie value
-     * @returns {Object} { valid: boolean, error?: string, value?: number }
+     * @returns {Result} Success with validated value or error with message
      */
     function validateCalories(value) {
         if (!isValidNumber(value)) {
-            return { valid: false, error: 'Invalid calorie value' };
+            return error('Invalid calorie value', 'INVALID_INPUT');
         }
 
         const num = Number(value);
 
-        if (num < 0 || num > 15000) {
-            return { valid: false, error: 'Calories must be between 0 and 15000' };
+        if (num < CALORIE_BOUNDS.min || num > CALORIE_BOUNDS.max) {
+            return error(
+                `Calories must be between ${CALORIE_BOUNDS.min} and ${CALORIE_BOUNDS.max}`,
+                'OUT_OF_RANGE'
+            );
         }
 
-        return { valid: true, value: Math.round(num) };
+        return success(Math.round(num));
     }
 
     /**
@@ -151,7 +209,7 @@ const Utils = (function () {
      * @param {number} wait - Wait time in ms
      * @returns {Function} Debounced function
      */
-    function debounce(func, wait = 300) {
+    function debounce(func, wait = DEBOUNCE_DELAY) {
         let timeout;
         return function executedFunction(...args) {
             const later = () => {
@@ -169,7 +227,7 @@ const Utils = (function () {
      * @param {number} limit - Minimum time between calls
      * @returns {Function} Throttled function
      */
-    function throttle(func, limit = 100) {
+    function throttle(func, limit = THROTTLE_LIMIT) {
         let inThrottle;
         return function (...args) {
             if (!inThrottle) {
@@ -211,19 +269,98 @@ const Utils = (function () {
         });
     }
 
+    /**
+     * Validate date format (YYYY-MM-DD)
+     * @param {string} dateStr - Date string to validate
+     * @returns {Result} Validation result with parsed date if valid
+     */
+    function validateDateFormat(dateStr) {
+        if (!dateStr) {
+            return error('Date is required', 'MISSING_INPUT');
+        }
+
+        // Validate format (YYYY-MM-DD)
+        const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+        if (!datePattern.test(dateStr)) {
+            return error('Invalid date format. Use YYYY-MM-DD', 'INVALID_FORMAT');
+        }
+
+        // Parse and validate the date
+        const parsed = new Date(dateStr);
+        if (isNaN(parsed.getTime())) {
+            return error('Invalid date', 'INVALID_DATE');
+        }
+
+        return success(parsed);
+    }
+
+    /**
+     * Validate date range for data queries
+     * @param {string} startDate - Start date (YYYY-MM-DD)
+     * @param {string} endDate - End date (YYYY-MM-DD)
+     * @param {number} maxDays - Maximum allowed range (default: 730 = 2 years)
+     * @returns {Result} Validation result with parsed dates and day count
+     */
+    function validateDateRange(startDate, endDate, maxDays = 730) {
+        // Check for null/undefined
+        if (!startDate || !endDate) {
+            return error('Start date and end date are required', 'MISSING_INPUT');
+        }
+
+        // Validate start date format
+        const startValidation = validateDateFormat(startDate);
+        if (!startValidation.success) {
+            return startValidation;
+        }
+
+        // Validate end date format
+        const endValidation = validateDateFormat(endDate);
+        if (!endValidation.success) {
+            return endValidation;
+        }
+
+        const start = startValidation.data;
+        const end = endValidation.data;
+
+        // Check order
+        if (start > end) {
+            return error('Start date must be before end date', 'INVALID_RANGE');
+        }
+
+        // Check range limit
+        const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+        if (diffDays > maxDays) {
+            return error(
+                `Date range exceeds maximum of ${maxDays} days (${Math.round(maxDays / 365)} years)`,
+                'RANGE_EXCEEDED'
+            );
+        }
+
+        return success({ start, end, days: diffDays });
+    }
+
     // Public API
     return {
+        // Result helpers for consistent error handling
+        success,
+        error,
+        // Date utilities
         formatDate,
         parseDate,
         getWeekStart,
         getWeekNumber,
         getDateRange,
         getDayName,
+        // Validation
         isValidNumber,
         validateWeight,
         validateCalories,
+        validateDateFormat,
+        validateDateRange,
+        // Function utilities
         debounce,
         throttle,
+        // Data utilities
         generateId,
         deepClone,
         formatNumber

@@ -21,6 +21,7 @@ const Calculator = (function () {
     const OUTLIER_THRESHOLD = 3;  // Standard deviations for outlier detection
     const ROLLING_WINDOW = 4;     // Weeks for rolling TDEE (reduced from 6 for faster response)
     const MIN_TRACKED_DAYS = 4;   // Minimum calorie-tracked days required for valid TDEE
+    const CV_THRESHOLD = 0.02;    // Coefficient of variation threshold for volatility detection (2%)
 
     /**
      * Calculate Exponentially Weighted Moving Average
@@ -48,8 +49,8 @@ const Calculator = (function () {
         const stats = calculateStats(recentWeights);
         const coefficientOfVariation = stats.stdDev / stats.mean;
 
-        // If CV > 2%, use lower alpha for more smoothing
-        return coefficientOfVariation > 0.02 ? VOLATILE_ALPHA : DEFAULT_ALPHA;
+        // If CV > threshold, use lower alpha for more smoothing
+        return coefficientOfVariation > CV_THRESHOLD ? VOLATILE_ALPHA : DEFAULT_ALPHA;
     }
 
     /**
@@ -600,39 +601,89 @@ const Calculator = (function () {
      */
     /**
      * Calculate Basal Metabolic Rate (BMR) using Mifflin-St Jeor Equation
+     * Uses Utils.Result pattern for consistent error handling
      * @param {number} weight - Weight in kg
      * @param {number} height - Height in cm
      * @param {number} age - Age in years
-     * @param {string} gender - 'male' or 'female'
-     * @returns {number} BMR in calories
+     * @param {string} gender - 'male', 'female', or 'other'
+     * @returns {{valid: boolean, bmr: number|null, error?: string, code?: string}} BMR result with validation status
      */
     function calculateBMR(weight, height, age, gender) {
-        if (!weight || !height || !age) return null;
+        // Validate age
+        if (!age || age < 1 || age > 120) {
+            return {
+                valid: false,
+                error: 'Age must be between 1 and 120 years',
+                bmr: null,
+                code: 'INVALID_AGE'
+            };
+        }
+
+        // Validate height
+        if (!height || height < 50 || height > 250) {
+            return {
+                valid: false,
+                error: 'Height must be between 50 and 250 cm',
+                bmr: null,
+                code: 'INVALID_HEIGHT'
+            };
+        }
+
+        // Validate weight
+        if (!weight || weight < 20 || weight > 500) {
+            return {
+                valid: false,
+                error: 'Weight must be between 20 and 500 kg',
+                bmr: null,
+                code: 'INVALID_WEIGHT'
+            };
+        }
+
+        // Validate gender
+        const validGenders = ['male', 'female', 'other'];
+        if (!gender || !validGenders.includes(gender.toLowerCase())) {
+            return {
+                valid: false,
+                error: 'Gender must be male, female, or other',
+                bmr: null,
+                code: 'INVALID_GENDER'
+            };
+        }
+        const normalizedGender = gender.toLowerCase();
 
         // Mifflin-St Jeor Equation
         // Men: (10 × weight in kg) + (6.25 × height in cm) - (5 × age in years) + 5
         // Women: (10 × weight in kg) + (6.25 × height in cm) - (5 × age in years) - 161
+        // Other: Average of male and female formulas
 
         let bmr = (10 * weight) + (6.25 * height) - (5 * age);
 
-        if (gender === 'male') {
+        if (normalizedGender === 'male') {
             bmr += 5;
+        } else if (normalizedGender === 'other') {
+            // Average of male and female formulas: (5 - 161) / 2 = -78
+            bmr -= 78;
         } else {
             bmr -= 161;
         }
 
-        return round(bmr, 0);
+        return {
+            valid: true,
+            bmr: round(bmr, 0)
+        };
     }
 
     /**
      * Calculate Theoretical TDEE based on BMR and Activity Level
-     * @param {number} bmr - Calculated BMR
+     * @param {number|{valid: boolean, bmr: number|null}} bmr - Calculated BMR (supports old number format and new object format)
      * @param {number} activityLevel - Activity multiplier (1.2 to 1.9)
-     * @returns {number} Theoretical TDEE
+     * @returns {number|null} Theoretical TDEE
      */
     function calculateTheoreticalTDEE(bmr, activityLevel) {
-        if (!bmr || !activityLevel) return null;
-        return round(bmr * activityLevel, 0);
+        // Handle both old format (number) and new format (object with valid/bmr)
+        const bmrValue = bmr?.bmr ?? bmr;
+        if (!bmrValue || !activityLevel) return null;
+        return round(bmrValue * activityLevel, 0);
     }
 
     function convertWeight(value, from, to) {
@@ -681,7 +732,6 @@ const Calculator = (function () {
         calculateSmoothedTDEE,
         calculateDailyTarget,
         calculateWeeksToGoal,
-        calculateSlope,
         calculateSlope,
         calculatePeriodTDEE,
         calculateBMR,

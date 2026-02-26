@@ -1,6 +1,7 @@
 /**
  * TDEE Tracker - Storage Layer
  * LocalStorage-based persistence with future Supabase migration path
+ * Uses Utils.Result pattern for consistent error handling
  */
 
 const Storage = (function () {
@@ -13,6 +14,55 @@ const Storage = (function () {
     };
 
     const CURRENT_SCHEMA_VERSION = 1;
+
+    /**
+     * Create success result (alias for Utils.success)
+     * @param {*} data - Result data
+     * @returns {Object} Success result
+     */
+    function success(data) {
+        return { success: true, ...data };
+    }
+
+    /**
+     * Create error result (alias for Utils.error)
+     * @param {string} message - Error message
+     * @param {string} [code='ERROR'] - Error code
+     * @returns {Object} Error result
+     */
+    function error(message, code = 'ERROR') {
+        return { success: false, error: message, code };
+    }
+
+    /**
+     * Sanitize string to prevent XSS attacks
+     * Removes HTML tags and trims whitespace
+     * @param {*} str - Value to sanitize
+     * @returns {string} Sanitized string or empty string
+     */
+    function sanitizeString(str) {
+        if (typeof str !== 'string') return '';
+        // Remove HTML tags completely (not just angle brackets)
+        const withoutTags = str.replace(/<[^>]*>/g, '');
+        // Also remove any remaining angle brackets (safety fallback)
+        const withoutBrackets = withoutTags.replace(/[<>]/g, '');
+        return withoutBrackets.trim();
+    }
+
+    /**
+     * Sanitize entry data to prevent XSS attacks
+     * @param {Object} entry - Entry data to sanitize
+     * @returns {Object} Sanitized entry
+     */
+    function sanitizeEntry(entry) {
+        if (!entry || typeof entry !== 'object') return entry;
+        return {
+            weight: entry.weight !== undefined ? entry.weight : null,
+            calories: entry.calories !== undefined ? entry.calories : null,
+            notes: sanitizeString(entry.notes),
+            updatedAt: entry.updatedAt || new Date().toISOString()
+        };
+    }
 
     /**
      * Initialize storage and run migrations if needed
@@ -84,22 +134,33 @@ const Storage = (function () {
      * Save daily entry
      * @param {string} date - Date in YYYY-MM-DD format
      * @param {Object} entry - Entry data
-     * @returns {boolean} Success
+     * @returns {boolean|Object} true for success, or error object with {success: false, error, code}
      */
     function saveEntry(date, entry) {
+        // Validate date format
+        const dateValidation = Utils.validateDateFormat(date);
+        if (!dateValidation.success) {
+            console.error('saveEntry:', dateValidation.error);
+            return dateValidation;
+        }
+
         try {
             const entries = getAllEntries();
-            entries[date] = {
+            entries[date] = sanitizeEntry({
                 weight: entry.weight !== undefined ? entry.weight : null,
                 calories: entry.calories !== undefined ? entry.calories : null,
                 notes: entry.notes || '',
                 updatedAt: new Date().toISOString()
-            };
+            });
             localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(entries));
             return true;
-        } catch (error) {
-            console.error('Failed to save entry:', error);
-            return false;
+        } catch (err) {
+            if (err.name === 'QuotaExceededError') {
+                console.error('Storage limit reached');
+                return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
+            }
+            console.error('Failed to save entry:', err);
+            return error(err.message);
         }
     }
 
@@ -109,6 +170,13 @@ const Storage = (function () {
      * @returns {Object|null} Entry or null
      */
     function getEntry(date) {
+        // Validate date format
+        const dateValidation = Utils.validateDateFormat(date);
+        if (!dateValidation.success) {
+            console.error('getEntry:', dateValidation.error);
+            return null;
+        }
+
         const entries = getAllEntries();
         return entries[date] || null;
     }
@@ -134,13 +202,17 @@ const Storage = (function () {
      * @returns {Object[]} Array of entries with dates
      */
     function getEntriesInRange(startDate, endDate) {
+        // Validate date range
+        const validation = Utils.validateDateRange(startDate, endDate);
+        if (!validation.success) {
+            console.error('getEntriesInRange:', validation.error);
+            return [];  // Return empty array on validation failure
+        }
+
         const allEntries = getAllEntries();
         const result = [];
-
-        // Use Utils if available, otherwise simple date iteration
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const current = new Date(start);
+        const current = new Date(validation.start);
+        const end = validation.end;
 
         while (current <= end) {
             const dateStr = current.toISOString().split('T')[0];
@@ -160,9 +232,16 @@ const Storage = (function () {
     /**
      * Delete entry for a specific date
      * @param {string} date - Date in YYYY-MM-DD format
-     * @returns {boolean} Success
+     * @returns {boolean|Object} true for success, or error object with {success: false, error, code}
      */
     function deleteEntry(date) {
+        // Validate date format
+        const dateValidation = Utils.validateDateFormat(date);
+        if (!dateValidation.success) {
+            console.error('deleteEntry:', dateValidation.error);
+            return dateValidation;
+        }
+
         try {
             const entries = getAllEntries();
             if (entries[date]) {
@@ -170,9 +249,13 @@ const Storage = (function () {
                 localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(entries));
             }
             return true;
-        } catch (error) {
-            console.error('Failed to delete entry:', error);
-            return false;
+        } catch (err) {
+            if (err.name === 'QuotaExceededError') {
+                console.error('Storage limit reached during delete');
+                return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
+            }
+            console.error('Failed to delete entry:', err);
+            return error(err.message);
         }
     }
 
@@ -193,7 +276,7 @@ const Storage = (function () {
     /**
      * Save user settings
      * @param {Object} settings - Settings to save (merged with existing)
-     * @returns {boolean} Success
+     * @returns {boolean|Object} true for success, or error object with {success: false, error, code}
      */
     function saveSettings(settings) {
         try {
@@ -205,9 +288,13 @@ const Storage = (function () {
             };
             localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
             return true;
-        } catch (error) {
-            console.error('Failed to save settings:', error);
-            return false;
+        } catch (err) {
+            if (err.name === 'QuotaExceededError') {
+                console.error('Storage limit reached');
+                return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
+            }
+            console.error('Failed to save settings:', err);
+            return error(err.message);
         }
     }
 
@@ -227,7 +314,7 @@ const Storage = (function () {
     /**
      * Import data from backup
      * @param {Object|string} data - Data to import (object or JSON string)
-     * @returns {Object} { success: boolean, entriesImported?: number, error?: string }
+     * @returns {Object} { success: boolean, entriesImported?: number, error?: string, code?: string }
      */
     function importData(data) {
         try {
@@ -236,7 +323,7 @@ const Storage = (function () {
             }
 
             if (!data || typeof data !== 'object') {
-                return { success: false, error: 'Invalid data format' };
+                return error('Invalid data format', 'INVALID_FORMAT');
             }
 
             // Import settings if present
@@ -253,7 +340,8 @@ const Storage = (function () {
                 for (const [date, entry] of Object.entries(data.entries)) {
                     // Validate date format
                     if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-                        mergedEntries[date] = entry;
+                        // Sanitize entry data to prevent XSS
+                        mergedEntries[date] = sanitizeEntry(entry);
                         entriesImported++;
                     }
                 }
@@ -261,10 +349,14 @@ const Storage = (function () {
                 localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(mergedEntries));
             }
 
-            return { success: true, entriesImported };
-        } catch (error) {
-            console.error('Import failed:', error);
-            return { success: false, error: error.message };
+            return success({ entriesImported });
+        } catch (err) {
+            if (err.name === 'QuotaExceededError') {
+                console.error('Storage limit reached during import');
+                return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
+            }
+            console.error('Import failed:', err);
+            return error(err.message);
         }
     }
 
@@ -286,7 +378,7 @@ const Storage = (function () {
 
     /**
      * Get storage size info
-     * @returns {Object} { used: number, available: number, entries: number }
+     * @returns {Object} Storage usage information
      */
     function getStorageInfo() {
         const entries = getAllEntries();
@@ -294,14 +386,34 @@ const Storage = (function () {
         const settingsStr = localStorage.getItem(STORAGE_KEYS.SETTINGS) || '';
 
         const used = new Blob([entriesStr, settingsStr]).size;
+        const estimatedLimit = 5 * 1024 * 1024; // LocalStorage limit is typically 5-10MB
+        const available = Math.max(0, estimatedLimit - used);
+        const percentageUsed = ((used / estimatedLimit) * 100).toFixed(1);
 
         return {
             used,
             usedFormatted: formatBytes(used),
+            available,
+            availableFormatted: formatBytes(available),
             entriesCount: Object.keys(entries).length,
-            // LocalStorage limit is typically 5-10MB
-            estimatedLimit: 5 * 1024 * 1024
+            estimatedLimit,
+            limitFormatted: formatBytes(estimatedLimit),
+            percentageUsed: parseFloat(percentageUsed),
+            usageLevel: getUsageLevel(percentageUsed)
         };
+    }
+
+    /**
+     * Get storage usage level classification
+     * @param {number} percentageUsed - Percentage of storage used (0-100)
+     * @returns {string} Usage level: 'low', 'medium', 'high', 'critical'
+     */
+    function getUsageLevel(percentageUsed) {
+        const pct = parseFloat(percentageUsed);
+        if (pct < 50) return 'low';
+        if (pct < 75) return 'medium';
+        if (pct < 90) return 'high';
+        return 'critical';
     }
 
     /**
@@ -331,7 +443,10 @@ const Storage = (function () {
         importData,
         clearAll,
         getStorageInfo,
+        getUsageLevel,
         getDefaultSettings,
+        sanitizeString,
+        sanitizeEntry,
         CURRENT_SCHEMA_VERSION
     };
 })();

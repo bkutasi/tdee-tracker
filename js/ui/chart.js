@@ -11,18 +11,54 @@ const Chart = (function () {
     let ctx = null;
     let hitAreas = []; // Store interactive zones {x, y, w, h, type, value, date, label}
 
+    // Cache CSS computed styles to avoid expensive getComputedStyle calls on every redraw
+    let cachedStyles = null;
+
+    // Cache chart as ImageData to avoid redrawing on tooltip interaction
+    let chartImageCache = null;
+
+    function getChartStyles() {
+        if (cachedStyles) return cachedStyles;
+
+        const style = getComputedStyle(document.documentElement);
+        cachedStyles = {
+            textColor: style.getPropertyValue('--color-text-tertiary').trim() || '#8b949e',
+            borderColor: style.getPropertyValue('--color-border-light').trim() || '#21262d'
+        };
+        return cachedStyles;
+    }
+
+    function clearStyleCache() {
+        cachedStyles = null;
+    }
+
     function init() {
         canvas = document.getElementById('progress-chart');
         if (!canvas) return;
 
         ctx = canvas.getContext('2d');
 
-        // Handle resize
-        window.addEventListener('resize', Utils.debounce(refresh, 250));
+        // Handle resize - invalidate cache on resize
+        window.addEventListener('resize', Utils.debounce(() => {
+            chartImageCache = null; // Invalidate cache on resize
+            refresh();
+        }, 250));
 
         // Interaction listeners
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('mouseleave', handleMouseLeave);
+
+        // Listen for theme changes to clear caches
+        // MutationObserver watches for changes to CSS custom properties
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                    clearStyleCache();
+                    chartImageCache = null; // Invalidate chart cache on theme change
+                }
+            });
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
 
         refresh();
     }
@@ -53,10 +89,19 @@ const Chart = (function () {
 
         if (cachedData.weights.length < 2) {
             drawEmptyState(width, height);
+            chartImageCache = null; // Clear cache on empty state
             return;
         }
 
         drawChart(cachedData, width, height);
+        
+        // Cache the chart rendering for fast tooltip updates
+        try {
+            chartImageCache = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        } catch (e) {
+            // getImageData can fail with tainted canvas (CORS), fallback to redraw
+            chartImageCache = null;
+        }
     }
 
     function getChartData(days, settings) {
@@ -148,15 +193,18 @@ const Chart = (function () {
                     const bmrWeight = lastEntry?.ewmaWeight || settings.startingWeight;
 
                     if (bmrWeight) {
-                        const bmr = Calculator.calculateBMR(bmrWeight, settings.height, settings.age, settings.gender);
-                        const theoretical = Calculator.calculateTheoreticalTDEE(bmr, settings.activityLevel);
+                        const bmrResult = Calculator.calculateBMR(bmrWeight, settings.height, settings.age, settings.gender);
+                        // Handle new return format {valid, bmr, error}
+                        if (bmrResult.valid) {
+                            const theoretical = Calculator.calculateTheoreticalTDEE(bmrResult, settings.activityLevel);
 
-                        if (theoretical) {
-                            // If we had no TDEE, take theoretical
-                            // If we had 'low' confidence TDEE, we might prefer theoretical IF the difference is huge?
-                            // User complaint was "996 kcal" (likely low tracked days).
-                            // Let's rely on Theoretical if confidence is LOW/NONE.
-                            tdee = theoretical;
+                            if (theoretical) {
+                                // If we had no TDEE, take theoretical
+                                // If we had 'low' confidence TDEE, we might prefer theoretical IF the difference is huge?
+                                // User complaint was "996 kcal" (likely low tracked days).
+                                // Let's rely on Theoretical if confidence is LOW/NONE.
+                                tdee = theoretical;
+                            }
                         }
                     }
                 }
@@ -187,10 +235,10 @@ const Chart = (function () {
         // Clear
         ctx.clearRect(0, 0, width, height);
 
-        // Get colors from CSS
-        const style = getComputedStyle(document.documentElement);
-        const textColor = style.getPropertyValue('--color-text-tertiary').trim() || '#8b949e';
-        const borderColor = style.getPropertyValue('--color-border-light').trim() || '#21262d';
+        // Get colors from cached CSS styles (avoids expensive getComputedStyle call)
+        const styles = getChartStyles();
+        const textColor = styles.textColor;
+        const borderColor = styles.borderColor;
 
         // Colors
         const weightColor = '#667eea';
@@ -356,19 +404,35 @@ const Chart = (function () {
 
         if (hit) {
             canvas.style.cursor = 'pointer';
-            // Redraw chart then tooltip to clear previous tooltip
-            refresh(false); // false = don't re-calculate data, just redraw
+            // Restore cached chart (much faster than full redraw)
+            if (chartImageCache) {
+                ctx.putImageData(chartImageCache, 0, 0);
+            } else {
+                // Fallback to full redraw if cache unavailable
+                refresh(false);
+            }
             drawTooltip(hit);
         } else {
             canvas.style.cursor = 'default';
-            refresh(false);
+            // Restore cached chart (clears tooltip)
+            if (chartImageCache) {
+                ctx.putImageData(chartImageCache, 0, 0);
+            } else {
+                // Fallback to full redraw if cache unavailable
+                refresh(false);
+            }
         }
     }
 
     function handleMouseLeave() {
         if (!canvas) return;
         canvas.style.cursor = 'default';
-        refresh(false);
+        // Restore cached chart (clears tooltip)
+        if (chartImageCache) {
+            ctx.putImageData(chartImageCache, 0, 0);
+        } else {
+            refresh(false);
+        }
     }
 
     function drawTooltip(hit) {
@@ -433,8 +497,8 @@ const Chart = (function () {
     function drawEmptyState(width, height) {
         ctx.clearRect(0, 0, width, height);
 
-        const style = getComputedStyle(document.documentElement);
-        const textColor = style.getPropertyValue('--color-text-tertiary').trim() || '#8b949e';
+        const styles = getChartStyles();
+        const textColor = styles.textColor;
 
         ctx.fillStyle = textColor;
         ctx.font = '14px -apple-system, sans-serif';

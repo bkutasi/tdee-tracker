@@ -40,6 +40,7 @@ function test(name, fn) {
 // Load modules
 const Calculator = require('../js/calculator.js');
 const Utils = require('../js/utils.js');
+const Storage = require('../js/storage.js');
 
 console.log('\n=== Calculator Tests ===\n');
 
@@ -121,11 +122,108 @@ test('getDateRange generates dates', () => {
 });
 
 test('validateWeight accepts valid kg', () => {
-    expect(Utils.validateWeight(80, 'kg').valid).toBe(true);
+    const result = Utils.validateWeight(80, 'kg');
+    expect(result.success).toBe(true);
+    expect(result.data).toBe(80);
 });
 
 test('validateCalories accepts valid values', () => {
-    expect(Utils.validateCalories(1600).valid).toBe(true);
+    const result = Utils.validateCalories(1600);
+    expect(result.success).toBe(true);
+    expect(result.data).toBe(1600);
+});
+
+test('validateWeight rejects invalid values', () => {
+    const result = Utils.validateWeight('invalid', 'kg');
+    expect(result.success).toBe(false);
+    expect(result.code).toBe('INVALID_INPUT');
+});
+
+test('validateWeight rejects out of range', () => {
+    const result = Utils.validateWeight(5, 'kg');
+    expect(result.success).toBe(false);
+    expect(result.code).toBe('OUT_OF_RANGE');
+});
+
+test('validateCalories rejects out of range', () => {
+    const result = Utils.validateCalories(20000);
+    expect(result.success).toBe(false);
+    expect(result.code).toBe('OUT_OF_RANGE');
+});
+
+test('success helper creates correct result', () => {
+    const result = Utils.success(42);
+    expect(result.success).toBe(true);
+    expect(result.data).toBe(42);
+});
+
+test('error helper creates correct result', () => {
+    const result = Utils.error('Something went wrong', 'TEST_ERROR');
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Something went wrong');
+    expect(result.code).toBe('TEST_ERROR');
+});
+
+console.log('\n=== Storage Sanitization Tests ===\n');
+
+test('sanitizeString removes HTML tags', () => {
+    expect(Storage.sanitizeString('<script>alert("xss")</script>')).toBe('alert("xss")');
+});
+
+test('sanitizeString removes angle brackets', () => {
+    // Proper sanitization removes entire tags, not just brackets
+    expect(Storage.sanitizeString('Hello <b>world</b>')).toBe('Hello world');
+});
+
+test('sanitizeString handles null/undefined', () => {
+    expect(Storage.sanitizeString(null)).toBe('');
+    expect(Storage.sanitizeString(undefined)).toBe('');
+});
+
+test('sanitizeString handles non-string types', () => {
+    expect(Storage.sanitizeString(123)).toBe('');
+    expect(Storage.sanitizeString({})).toBe('');
+});
+
+test('sanitizeString trims whitespace', () => {
+    expect(Storage.sanitizeString('  hello world  ')).toBe('hello world');
+});
+
+test('sanitizeEntry sanitizes notes field', () => {
+    const entry = {
+        weight: 80.5,
+        calories: 1600,
+        notes: '<script>malicious</script>bad notes'
+    };
+    const sanitized = Storage.sanitizeEntry(entry);
+    // Proper sanitization removes entire script tags
+    expect(sanitized.notes).toBe('maliciousbad notes');
+    expect(sanitized.weight).toBe(80.5);
+    expect(sanitized.calories).toBe(1600);
+});
+
+test('importData sanitizes imported entries', () => {
+    // Note: This test requires browser environment (localStorage)
+    // Skipped in Node.js environment
+    if (typeof localStorage === 'undefined') {
+        return; // Skip in Node.js
+    }
+    
+    const maliciousData = {
+        entries: {
+            '2025-01-15': {
+                weight: 80,
+                calories: 1600,
+                notes: '<img src=x onerror=alert(1)>XSS attack'
+            }
+        }
+    };
+    const result = Storage.importData(maliciousData);
+    expect(result.success).toBe(true);
+    
+    // Verify the notes were sanitized (entire img tag removed)
+    const entry = Storage.getEntry('2025-01-15');
+    expect(entry.notes).toBe('XSS attack');
 });
 
 console.log('\n=== TDEE Sanity Check Tests ===\n');
