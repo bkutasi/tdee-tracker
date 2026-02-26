@@ -432,19 +432,22 @@ test('calculateFastTDEE works with sufficient data', () => {
     if (result.tdee === null) {
         throw new Error('Expected TDEE to be calculated');
     }
-    expect(result.confidence).toBe('medium'); // 4-5 days = medium
+    expect(result.confidence).toBe('low'); // 5 days = low (4-6 days per CONFIDENCE_TIERS)
 });
 
-test('calculateFastTDEE high confidence with 6+ days', () => {
-    const entries = [
-        { date: '2025-01-01', weight: 80, calories: 1600 },
-        { date: '2025-01-02', weight: 80.2, calories: 1700 },
-        { date: '2025-01-03', weight: 80.1, calories: 1600 },
-        { date: '2025-01-04', weight: 80.0, calories: 1650 },
-        { date: '2025-01-05', weight: 79.9, calories: 1600 },
-        { date: '2025-01-06', weight: 79.8, calories: 1700 },
-        { date: '2025-01-07', weight: 79.6, calories: 1650 },
-    ];
+test('calculateFastTDEE high confidence with 14+ days', () => {
+    // Need 14+ days for high confidence per CONFIDENCE_TIERS
+    const entries = [];
+    for (let i = 0; i < 14; i++) {
+        const date = new Date('2025-01-01');
+        date.setDate(date.getDate() + i);
+        const dateStr = date.toISOString().split('T')[0];
+        entries.push({
+            date: dateStr,
+            weight: 80 - (i * 0.1), // Gradual weight loss
+            calories: 1600 + (i % 3) * 100 // Vary calories slightly
+        });
+    }
     const result = Calculator.calculateFastTDEE(entries, 'kg');
     expect(result.confidence).toBe('high');
 });

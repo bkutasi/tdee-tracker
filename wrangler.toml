@@ -1,0 +1,17 @@
+# Cloudflare Pages Configuration
+# https://developers.cloudflare.com/pages/platform/functions/wrangler-configuration/
+
+name = "tdee-tracker"
+compatibility_date = "2024-01-01"
+
+# Pages project configuration
+[site]
+bucket = "."
+
+# Production branch
+[env.production]
+name = "tdee-tracker-production"
+
+# Preview deployments
+[env.preview]
+name = "tdee-tracker-preview"
