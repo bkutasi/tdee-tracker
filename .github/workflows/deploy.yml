@@ -53,20 +53,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Pages (Production)
+        if: github.ref == 'refs/heads/master'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: >
-            pages deploy .
-            --project-name=tdee-tracker
-            --branch=${{ github.ref_name }}
-            --commit-dirty=true
+          command: pages deploy . --project-name=tdee-tracker --commit-dirty=true
+
+      - name: Deploy to Cloudflare Pages (Preview)
+        if: github.ref != 'refs/heads/master'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy . --project-name=tdee-tracker --branch=${{ github.ref_name }} --commit-dirty=true
 
       - name: Output deployment URL
         run: |
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          if [ "${{ github.ref }}" == "refs/heads/master" ]; then
             echo "✅ Production deployment complete!"
             echo "🌐 URL: https://tdee-tracker.pages.dev"
           else
