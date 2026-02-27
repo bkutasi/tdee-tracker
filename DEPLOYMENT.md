@@ -11,7 +11,7 @@
 **How**: GitHub Actions workflow with test gating ensures only passing tests deploy to production.
 
 **Key Features**:
-- ✅ Automatic deployment on push to `main` branch
+- ✅ Automatic deployment on push to `master` branch
 - ✅ Test gating blocks deployment if tests fail
 - ✅ Preview deployments for feature branches
 - ✅ Zero build step (vanilla JS, no npm dependencies)
@@ -98,7 +98,7 @@ Create a Cloudflare API token for GitHub Actions:
 
 Add Cloudflare credentials to GitHub repository secrets:
 
-1. Go to your GitHub repo: `https://github.com/{username}/tdee-tracker`
+1. Go to your GitHub repo: `https://github.com/bkutasi/tdee-tracker`
 2. Navigate to: **Settings** → **Secrets and variables** → **Actions**
 3. Click **New repository secret** and add:
 
@@ -122,9 +122,9 @@ name: Deploy to Cloudflare Pages
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, develop]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   test:
@@ -142,14 +142,14 @@ jobs:
     name: Deploy to Cloudflare Pages
     runs-on: ubuntu-latest
     needs: test  # Only runs if tests pass
-    if: github.ref == 'refs/heads/main'  # Production only on main
+    if: github.ref == 'refs/heads/master'  # Production only on master
     steps:
       - uses: actions/checkout@v4
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy . --project-name=tdee-tracker --branch=main
+          command: pages deploy . --project-name=tdee-tracker --branch=master
 ```
 
 ### How It Works
@@ -163,7 +163,7 @@ jobs:
 **Deployment Rules**:
 | Branch | Deployment Type | URL |
 |--------|----------------|-----|
-| `main` | Production | `https://tdee-tracker.pages.dev` |
+| `master` | Production | `https://tdee-tracker.pages.dev` |
 | `develop` | Preview | Auto-generated preview URL |
 | Feature branches | Preview | Auto-generated preview URL |
 | Pull Requests | Preview | Comment with preview URL |
@@ -174,7 +174,7 @@ jobs:
 
 ### Automatic Deployment
 
-**On push to `main`**:
+**On push to `master`**:
 ```
 Push → GitHub Actions triggered → Tests run → Deploy to production
 ```
@@ -433,13 +433,13 @@ wrangler login
 wrangler whoami
 
 # Create project
-wrangler pages project create tdee-tracker --production-branch=main
+wrangler pages project create tdee-tracker --production-branch=master
 
 # List projects
 wrangler pages project list
 
 # Deploy manually
-wrangler pages deploy . --project-name=tdee-tracker --branch=main
+wrangler pages deploy . --project-name=tdee-tracker --branch=master
 
 # View deployments
 wrangler pages deployment list --project-name=tdee-tracker
@@ -451,7 +451,7 @@ wrangler pages deployment list --project-name=tdee-tracker
 |----------|-----|
 | Production | `https://tdee-tracker.pages.dev` |
 | Cloudflare Dashboard | `https://dash.cloudflare.com` |
-| GitHub Actions | `https://github.com/{user}/tdee-tracker/actions` |
+| GitHub Actions | `https://github.com/bkutasi/tdee-tracker/actions` |
 | API Tokens | `https://dash.cloudflare.com/profile/api-tokens` |
 
 ---

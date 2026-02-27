@@ -2,7 +2,7 @@
 
 > Total Daily Energy Expenditure Tracker — Vanilla JavaScript PWA with offline support
 
-[![Deploy to Cloudflare Pages](https://github.com/{username}/tdee-tracker/actions/workflows/deploy.yml/badge.svg)](https://github.com/{username}/tdee-tracker/actions/workflows/deploy.yml)
+[![Deploy to Cloudflare Pages](https://github.com/bkutasi/tdee-tracker/actions/workflows/deploy.yml/badge.svg)](https://github.com/bkutasi/tdee-tracker/actions/workflows/deploy.yml)
 [![Tests](https://img.shields.io/badge/tests-80+-blue)](tests/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-success)](package.json)
 
@@ -27,7 +27,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/{username}/tdee-tracker.git
+git clone https://github.com/bkutasi/tdee-tracker.git
 cd tdee-tracker
 
 # Open in browser (no build step required)
@@ -111,7 +111,7 @@ npm install -g wrangler
 wrangler login
 
 # Deploy to Cloudflare Pages
-wrangler pages deploy . --project-name=tdee-tracker --branch=main
+wrangler pages deploy . --project-name=tdee-tracker --branch=master
 ```
 
 ---
