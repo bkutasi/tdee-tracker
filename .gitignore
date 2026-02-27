@@ -25,6 +25,9 @@ npm-debug.log*
 .env.local
 .env.*.local
 
+# Generated config (contains credentials)
+js/config.js
+
 # Test coverage
 coverage/
 

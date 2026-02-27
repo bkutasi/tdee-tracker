@@ -53,6 +53,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Generate config from secrets
+        run: node scripts/generate-config.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
       - name: Deploy to Cloudflare Pages (Production)
         if: github.ref == 'refs/heads/master'
         uses: cloudflare/wrangler-action@v3

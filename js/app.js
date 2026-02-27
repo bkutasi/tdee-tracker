@@ -6,8 +6,13 @@
 const App = (function () {
     'use strict';
 
-    function init() {
+    async function init() {
         console.log('TDEE Tracker initializing...');
+
+        // Initialize configuration (if not already loaded)
+        if (!window.SUPABASE_CONFIG) {
+            console.warn('[App] Supabase config not found. Auth features disabled.');
+        }
 
         // Initialize storage
         Storage.init();
@@ -16,6 +21,18 @@ const App = (function () {
         const settings = Storage.getSettings();
         Components.applyTheme(settings.theme || 'system');
 
+        // Initialize auth & sync (if configured)
+        if (window.SUPABASE_CONFIG) {
+            try {
+                await Auth.init();
+                await Sync.init();
+                AuthModal.init();
+                console.log('[App] Auth & sync initialized');
+            } catch (error) {
+                console.error('[App] Auth initialization failed:', error);
+            }
+        }
+
         // Initialize UI components
         DailyEntry.init();
         WeeklyView.init();
@@ -23,10 +40,22 @@ const App = (function () {
         Settings.init();
         Chart.init();
 
+        // Set up auth modal button
+        setupAuthModal();
+
         // Register global keyboard shortcuts
         registerKeyboardShortcuts();
 
         console.log('TDEE Tracker ready!');
+    }
+
+    function setupAuthModal() {
+        const authModalBtn = document.getElementById('auth-modal-btn');
+        if (authModalBtn) {
+            authModalBtn.addEventListener('click', () => {
+                AuthModal.show();
+            });
+        }
     }
 
     function registerKeyboardShortcuts() {
