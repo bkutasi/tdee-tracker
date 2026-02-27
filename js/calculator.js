@@ -866,6 +866,11 @@ const Calculator = (function () {
     };
 })();
 
+// Expose to global scope for cross-module access (browser only)
+if (typeof window !== 'undefined') {
+    window.Calculator = Calculator;
+}
+
 // Export for Node.js testing (if running with Node)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Calculator;

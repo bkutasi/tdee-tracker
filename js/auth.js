@@ -357,6 +357,11 @@ const Auth = (function() {
     };
 })();
 
+// Expose to global scope for cross-module access (browser only)
+if (typeof window !== 'undefined') {
+    window.Auth = Auth;
+}
+
 // Export for module systems (if needed)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Auth;

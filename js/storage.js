@@ -476,6 +476,11 @@ const Storage = (function () {
     };
 })();
 
+// Expose to global scope for cross-module access (browser only)
+if (typeof window !== 'undefined') {
+    window.Storage = Storage;
+}
+
 // Export for Node.js testing
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Storage;

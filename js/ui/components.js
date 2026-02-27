@@ -186,3 +186,8 @@ const Components = (function () {
         applyTheme
     };
 })();
+
+// Expose to global scope for cross-module access (browser only)
+if (typeof window !== 'undefined') {
+    window.Components = Components;
+}

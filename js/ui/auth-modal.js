@@ -507,6 +507,11 @@ const AuthModal = (function() {
     };
 })();
 
+// Expose to global scope for cross-module access (browser only)
+if (typeof window !== 'undefined') {
+    window.AuthModal = AuthModal;
+}
+
 // Export for module systems (if needed)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = AuthModal;

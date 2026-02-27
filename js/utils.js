@@ -380,6 +380,11 @@ const Utils = (function () {
     };
 })();
 
+// Expose to global scope for cross-module access (browser only)
+if (typeof window !== 'undefined') {
+    window.Utils = Utils;
+}
+
 // Export for Node.js testing
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Utils;

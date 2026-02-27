@@ -272,3 +272,8 @@ const Dashboard = (function () {
         refresh
     };
 })();
+
+// Expose to global scope for cross-module access (browser only)
+if (typeof window !== 'undefined') {
+    window.Dashboard = Dashboard;
+}
