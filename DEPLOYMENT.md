@@ -16,6 +16,7 @@
 - ✅ Preview deployments for feature branches
 - ✅ Zero build step (vanilla JS, no npm dependencies)
 - ✅ Global CDN with automatic HTTPS
+- ✅ Custom domain: `tdee.kutasi.dev`
 
 ---
 
@@ -111,6 +112,26 @@ Add Cloudflare credentials to GitHub repository secrets:
 
 ---
 
+### Step 5: Configure Custom Domain (Optional)
+
+To use a custom domain like `tdee.kutasi.dev`:
+
+1. Go to Cloudflare Dashboard → **Workers & Pages** → **tdee-tracker**
+2. Click **Custom domains** tab
+3. Click **Set up a custom domain**
+4. Enter your domain: `tdee.kutasi.dev`
+5. Click **Continue**
+6. Cloudflare automatically creates DNS record (CNAME to `tdee-tracker.pages.dev`)
+7. Click **Activate domain**
+
+**Note**: Your domain (`kutasi.dev`) must already be using Cloudflare DNS.
+
+**Result**:
+- Production URL: `https://tdee.kutasi.dev`
+- Backup URL: `https://tdee-tracker.pages.dev` (still works)
+
+---
+
 ## 4. GitHub Actions Workflow
 
 ### Workflow File: `.github/workflows/deploy.yml`
@@ -163,7 +184,7 @@ jobs:
 **Deployment Rules**:
 | Branch | Deployment Type | URL |
 |--------|----------------|-----|
-| `master` | Production | `https://tdee-tracker.pages.dev` |
+| `master` | Production | `https://tdee.kutasi.dev` (custom domain) |
 | `develop` | Preview | Auto-generated preview URL |
 | Feature branches | Preview | Auto-generated preview URL |
 | Pull Requests | Preview | Comment with preview URL |
@@ -449,7 +470,8 @@ wrangler pages deployment list --project-name=tdee-tracker
 
 | Resource | URL |
 |----------|-----|
-| Production | `https://tdee-tracker.pages.dev` |
+| Production | `https://tdee.kutasi.dev` (custom domain) |
+| Pages.dev (backup) | `https://tdee-tracker.pages.dev` |
 | Cloudflare Dashboard | `https://dash.cloudflare.com` |
 | GitHub Actions | `https://github.com/bkutasi/tdee-tracker/actions` |
 | API Tokens | `https://dash.cloudflare.com/profile/api-tokens` |

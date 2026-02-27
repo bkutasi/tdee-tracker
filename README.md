@@ -6,7 +6,7 @@
 [![Tests](https://img.shields.io/badge/tests-80+-blue)](tests/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-success)](package.json)
 
-**Live Demo**: https://tdee-tracker.pages.dev
+**Live Demo**: https://tdee.kutasi.dev
 
 ---
 
@@ -94,8 +94,9 @@ tdee-tracker/
 
 This project is deployed to Cloudflare Pages with automated CI/CD:
 
-- **Production URL**: https://tdee-tracker.pages.dev
-- **Deployment**: Automatic on push to `main` branch
+- **Production URL**: https://tdee.kutasi.dev
+- **Backup URL**: https://tdee-tracker.pages.dev
+- **Deployment**: Automatic on push to `master` branch
 - **Test Gating**: Deployment blocked if tests fail
 - **Preview Deployments**: Automatic for feature branches
 

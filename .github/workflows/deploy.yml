@@ -73,7 +73,7 @@ jobs:
         run: |
           if [ "${{ github.ref }}" == "refs/heads/master" ]; then
             echo "✅ Production deployment complete!"
-            echo "🌐 URL: https://tdee-tracker.pages.dev"
+            echo "🌐 URL: https://tdee.kutasi.dev"
           else
             echo "✅ Preview deployment complete!"
             echo "🌐 Preview URL will be available at:"
