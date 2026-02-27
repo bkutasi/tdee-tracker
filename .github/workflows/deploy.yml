@@ -64,6 +64,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SITE_URL: ${{ secrets.SITE_URL }}
 
       - name: Deploy to Cloudflare Pages (Production)
         if: github.ref == 'refs/heads/master'

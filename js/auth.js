@@ -145,16 +145,19 @@ const Auth = (function() {
      * @param {string} redirectTo - URL to redirect after verification
      * @returns {Promise<{success: boolean, error?: object}>}
      */
-    async function signInWithMagicLink(email, redirectTo = window.location.origin) {
+    async function signInWithMagicLink(email, redirectTo) {
         if (!supabase) {
             throw new Error('Auth not initialized. Call Auth.init() first');
         }
+
+        // Use configured siteUrl if redirectTo not provided
+        const finalRedirectTo = redirectTo || window.SUPABASE_CONFIG?.siteUrl || window.location.origin;
 
         try {
             const { error } = await supabase.auth.signInWithOtp({
                 email: email.toLowerCase().trim(),
                 options: {
-                    emailRedirectTo: redirectTo
+                    emailRedirectTo: finalRedirectTo
                 }
             });
 
@@ -177,16 +180,19 @@ const Auth = (function() {
      * @param {string} redirectTo - URL to redirect after authentication
      * @returns {Promise<{success: boolean, url?: string, error?: object}>}
      */
-    async function signInWithOAuth(provider, redirectTo = window.location.origin) {
+    async function signInWithOAuth(provider, redirectTo) {
         if (!supabase) {
             throw new Error('Auth not initialized. Call Auth.init() first');
         }
+
+        // Use configured siteUrl if redirectTo not provided
+        const finalRedirectTo = redirectTo || window.SUPABASE_CONFIG?.siteUrl || window.location.origin;
 
         try {
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: provider,
                 options: {
-                    redirectTo: redirectTo
+                    redirectTo: finalRedirectTo
                 }
             });
 

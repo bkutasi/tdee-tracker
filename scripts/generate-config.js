@@ -46,21 +46,11 @@ function loadEnvFile() {
 }
 
 /**
- * Generate config.js content
+ * Generate js/config.js content
  */
-function generateConfig(supabaseUrl, supabaseAnonKey) {
-    if (!supabaseUrl || !supabaseAnonKey) {
-        console.error('❌ Missing required environment variables:');
-        console.error('   - SUPABASE_URL');
-        console.error('   - SUPABASE_ANON_KEY');
-        console.error('');
-        console.error('For local development:');
-        console.error('   1. Copy .env.example to .env');
-        console.error('   2. Fill in your Supabase credentials');
-        console.error('   3. Run: node scripts/generate-config.js');
-        console.error('');
-        process.exit(1);
-    }
+function generateConfig(supabaseUrl, supabaseAnonKey, siteUrl) {
+    // Default siteUrl to supabaseUrl if not provided
+    const finalSiteUrl = siteUrl || supabaseUrl;
 
     return `// Auto-generated configuration - DO NOT EDIT
 // This file is generated from environment variables
@@ -70,7 +60,8 @@ function generateConfig(supabaseUrl, supabaseAnonKey) {
 
 window.SUPABASE_CONFIG = {
     url: '${supabaseUrl}',
-    anonKey: '${supabaseAnonKey}'
+    anonKey: '${supabaseAnonKey}',
+    siteUrl: '${finalSiteUrl}'
 };
 
 // Export for module systems (if needed)
@@ -89,6 +80,7 @@ const envFromFile = loadEnvFile();
 // Get values from environment (priority) or .env file
 const supabaseUrl = process.env.SUPABASE_URL || envFromFile.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || envFromFile.SUPABASE_ANON_KEY;
+const siteUrl = process.env.SITE_URL || envFromFile.SITE_URL;
 
 // Validate
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -97,6 +89,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
     console.error('Required environment variables:');
     console.error('  SUPABASE_URL - Your Supabase project URL');
     console.error('  SUPABASE_ANON_KEY - Your Supabase anon/public key');
+    console.error('  SITE_URL - Your production URL (optional, defaults to SUPABASE_URL)');
     console.error('');
     console.error('For local development:');
     console.error('  1. Copy .env.example to .env');
@@ -107,7 +100,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Generate config content
-const configContent = generateConfig(supabaseUrl, supabaseAnonKey);
+const configContent = generateConfig(supabaseUrl, supabaseAnonKey, siteUrl);
 
 // Write config.js
 fs.writeFileSync(configPath, configContent, 'utf8');
