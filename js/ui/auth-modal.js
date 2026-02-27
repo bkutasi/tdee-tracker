@@ -37,6 +37,11 @@ const AuthModal = (function() {
      * Create modal DOM structure
      */
     function createModal() {
+        // Create overlay wrapper (backdrop)
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay hidden';
+        overlay.id = 'auth-modal-overlay';
+
         // Modal container
         modal = document.createElement('div');
         modal.id = 'auth-modal';
@@ -68,7 +73,8 @@ const AuthModal = (function() {
         `;
 
         modal.appendChild(modalContent);
-        document.body.appendChild(modal);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
 
         // Cache elements
         closeButton = modalContent.querySelector('.modal-close');
@@ -86,9 +92,10 @@ const AuthModal = (function() {
         // Close button
         closeButton.addEventListener('click', () => hide());
 
-        // Close on outside click
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+        // Close on outside click (overlay click)
+        const overlay = document.getElementById('auth-modal-overlay');
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
                 hide();
             }
         });
@@ -419,11 +426,16 @@ const AuthModal = (function() {
      * Show modal
      */
     function show() {
-        if (!modal) return;
+        const overlay = document.getElementById('auth-modal-overlay');
+        if (!overlay || !modal) return;
 
+        overlay.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
+
+        // Trigger slideUp animation
+        modal.style.animation = 'slideUp var(--transition-normal) ease';
 
         // Focus first interactive element
         setTimeout(() => {
@@ -436,8 +448,10 @@ const AuthModal = (function() {
      * Hide modal
      */
     function hide() {
-        if (!modal) return;
+        const overlay = document.getElementById('auth-modal-overlay');
+        if (!overlay || !modal) return;
 
+        overlay.classList.add('hidden');
         modal.setAttribute('aria-hidden', 'true');
         modal.classList.remove('show');
         document.body.style.overflow = '';
@@ -447,7 +461,8 @@ const AuthModal = (function() {
      * Check if modal is shown
      */
     function isShown() {
-        return modal?.classList.contains('show');
+        const overlay = document.getElementById('auth-modal-overlay');
+        return overlay ? !overlay.classList.contains('hidden') : false;
     }
 
     /**

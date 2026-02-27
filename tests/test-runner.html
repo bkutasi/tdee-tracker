@@ -77,6 +77,10 @@
             let passed = 0;
             let failed = 0;
             const results = {};
+            const hooks = {
+                beforeEach: null,
+                afterEach: null
+            };
             
             function describe(groupName, fn) {
                 results[groupName] = [];
@@ -86,12 +90,21 @@
                 window.currentGroup = originalIt;
             }
             
+            function beforeEach(fn) {
+                hooks.beforeEach = fn;
+            }
+            
+            function afterEach(fn) {
+                hooks.afterEach = fn;
+            }
+            
             function it(testName, fn) {
                 const group = window.currentGroup || 'Ungrouped';
                 if (!results[group]) results[group] = [];
                 
                 const start = performance.now();
                 try {
+                    if (hooks.beforeEach) hooks.beforeEach();
                     fn();
                     passed++;
                     results[group].push({ name: testName, pass: true, time: performance.now() - start });
@@ -103,6 +116,8 @@
                         error: error.message,
                         time: performance.now() - start 
                     });
+                } finally {
+                    if (hooks.afterEach) hooks.afterEach();
                 }
             }
             
@@ -113,6 +128,19 @@
                     },
                     toBeNull() {
                         if (actual === null) throw new Error(`Expected not null`);
+                    }
+                };
+                
+                const isNot = {
+                    toBe(expected) {
+                        if (actual === expected) throw new Error(`Expected not ${JSON.stringify(expected)}`);
+                    },
+                    toBeNull() {
+                        if (actual === null) throw new Error(`Expected not null`);
+                    },
+                    toContain(item) {
+                        if (!Array.isArray(actual)) throw new Error(`Expected array, got ${typeof actual}`);
+                        if (actual.includes(item)) throw new Error(`Expected ${JSON.stringify(actual)} not to contain ${JSON.stringify(item)}`);
                     }
                 };
                 
@@ -181,6 +209,11 @@
                             throw new Error(`Expected ${actual} < ${expected}`);
                         }
                     },
+                    toBeGreaterThanOrEqual(expected) {
+                        if (!(actual >= expected)) {
+                            throw new Error(`Expected ${actual} >= ${expected}`);
+                        }
+                    },
                     toMatch(pattern) {
                         if (!actual || !pattern.test || !pattern.test(actual)) {
                             throw new Error(`Expected ${JSON.stringify(actual)} to match ${pattern}`);
@@ -196,6 +229,9 @@
                         if (!threw) {
                             throw new Error(`Expected function to throw`);
                         }
+                    },
+                    get not() {
+                        return isNot;
                     },
                     not: isNot
                 };
@@ -232,11 +268,15 @@
                 resultsEl.innerHTML = html;
             }
             
-            return { describe, it, expect, render, getResults: () => ({ passed, failed }) };
+            return { describe, it, expect, beforeEach, afterEach, render, getResults: () => ({ passed, failed }) };
         })();
         
-        const { describe, it, expect } = TestRunner;
+        const { describe, it, expect, beforeEach, afterEach } = TestRunner;
     </script>
+
+    <!-- Load UI modules for modal tests -->
+    <script src="../js/ui/components.js"></script>
+    <script src="../js/ui/auth-modal.js"></script>
 
     <!-- Test Files -->
     <script src="calculator.test.js"></script>
@@ -246,6 +286,8 @@
     <script src="utils-date.test.js"></script>
     <script src="utils-validation.test.js"></script>
     <script src="storage-migration.test.js"></script>
+    <script src="csp-compliance.test.js"></script>
+    <script src="ui/modal.test.js"></script>
 
     <!-- Run -->
     <script>

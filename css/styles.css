@@ -835,7 +835,6 @@ input::placeholder {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    animation: slideUp var(--transition-normal) ease;
 }
 
 @keyframes slideUp {
@@ -1074,51 +1073,22 @@ input::placeholder {
 }
 
 /* ========================================
-   Auth Modal Styles
-======================================== */
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
-.modal.show {
-    display: flex;
-    opacity: 1;
-}
-
+   Auth Modal Content Styles
+======================================= */
 .modal-content {
     background: var(--color-bg-card);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    max-width: 480px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-    transform: translateY(-20px);
-    transition: transform 0.3s ease;
-    animation: modalSlideIn 0.3s ease forwards;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    max-width: 500px;
+    width: 100%;
+    max-height: 85vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
-@keyframes modalSlideIn {
-    from {
-        transform: translateY(-20px);
-        opacity: 0;
-    }
-
-    to {
-        transform: translateY(0);
-        opacity: 1;
+@media (min-width: 640px) {
+    .modal-content {
+        border-radius: var(--radius-xl);
     }
 }
 
@@ -1129,15 +1099,12 @@ input::placeholder {
     padding: var(--space-4) var(--space-5);
     border-bottom: 1px solid var(--color-border);
     background: var(--color-bg-secondary);
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    position: sticky;
-    top: 0;
-    z-index: 1;
+    flex-shrink: 0;
 }
 
 .modal-title {
     font-size: var(--font-size-lg);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     color: var(--color-text-primary);
     display: flex;
     align-items: center;
@@ -1149,18 +1116,19 @@ input::placeholder {
     font-size: 1.5rem;
 }
 
-.modal-body {
-    padding: var(--space-5);
-}
-
 .modal-close {
     padding: var(--space-1);
     border-radius: var(--radius-md);
-    transition: background 0.2s;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    transition: all var(--transition-fast);
 }
 
 .modal-close:hover {
     background: var(--color-bg-hover);
+    color: var(--color-text-primary);
 }
 
 /* Auth Status */
@@ -1183,7 +1151,6 @@ input::placeholder {
     }
 }
 
-/* User Info */
 .user-info {
     display: flex;
     align-items: center;

@@ -15,6 +15,10 @@ function expect(actual) {
         },
         toBeNull() {
             if (actual === null) throw new Error(`Expected not null, but got ${actual}`);
+        },
+        toContain(item) {
+            if (!Array.isArray(actual)) throw new Error(`Expected array, got ${typeof actual}`);
+            if (actual.includes(item)) throw new Error(`Expected ${JSON.stringify(actual)} not to contain ${JSON.stringify(item)}`);
         }
     };
     
@@ -46,6 +50,16 @@ function expect(actual) {
         toHaveLength(length) {
             if (!Array.isArray(actual)) throw new Error(`Expected array, got ${typeof actual}`);
             if (actual.length !== length) throw new Error(`Expected length ${length}, got ${actual.length}`);
+        },
+        toContain(item) {
+            if (!Array.isArray(actual)) throw new Error(`Expected array, got ${typeof actual}`);
+            if (!actual.includes(item)) throw new Error(`Expected ${JSON.stringify(actual)} to contain ${JSON.stringify(item)}`);
+        },
+        toBeGreaterThan(expected) {
+            if (!(actual > expected)) throw new Error(`Expected ${actual} > ${expected}`);
+        },
+        toBeGreaterThanOrEqual(expected) {
+            if (!(actual >= expected)) throw new Error(`Expected ${actual} >= ${expected}`);
         },
         toMatch(pattern) {
             if (!pattern.test(actual)) throw new Error(`Expected ${actual} to match ${pattern}`);
@@ -721,6 +735,93 @@ test('Storage export/import round-trip preserves data', () => {
     
     const settings = Storage.getSettings();
     expect(settings.weightUnit).toBe('lb');
+});
+
+console.log('\n=== CSP Compliance Tests ===\n');
+
+// CSP tests (Node.js compatible)
+const CSPTests = require('./csp-compliance.test.js');
+
+test('CSP meta tag exists in index.html', () => {
+    const cspContent = CSPTests.getCSPContent();
+    expect(cspContent.length).toBeGreaterThan(0);
+});
+
+test('CSP has default-src directive', () => {
+    const directives = CSPTests.getCSPDirectives();
+    expect(directives['default-src']).toBeDefined();
+});
+
+test('CSP script-src includes self', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const scriptSrc = directives['script-src'] || [];
+    expect(scriptSrc).toContain("'self'");
+});
+
+test('CSP script-src includes unsafe-inline', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const scriptSrc = directives['script-src'] || [];
+    expect(scriptSrc).toContain("'unsafe-inline'");
+});
+
+test('CSP script-src includes cdn.jsdelivr.net', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const scriptSrc = directives['script-src'] || [];
+    expect(scriptSrc).toContain('https://cdn.jsdelivr.net');
+});
+
+test('CSP style-src includes self', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const styleSrc = directives['style-src'] || [];
+    expect(styleSrc).toContain("'self'");
+});
+
+test('CSP style-src includes unsafe-inline', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const styleSrc = directives['style-src'] || [];
+    expect(styleSrc).toContain("'unsafe-inline'");
+});
+
+test('CSP img-src includes self', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const imgSrc = directives['img-src'] || [];
+    expect(imgSrc).toContain("'self'");
+});
+
+test('CSP img-src includes data:', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const imgSrc = directives['img-src'] || [];
+    expect(imgSrc).toContain('data:');
+});
+
+test('CSP connect-src includes self', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const connectSrc = directives['connect-src'] || [];
+    expect(connectSrc).toContain("'self'");
+});
+
+test('CSP connect-src includes supabase.co', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const connectSrc = directives['connect-src'] || [];
+    expect(connectSrc).toContain('https://*.supabase.co');
+});
+
+test('CSP does not use wildcard for script-src', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const scriptSrc = directives['script-src'] || [];
+    expect(scriptSrc).not.toContain('*');
+});
+
+test('CSP does not allow unsafe-eval', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const scriptSrc = directives['script-src'] || [];
+    expect(scriptSrc).not.toContain("'unsafe-eval'");
+});
+
+test('CSP has at least 4 directive types', () => {
+    const directives = CSPTests.getCSPDirectives();
+    const directiveCount = Object.keys(directives).length;
+    expect(directiveCount).toBeGreaterThanOrEqual(4);
 });
 
 // Summary
