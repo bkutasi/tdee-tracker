@@ -73,13 +73,8 @@ const Settings = (function () {
         document.querySelectorAll('.theme-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const theme = btn.dataset.theme;
-                // Save theme to localStorage
                 Storage.saveSettings({ theme });
-                // Apply theme to document
                 Components.applyTheme(theme);
-                // Show confirmation toast
-                const themeNames = { system: 'System', light: 'Light', dark: 'Dark' };
-                Components.showToast(`${themeNames[theme] || theme} theme applied`, 'success');
             });
         });
 

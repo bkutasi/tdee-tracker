@@ -99,23 +99,62 @@
     --z-sticky: 200;
     --z-modal: 300;
     --z-toast: 400;
+
+    /* Chart Colors - Light Theme */
+    --chart-weight: #d97706;
+    --chart-weight-light: rgba(217, 119, 6, 0.1);
+    --chart-tdee: #059669;
+    --chart-tdee-light: rgba(5, 150, 105, 0.1);
+    --chart-grid: rgba(0, 0, 0, 0.05);
+    --chart-grid-dark: rgba(255, 255, 255, 0.1);
+    --chart-tooltip-bg: rgba(23, 25, 28, 0.9);
+    --chart-tooltip-text: #FFFFFF;
+    --chart-tooltip-border: rgba(255, 255, 255, 0.1);
 }
 
-/* Chart Colors - Light Theme */
---chart-weight: #d97706;
---chart-weight-light: rgba(217, 119, 6, 0.1);
---chart-tdee: #059669;
---chart-tdee-light: rgba(5, 150, 105, 0.1);
---chart-grid: rgba(0, 0, 0, 0.05);
---chart-grid-dark: rgba(255, 255, 255, 0.1);
---chart-tooltip-bg: rgba(23, 25, 28, 0.9);
---chart-tooltip-text: #FFFFFF;
---chart-tooltip-border: rgba(255, 255, 255, 0.1);
+/* Dark Theme - Manual override (works regardless of system preference) */
+[data-theme="dark"] {
+    --color-bg-primary: #0d1117;
+    --color-bg-secondary: #161b22;
+    --color-bg-tertiary: #21262d;
+    --color-bg-card: #161b22;
+    --color-bg-input: #21262d;
+    --color-bg-hover: rgba(255, 255, 255, 0.06);
 
-/* Dark Theme - consolidate media query and manual override */
+    --color-text-primary: #e6edf3;
+    --color-text-secondary: #8b949e;
+    --color-text-tertiary: #6e7681;
+
+    --color-border: #30363d;
+    --color-border-light: #21262d;
+
+    --color-accent: #58a6ff;
+    --color-accent-hover: #79b8ff;
+    --color-accent-subtle: rgba(88, 166, 255, 0.15);
+
+    --color-success: #3fb950;
+    --color-success-subtle: rgba(63, 185, 80, 0.15);
+    --color-warning: #d29922;
+    --color-warning-subtle: rgba(210, 153, 34, 0.15);
+    --color-error: #f85149;
+    --color-error-subtle: rgba(248, 81, 73, 0.15);
+
+    /* Chart Colors - Dark mode */
+    --chart-weight: #f97316;
+    --chart-weight-light: rgba(249, 115, 22, 0.15);
+    --chart-tdee: #10b981;
+    --chart-tdee-light: rgba(16, 185, 129, 0.15);
+    --chart-tooltip-bg: rgba(0, 0, 0, 0.85);
+    --chart-tooltip-border: rgba(255, 255, 255, 0.15);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+}
+
+/* System preference (only when not manually overridden) */
 @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]),
-    [data-theme="dark"] {
+    :root:not([data-theme="light"]):not([data-theme="dark"]) {
         --color-bg-primary: #0d1117;
         --color-bg-secondary: #161b22;
         --color-bg-tertiary: #21262d;

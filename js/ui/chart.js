@@ -379,7 +379,7 @@ const Chart = (function () {
             });
         }
 
-        // X-axis labels
+        // X-axis labels - position in bottom padding area
         ctx.fillStyle = textColor;
         ctx.font = '10px -apple-system, sans-serif';
         ctx.textAlign = 'center';
@@ -389,7 +389,8 @@ const Chart = (function () {
             const x = padding.left + i * xStep;
             const date = Utils.parseDate(labels[i]);
             const label = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-            ctx.fillText(label, x, height - 8);
+            // Position label in bottom padding area (below chart, above canvas edge)
+            ctx.fillText(label, x, padding.top + chartHeight + 15);
         }
     }
 
