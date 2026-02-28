@@ -65,6 +65,9 @@
     <h1>🧪 TDEE Tracker Tests</h1>
     <div id="summary" class="summary running">Running tests...</div>
     <div id="results"></div>
+    
+    <!-- Hidden canvas for chart tests -->
+    <canvas id="progress-chart" style="display: none;"></canvas>
 
     <!-- Load source files -->
     <script src="../js/utils.js"></script>
@@ -274,8 +277,9 @@
         const { describe, it, expect, beforeEach, afterEach } = TestRunner;
     </script>
 
-    <!-- Load UI modules for modal tests -->
+    <!-- Load UI modules for modal tests and theme tests -->
     <script src="../js/ui/components.js"></script>
+    <script src="../js/ui/chart.js"></script>
     <script src="../js/ui/auth-modal.js"></script>
 
     <!-- Test Files -->
@@ -288,6 +292,8 @@
     <script src="storage-migration.test.js"></script>
     <script src="csp-compliance.test.js"></script>
     <script src="ui/modal.test.js"></script>
+    <script src="theme-visual.test.js"></script>
+    <script src="theme-storage.test.js"></script>
 
     <!-- Run -->
     <script>
