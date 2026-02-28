@@ -98,17 +98,16 @@ const Utils = (function () {
     }
 
     /**
-     * Get start of week (Sunday) for a given date
+     * Get start of week (Monday) for a given date
      * @param {Date|string} date - Date to find week start for
-     * @returns {Date} Sunday of that week
+     * @returns {Date} Monday of that week
      */
     function getWeekStart(date) {
         if (typeof date === 'string') date = parseDate(date);
         const d = new Date(date);
         const day = d.getDay();
-        // Sunday-based: Sunday (0) becomes 0, Mon-Sat (1-6) become 1-6
-        const diff = day;
-        d.setDate(d.getDate() - diff);
+        const diff = day === 0 ? -6 : 1 - day; // Monday-based: Mon(1)→0, Tue(2)→-1, ..., Sun(0)→-6
+        d.setDate(d.getDate() + diff);
         d.setHours(0, 0, 0, 0);
         return d;
     }

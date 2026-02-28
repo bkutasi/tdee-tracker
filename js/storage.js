@@ -124,7 +124,7 @@ const Storage = (function () {
             goalWeight: null,
             targetDeficit: 0.2,  // 20% deficit
             theme: 'system',    // 'light', 'dark', 'system'
-            weekStartsOn: 0,    // 0 = Sunday
+            weekStartsOn: 1,    // 1 = Monday
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };

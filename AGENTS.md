@@ -63,6 +63,7 @@
 - ❌ **DO NOT** suppress type errors — fix floating-point precision (`0.1 + 0.2 = 0.3`)
 - ❌ **DO NOT** skip tests — always run `node tests/node-test.js` before commit
 - ❌ **DO NOT** use browser dev tools for debugging — rely on automated tests
+- ❌ **DO NOT** forget to commit — commit after every atomic change
 
 ## Unique Styles
 
