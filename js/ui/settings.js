@@ -13,22 +13,36 @@ const Settings = (function () {
     }
 
     function setupEventListeners() {
-        // Open/close modal
-        document.getElementById('settings-btn').addEventListener('click', () => {
-            Components.openModal('settings-modal');
-            loadSettings();
-        });
+        // Open/close modal - with null checks
+        const settingsBtn = document.getElementById('settings-btn');
+        const closeSettingsBtn = document.getElementById('close-settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => {
+                Components.openModal('settings-modal');
+                loadSettings();
+            });
+        } else {
+            console.warn('[Settings] Settings button not found');
+        }
 
-        document.getElementById('close-settings-btn').addEventListener('click', () => {
-            Components.closeModal('settings-modal');
-        });
-
-        // Close on overlay click
-        document.getElementById('settings-modal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-overlay')) {
+        if (closeSettingsBtn) {
+            closeSettingsBtn.addEventListener('click', () => {
                 Components.closeModal('settings-modal');
-            }
-        });
+            });
+        }
+
+        if (settingsModal) {
+            // Close on overlay click
+            settingsModal.addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal-overlay')) {
+                    Components.closeModal('settings-modal');
+                }
+            });
+        } else {
+            console.warn('[Settings] Settings modal not found');
+        }
 
         // Close on Escape
         document.addEventListener('keydown', (e) => {

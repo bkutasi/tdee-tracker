@@ -112,24 +112,75 @@ const AuthModal = (function() {
      * Set up auth state change listener
      */
     function setupAuthStateListener() {
-        const Auth = window.Auth;
-        if (!Auth) {
-            console.error('[AuthModal] Auth module not available');
-            return;
-        }
+        // Retry up to 3 times with delay in case Auth is still loading
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        function trySetup() {
+            const Auth = window.Auth;
+            if (!Auth) {
+                attempts++;
+                if (attempts < maxAttempts) {
+                    console.log('[AuthModal] Retrying auth listener setup...');
+                    setTimeout(trySetup, 100);
+                    return;
+                }
+                console.error('[AuthModal] Auth module not available after retries');
+                return;
+            }
 
-        Auth.onAuthStateChange((event, user) => {
-            console.log('[AuthModal] Auth state changed:', event);
-            renderAuthState();
-        });
+            Auth.onAuthStateChange((event, user) => {
+                console.log('[AuthModal] Auth state changed:', event);
+                
+                // Re-render the auth UI on any state change
+                // Use setTimeout to ensure Auth module has processed the state
+                setTimeout(() => {
+                    renderAuthState();
+                    
+                    // Auto-close modal on successful sign in
+                    if (event === 'SIGNED_IN' && user) {
+                        console.log('[AuthModal] User signed in, modal will stay open to show status');
+                        // Don't auto-hide - let user see they're logged in
+                    }
+                }, 50);
+            });
+            
+            // Initial render after setting up listener
+            setTimeout(renderAuthState, 100);
+        }
+        
+        trySetup();
     }
 
     /**
      * Render auth state UI
      */
     function renderAuthState() {
+        // Guard against missing elements
+        if (!statusContainer) {
+            statusContainer = document.getElementById('auth-status');
+            if (!statusContainer) return;
+        }
+        
         const Auth = window.Auth;
-        const user = Auth?.getCurrentUser();
+        if (!Auth) {
+            console.warn('[AuthModal] Auth not available for render');
+            return;
+        }
+        
+        let user = null;
+        
+        // Try to get user - handle case where Auth module exists but not initialized
+        try {
+            user = Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+        } catch (e) {
+            console.warn('[AuthModal] Error getting user:', e);
+        }
+        
+        // If no user from getCurrentUser, check if we have a recent auth event
+        if (!user && Auth._lastUser) {
+            user = Auth._lastUser;
+        }
 
         if (user) {
             renderLoggedInState(user);
@@ -436,6 +487,9 @@ const AuthModal = (function() {
 
         // Trigger slideUp animation
         modal.style.animation = 'slideUp var(--transition-normal) ease';
+
+        // Always re-render auth state when modal opens
+        renderAuthState();
 
         // Focus first interactive element
         setTimeout(() => {

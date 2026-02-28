@@ -98,6 +98,11 @@ const Auth = (function() {
             
             currentUser = session?.user || null;
             
+            // Also expose last user for modules that check before initialization completes
+            if (authAPI && authAPI._lastUser !== undefined) {
+                authAPI._lastUser = currentUser;
+            }
+            
             // Notify all listeners
             authStateListeners.forEach(listener => {
                 try {
@@ -113,6 +118,9 @@ const Auth = (function() {
             } else if (event === 'SIGNED_OUT') {
                 console.log('[Auth] User signed out');
                 currentUser = null;
+                if (authAPI && authAPI._lastUser !== undefined) {
+                    authAPI._lastUser = null;
+                }
             }
         });
     }
@@ -348,8 +356,8 @@ const Auth = (function() {
         }
     }
 
-    // Public API
-    return {
+    // Public API - attach _lastUser to the returned object
+    const authAPI = {
         init,
         signInWithMagicLink,
         signInWithOAuth,
@@ -359,8 +367,11 @@ const Auth = (function() {
         getSession,
         onAuthStateChange,
         getUserProfile,
-        updateUserProfile
+        updateUserProfile,
+        _lastUser: null  // Track last known user for cross-module access
     };
+    
+    return authAPI;
 })();
 
 // Expose to global scope for cross-module access (browser only)

@@ -64,6 +64,11 @@ const Components = (function () {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.remove('hidden');
+            // Also add 'show' class for consistency with auth-modal
+            const modalContent = modal.querySelector('.modal');
+            if (modalContent) {
+                modalContent.classList.add('show');
+            }
             document.body.style.overflow = 'hidden';
         }
     }
@@ -76,6 +81,10 @@ const Components = (function () {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.add('hidden');
+            const modalContent = modal.querySelector('.modal');
+            if (modalContent) {
+                modalContent.classList.remove('show');
+            }
             document.body.style.overflow = '';
         }
     }

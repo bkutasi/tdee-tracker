@@ -805,7 +805,7 @@ input::placeholder {
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
     z-index: var(--z-modal);
     padding: var(--space-4);
@@ -837,10 +837,15 @@ input::placeholder {
     flex-direction: column;
 }
 
+.modal.show {
+    display: flex;
+    animation: slideUp var(--transition-normal) ease;
+}
+
 @keyframes slideUp {
     from {
         opacity: 0;
-        transform: translateY(100%);
+        transform: translateY(20px);
     }
 
     to {
@@ -856,6 +861,18 @@ input::placeholder {
 
     .modal {
         border-radius: var(--radius-xl);
+    }
+}
+
+@media (max-width: 639px) {
+    .modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+    }
+    
+    .modal {
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        max-height: 90vh;
     }
 }
 
