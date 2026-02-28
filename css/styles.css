@@ -28,11 +28,11 @@
     --color-accent-subtle: rgba(9, 105, 218, 0.1);
 
     --color-success: #1a7f37;
-    --color-success-subtle: rgba(26, 127, 55, 0.1);
-    --color-warning: #9a3c00;
-    --color-warning-subtle: rgba(154, 60, 0, 0.15);
-    --color-error: #cf222e;
-    --color-error-subtle: rgba(207, 34, 46, 0.1);
+    --color-success-subtle: rgba(26, 127, 55, 0.12);
+    --color-warning: #8b2c00;
+    --color-warning-subtle: rgba(139, 44, 0, 0.18);
+    --color-error: #a40e1a;
+    --color-error-subtle: rgba(164, 14, 26, 0.12);
 
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -404,7 +404,7 @@ body {
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-full);
     margin-top: var(--space-1);
-    font-weight: var(--font-weight-medium);
+    font-weight: var(--font-weight-semibold);
 }
 
 .confidence-high {
@@ -415,18 +415,21 @@ body {
 .confidence-medium {
     background: var(--color-warning-subtle);
     color: var(--color-warning);
+    font-weight: var(--font-weight-semibold);
 }
 
 .confidence-low,
 .confidence-none {
     background: var(--color-error-subtle);
     color: var(--color-error);
+    font-weight: var(--font-weight-semibold);
 }
 
 .outlier-warning {
     display: none;
     font-size: var(--font-size-xs);
     color: var(--color-warning);
+    font-weight: var(--font-weight-semibold);
     margin-top: var(--space-1);
 }
 

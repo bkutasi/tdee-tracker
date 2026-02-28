@@ -277,9 +277,10 @@ const Chart = (function () {
 
         const xStep = chartWidth / Math.max(1, weights.length - 1);
 
-        // Horizontal lines
+        // Horizontal grid lines - subtle
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.3; // Make grid lines more subtle
 
         const numLines = 4;
         for (let i = 0; i <= numLines; i++) {
@@ -289,14 +290,14 @@ const Chart = (function () {
             ctx.lineTo(width - padding.right, y);
             ctx.stroke();
 
-            // Left Y-axis labels (Weight) - use textColor for readability
+            // Left Y-axis labels (Weight)
             const weightValue = weightMax - (weightRange / numLines) * i;
             ctx.fillStyle = textColor;
             ctx.font = '11px -apple-system, sans-serif';
             ctx.textAlign = 'right';
             ctx.fillText(weightValue.toFixed(1), padding.left - 10, y + 4);
 
-            // Right Y-axis labels (TDEE) - use textColor for readability
+            // Right Y-axis labels (TDEE)
             if (validTdees.length > 0) {
                 const tdeeValue = Math.round(tdeeMax - (tdeeRange / numLines) * i);
                 ctx.fillStyle = textColor;
@@ -304,6 +305,8 @@ const Chart = (function () {
                 ctx.fillText(tdeeValue.toString(), width - padding.right + 10, y + 4);
             }
         }
+        
+        ctx.globalAlpha = 1.0; // Reset alpha for subsequent drawing
 
         // Draw TDEE as BARS
         if (validTdees.length > 0) {
