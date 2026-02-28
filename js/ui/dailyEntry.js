@@ -7,6 +7,14 @@ const DailyEntry = (function () {
     'use strict';
 
     let currentDate = Utils.formatDate(new Date());
+    
+    // Debounced refresh function to prevent excessive DOM updates
+    // Uses 300ms delay to batch rapid changes
+    const debouncedRefresh = Utils.debounce(() => {
+        WeeklyView.refresh();
+        Dashboard.refresh();
+        Chart.refresh();
+    }, 300);
 
     function init() {
         setupEventListeners();
@@ -161,8 +169,8 @@ const DailyEntry = (function () {
             notes: notesInput.value.trim()
         });
 
-        WeeklyView.refresh();
-        Dashboard.refresh();
+        // Use debounced refresh to prevent excessive DOM updates
+        debouncedRefresh();
     }
 
     function getCurrentDate() {

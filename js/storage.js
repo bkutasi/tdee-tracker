@@ -15,6 +15,10 @@ const Storage = (function () {
 
     const CURRENT_SCHEMA_VERSION = 1;
 
+    // In-memory cache to avoid repeated localStorage reads
+    // Invalidated on save/delete operations
+    let entriesCache = null;
+
     /**
      * Create success result (alias for Utils.success)
      * @param {*} data - Result data
@@ -68,6 +72,9 @@ const Storage = (function () {
      * Initialize storage and run migrations if needed
      */
     function init() {
+        // Reset cache to ensure fresh data after init/migration
+        entriesCache = null;
+        
         const version = getSchemaVersion();
         if (version < CURRENT_SCHEMA_VERSION) {
             migrateSchema(version, CURRENT_SCHEMA_VERSION);
@@ -153,6 +160,10 @@ const Storage = (function () {
                 updatedAt: new Date().toISOString()
             });
             localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(entries));
+            
+            // Invalidate cache after saving
+            entriesCache = null;
+            
             return true;
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
@@ -186,9 +197,15 @@ const Storage = (function () {
      * @returns {Object} All entries keyed by date
      */
     function getAllEntries() {
+        // Return cached entries if available
+        if (entriesCache !== null) {
+            return entriesCache;
+        }
+        
         try {
             const data = localStorage.getItem(STORAGE_KEYS.ENTRIES);
-            return data ? JSON.parse(data) : {};
+            entriesCache = data ? JSON.parse(data) : {};
+            return entriesCache;
         } catch (error) {
             console.error('Failed to load entries:', error);
             return {};
@@ -255,6 +272,9 @@ const Storage = (function () {
             if (entries[date]) {
                 delete entries[date];
                 localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(entries));
+                
+                // Invalidate cache after deleting
+                entriesCache = null;
             }
             return true;
         } catch (err) {
@@ -365,6 +385,9 @@ const Storage = (function () {
                 }
 
                 localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(mergedEntries));
+                
+                // Invalidate cache after import
+                entriesCache = null;
                 
                 // Log summary
                 if (entriesSkipped > 0) {
