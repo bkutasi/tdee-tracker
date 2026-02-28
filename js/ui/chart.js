@@ -244,9 +244,8 @@ const Chart = (function () {
         const { weights, tdees, labels } = data;
         hitAreas = []; // Reset hit areas
 
-        // Padding configuration
-        // Extra left/right padding to prevent first/last points from being cut off (points have 4px radius)
-        const padding = { top: 30, right: 85, bottom: 50, left: 85 };
+        // Padding: left/right extra space for axis labels + point radius
+        const padding = { top: 30, right: 80, bottom: 50, left: 80 };
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
 
