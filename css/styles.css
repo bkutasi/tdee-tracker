@@ -28,11 +28,11 @@
     --color-accent-subtle: rgba(9, 105, 218, 0.1);
 
     --color-success: #1a7f37;
-    --color-success-subtle: rgba(26, 127, 55, 0.12);
-    --color-warning: #8b2c00;
-    --color-warning-subtle: rgba(139, 44, 0, 0.18);
-    --color-error: #a40e1a;
-    --color-error-subtle: rgba(164, 14, 26, 0.12);
+    --color-success-subtle: rgba(26, 127, 55, 0.1);
+    --color-warning: #b35900;
+    --color-warning-subtle: rgba(179, 89, 0, 0.12);
+    --color-error: #cf222e;
+    --color-error-subtle: rgba(207, 34, 46, 0.1);
 
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -134,10 +134,10 @@
 
     --color-success: #3fb950;
     --color-success-subtle: rgba(63, 185, 80, 0.15);
-    --color-warning: #d29922;
-    --color-warning-subtle: rgba(210, 153, 34, 0.15);
-    --color-error: #f85149;
-    --color-error-subtle: rgba(248, 81, 73, 0.15);
+    --color-warning: #f0b429;
+    --color-warning-subtle: rgba(240, 180, 41, 0.18);
+    --color-error: #f97066;
+    --color-error-subtle: rgba(249, 112, 102, 0.15);
 
     /* Chart Colors - Dark mode */
     --chart-weight: #f97316;
@@ -404,7 +404,7 @@ body {
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-full);
     margin-top: var(--space-1);
-    font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-medium);
 }
 
 .confidence-high {
@@ -415,21 +415,18 @@ body {
 .confidence-medium {
     background: var(--color-warning-subtle);
     color: var(--color-warning);
-    font-weight: var(--font-weight-semibold);
 }
 
 .confidence-low,
 .confidence-none {
     background: var(--color-error-subtle);
     color: var(--color-error);
-    font-weight: var(--font-weight-semibold);
 }
 
 .outlier-warning {
     display: none;
     font-size: var(--font-size-xs);
     color: var(--color-warning);
-    font-weight: var(--font-weight-semibold);
     margin-top: var(--space-1);
 }
 
