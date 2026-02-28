@@ -244,9 +244,9 @@ const Chart = (function () {
         const { weights, tdees, labels } = data;
         hitAreas = []; // Reset hit areas
 
-        // Increase padding to prevent axis label overlap
-        // Bottom padding increased to 50px for X-axis labels
-        const padding = { top: 30, right: 70, bottom: 50, left: 70 };
+        // Padding configuration
+        // Extra left/right padding to prevent first/last points from being cut off (points have 4px radius)
+        const padding = { top: 30, right: 85, bottom: 50, left: 85 };
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
 
