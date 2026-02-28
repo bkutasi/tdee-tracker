@@ -288,19 +288,19 @@ const Chart = (function () {
             ctx.lineTo(width - padding.right, y);
             ctx.stroke();
 
-            // Left Y-axis labels (Weight)
+            // Left Y-axis labels (Weight) - use textColor for readability
             const weightValue = weightMax - (weightRange / numLines) * i;
-            ctx.fillStyle = weightColor;
+            ctx.fillStyle = textColor;
             ctx.font = '11px -apple-system, sans-serif';
             ctx.textAlign = 'right';
-            ctx.fillText(weightValue.toFixed(1), padding.left - 8, y + 4);
+            ctx.fillText(weightValue.toFixed(1), padding.left - 10, y + 4);
 
-            // Right Y-axis labels (TDEE)
+            // Right Y-axis labels (TDEE) - use textColor for readability
             if (validTdees.length > 0) {
                 const tdeeValue = Math.round(tdeeMax - (tdeeRange / numLines) * i);
-                ctx.fillStyle = tdeeColor;
+                ctx.fillStyle = textColor;
                 ctx.textAlign = 'left';
-                ctx.fillText(tdeeValue.toString(), width - padding.right + 8, y + 4);
+                ctx.fillText(tdeeValue.toString(), width - padding.right + 10, y + 4);
             }
         }
 
