@@ -67,7 +67,7 @@ const Auth = (function() {
     }
 
     /**
-     * Load Supabase client from CDN
+     * Load Supabase client from CDN (pinned version)
      */
     function loadSupabaseClient() {
         return new Promise((resolve, reject) => {
@@ -77,7 +77,9 @@ const Auth = (function() {
             }
 
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+            // Pinned version for security - update manually when needed
+            script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.47.0/dist/umd/supabase.min.js';
+            script.crossOrigin = 'anonymous';
             script.onload = () => {
                 console.log('[Auth] Supabase client loaded');
                 resolve();

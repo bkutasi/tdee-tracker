@@ -75,7 +75,7 @@ const Calculator = (function () {
     }
 
     /**
-     * Get data quality warnings for TDEE calculations
+     * Get data quality warnings for TDEE calculations (single pass)
      * @param {Object[]} entries - Array of daily entries
      * @param {string} weightUnit - 'kg' or 'lb'
      * @returns {string[]} Array of warning messages
@@ -88,38 +88,48 @@ const Calculator = (function () {
             return warnings;
         }
         
+        // Single pass to collect weights and calories
+        let weightCount = 0, calorieCount = 0, weightSum = 0;
+        const recentWeights = [];
+        
+        for (let i = 0; i < entries.length; i++) {
+            const entry = entries[i];
+            if (entry.weight !== null) {
+                weightCount++;
+                weightSum += entry.weight;
+                if (i >= entries.length - 14) recentWeights.push(entry.weight);
+            }
+            if (entry.calories !== null && !isNaN(entry.calories)) {
+                calorieCount++;
+            }
+        }
+        
         // Check for insufficient data
         if (entries.length < 7) {
             warnings.push(`More data needed for accurate TDEE (have ${entries.length} days, need 7+)`);
         }
         
         // Check for high weight variance
-        const weights = entries.filter(e => e.weight !== null).map(e => e.weight);
-        if (weights.length >= 3) {
-            const stats = calculateStats(weights);
+        if (weightCount >= 3) {
+            const stats = calculateStats(entries.filter(e => e.weight !== null).map(e => e.weight));
             const cv = stats.stdDev / stats.mean;
-            if (cv > 0.03) { // 3% CV is high for weight
+            if (cv > 0.03) {
                 warnings.push('High weight variance detected - may indicate water retention');
             }
         }
         
         // Check for gaps
-        const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
-        if (calorieEntries.length < entries.length * 0.7) {
+        if (calorieCount < entries.length * 0.7) {
             warnings.push('Missing calorie data may affect accuracy');
         }
         
-        // Check for plateau (optional - requires longer history)
-        if (entries.length >= 14) {
-            const recentWeights = weights.slice(-14);
-            if (recentWeights.length >= 10) {
-                const firstHalf = recentWeights.slice(0, Math.floor(recentWeights.length / 2));
-                const secondHalf = recentWeights.slice(Math.floor(recentWeights.length / 2));
-                const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
-                const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
-                if (Math.abs(secondAvg - firstAvg) < 0.2) {
-                    warnings.push('Weight plateau detected - consider metabolic adaptation');
-                }
+        // Check for plateau (only if we have enough recent weights)
+        if (recentWeights.length >= 10) {
+            const mid = Math.floor(recentWeights.length / 2);
+            const firstAvg = recentWeights.slice(0, mid).reduce((a, b) => a + b, 0) / mid;
+            const secondAvg = recentWeights.slice(mid).reduce((a, b) => a + b, 0) / (recentWeights.length - mid);
+            if (Math.abs(secondAvg - firstAvg) < 0.2) {
+                warnings.push('Weight plateau detected - consider metabolic adaptation');
             }
         }
         
@@ -241,40 +251,34 @@ const Calculator = (function () {
      * @returns {Object} { filteredCalories, filteredAvg, outliers, originalAvg }
      */
     function excludeCalorieOutliers(calories, threshold = 2.5) {
-        if (calories.length < 3) {
-            const avg = calories.length > 0
-                ? round(calories.reduce((a, b) => a + b, 0) / calories.length, 0)
-                : null;
-            return {
-                filteredCalories: calories,
-                filteredAvg: avg,
-                outliers: [],
-                originalAvg: avg
-            };
+        if (calories.length === 0) {
+            return { filteredCalories: [], filteredAvg: null, outliers: [], originalAvg: null };
         }
 
+        if (calories.length < 3) {
+            const avg = round(calories.reduce((a, b) => a + b, 0) / calories.length, 0);
+            return { filteredCalories: calories, filteredAvg: avg, outliers: [], originalAvg: avg };
+        }
+
+        // Calculate stats and classify outliers in one pass
         const stats = calculateStats(calories);
+        const thresholdValue = threshold * stats.stdDev;
         const outliers = [];
         const filtered = [];
+        let filteredSum = 0;
 
         for (const cal of calories) {
-            if (Math.abs(cal - stats.mean) > (threshold * stats.stdDev)) {
+            if (Math.abs(cal - stats.mean) > thresholdValue) {
                 outliers.push(cal);
             } else {
                 filtered.push(cal);
+                filteredSum += cal;
             }
         }
 
-        const filteredAvg = filtered.length > 0
-            ? round(filtered.reduce((a, b) => a + b, 0) / filtered.length, 0)
-            : null;
+        const filteredAvg = filtered.length > 0 ? round(filteredSum / filtered.length, 0) : null;
 
-        return {
-            filteredCalories: filtered,
-            filteredAvg,
-            outliers,
-            originalAvg: round(stats.mean, 0)
-        };
+        return { filteredCalories: filtered, filteredAvg, outliers, originalAvg: round(stats.mean, 0) };
     }
 
     /**
@@ -451,12 +455,15 @@ const Calculator = (function () {
             return { tdee: null, confidence, trackedDays, hasLargeGap };
         }
 
-        // Linear regression on EWMA weights
+        // Linear regression on EWMA weights (single pass)
         const n = ewmaData.length;
-        const sumX = ewmaData.reduce((a, b) => a + b.dayIndex, 0);
-        const sumY = ewmaData.reduce((a, b) => a + b.weight, 0);
-        const sumXY = ewmaData.reduce((a, b) => a + (b.dayIndex * b.weight), 0);
-        const sumXX = ewmaData.reduce((a, b) => a + (b.dayIndex * b.dayIndex), 0);
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        for (const { dayIndex, weight } of ewmaData) {
+            sumX += dayIndex;
+            sumY += weight;
+            sumXY += dayIndex * weight;
+            sumXX += dayIndex * dayIndex;
+        }
 
         const denominator = (n * sumXX - sumX * sumX);
         if (denominator === 0) {
@@ -499,31 +506,31 @@ const Calculator = (function () {
      * @returns {number} Slope (weight change per day)
      */
     function calculateSlope(entries) {
-        // Filter for entries with weight
+        if (!entries || entries.length === 0) return 0;
+        
+        const startDate = new Date(entries[0].date);
         const data = entries
             .filter(e => e.weight !== null && !isNaN(e.weight))
-            .map((e, i) => ({
-                x: i, // We use index as a proxy for days if contiguous, but better to use date diff if gaps
-                // However, for standard period calculation on processed contiguous array, index is fine.
-                // NOTE: If entries are daily and sorted (even with gaps filled with null), 
-                // we should map true day index relative to start.
-                dayIndex: Math.round((new Date(e.date) - new Date(entries[0].date)) / (1000 * 60 * 60 * 24)),
-                y: e.weight
+            .map(e => ({
+                dayIndex: Math.round((new Date(e.date) - startDate) / (1000 * 60 * 60 * 24)),
+                weight: e.weight
             }));
 
+        if (data.length < 2) return 0;
+
         const n = data.length;
-        if (n < 2) return 0; // Need at least 2 points for a line
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        for (const { dayIndex, weight } of data) {
+            sumX += dayIndex;
+            sumY += weight;
+            sumXY += dayIndex * weight;
+            sumXX += dayIndex * dayIndex;
+        }
 
-        const sumX = data.reduce((a, b) => a + b.dayIndex, 0);
-        const sumY = data.reduce((a, b) => a + b.y, 0);
-        const sumXY = data.reduce((a, b) => a + (b.dayIndex * b.y), 0);
-        const sumXX = data.reduce((a, b) => a + (b.dayIndex * b.dayIndex), 0);
+        const denominator = n * sumXX - sumX * sumX;
+        if (denominator === 0) return 0;
 
-        const denominator = (n * sumXX - sumX * sumX);
-        if (denominator === 0) return 0; // Vertical line or single x point
-
-        const slope = (n * sumXY - sumX * sumY) / denominator;
-        return slope;
+        return (n * sumXY - sumX * sumY) / denominator;
     }
 
     /**
@@ -535,41 +542,28 @@ const Calculator = (function () {
     function calculatePeriodTDEE(entries, unit = 'kg') {
         if (!entries || entries.length === 0) return null;
 
-        // 1. Calculate Average Calories (ignore nulls)
-        const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
-        if (calorieEntries.length === 0) return null;
+        // Single pass: collect calories and check weight count
+        let calorieSum = 0, calorieCount = 0, weightCount = 0;
+        for (const entry of entries) {
+            if (entry.calories !== null && !isNaN(entry.calories)) {
+                calorieSum += entry.calories;
+                calorieCount++;
+            }
+            if (entry.weight !== null && !isNaN(entry.weight)) {
+                weightCount++;
+            }
+        }
 
-        const avgCalories = calorieEntries.reduce((a, b) => a + b.calories, 0) / calorieEntries.length;
+        if (calorieCount === 0 || weightCount < 2) return null;
 
-        // 2. Calculate Weight Slope
+        const avgCalories = calorieSum / calorieCount;
         const slope = calculateSlope(entries);
+        
+        if (slope === 0 && weightCount < 2) return null;
 
-        // If slope is near 0 but we have weights, it means maintenance. 
-        // If we have no weights (<2 data points), slope returns 0, which might mislead.
-        // Let's check data point count inside calculateSlope or here.
-        const weightEntries = entries.filter(e => e.weight !== null && !isNaN(e.weight));
-        if (weightEntries.length < 2) return null; // Cannot estimate TDEE without weight trend
-
-        // 3. Calculate Weight Delta for the period
-        // TDEE formula expects total weight delta over the period to calculate deficit/surplus
-        // Delta = Slope * Days
-        const trackedDays = entries.length; // Length of the period for TDEE scaling
-        const weightDelta = slope * trackedDays;
-
-        // 4. Calculate TDEE
-        return calculateTDEE({
-            avgCalories,
-            weightDelta,
-            trackedDays, // Formula divides by trackedDays, so (Slope * Days) / Days = Slope * CalPerUnit + AvgCals
-            // Actually wait, existing formula:
-            // tdee = avgCalories + ((-weightDelta * calPerUnit) / trackedDays);
-            // If weightDelta = Slope * trackedDays, then:
-            // tdee = avgCalories + ((-Slope * trackedDays * calPerUnit) / trackedDays)
-            // tdee = avgCalories - (Slope * calPerUnit)
-            // This makes sense: Slope is Rate of Gain. 
-            // Gains (Slope > 0) -> Subtract from Intake to get Maintenance.
-            unit
-        });
+        // TDEE = avgCalories - (slope * calPerUnit)
+        const calPerUnit = unit === 'kg' ? CALORIES_PER_KG : CALORIES_PER_LB;
+        return round(avgCalories - (slope * calPerUnit), 0);
     }
 
     /**
@@ -612,44 +606,36 @@ const Calculator = (function () {
     }
 
     /**
-     * Aggregate daily entries into weekly summary
+     * Aggregate daily entries into weekly summary (single pass)
      * @param {Object[]} dailyEntries - Processed daily entries
      * @returns {Object} Weekly summary with averages and TDEE
      */
     function calculateWeeklySummary(dailyEntries) {
-        const weights = dailyEntries
-            .filter(e => e.weight !== null)
-            .map(e => e.weight);
+        let weightSum = 0, calorieSum = 0, weightCount = 0, calorieCount = 0;
+        let ewmaWeight = null;
 
-        const calories = dailyEntries
-            .filter(e => e.calories !== null)
-            .map(e => e.calories);
-
-        const trackedDays = calories.length;
-        const totalDays = dailyEntries.length;
-
-        const avgWeight = weights.length > 0
-            ? round(weights.reduce((a, b) => a + b, 0) / weights.length, 2)
-            : null;
-
-        const avgCalories = calories.length > 0
-            ? round(calories.reduce((a, b) => a + b, 0) / calories.length, 0)
-            : null;
-
-        // EWMA from last entry with weight
-        const lastWithWeight = [...dailyEntries].reverse().find(e => e.ewmaWeight !== null);
-        const ewmaWeight = lastWithWeight ? lastWithWeight.ewmaWeight : null;
+        for (const entry of dailyEntries) {
+            if (entry.weight !== null) {
+                weightSum += entry.weight;
+                weightCount++;
+                ewmaWeight = entry.ewmaWeight;
+            }
+            if (entry.calories !== null) {
+                calorieSum += entry.calories;
+                calorieCount++;
+            }
+        }
 
         return {
             startDate: dailyEntries[0]?.date,
             endDate: dailyEntries[dailyEntries.length - 1]?.date,
-            avgWeight,
+            avgWeight: weightCount > 0 ? round(weightSum / weightCount, 2) : null,
             ewmaWeight,
-            avgCalories,
-            trackedDays,
-            totalDays,
-            confidence: round(trackedDays / totalDays, 2),
-            hasGaps: trackedDays < totalDays
+            avgCalories: calorieCount > 0 ? round(calorieSum / calorieCount, 0) : null,
+            trackedDays: calorieCount,
+            totalDays: dailyEntries.length,
+            confidence: round(calorieCount / dailyEntries.length, 2),
+            hasGaps: calorieCount < dailyEntries.length
         };
     }
 
@@ -673,22 +659,34 @@ const Calculator = (function () {
     }
 
     /**
-     * Calculate basic statistics
+     * Calculate basic statistics (single pass for mean/min/max)
      * @param {number[]} data - Array of numbers
      * @returns {Object} { mean, stdDev, min, max }
      */
     function calculateStats(data) {
         if (data.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0 };
 
-        const mean = data.reduce((a, b) => a + b, 0) / data.length;
-        const squareDiffs = data.map(value => Math.pow(value - mean, 2));
-        const variance = squareDiffs.reduce((a, b) => a + b, 0) / data.length;
+        // Single pass for sum, min, max
+        let sum = 0, min = Infinity, max = -Infinity;
+        for (const value of data) {
+            sum += value;
+            if (value < min) min = value;
+            if (value > max) max = value;
+        }
+        const mean = sum / data.length;
+
+        // Second pass for variance (necessary)
+        let sumSqDiff = 0;
+        for (const value of data) {
+            sumSqDiff += (value - mean) ** 2;
+        }
+        const variance = sumSqDiff / data.length;
 
         return {
             mean: round(mean, 4),
             stdDev: round(Math.sqrt(variance), 4),
-            min: Math.min(...data),
-            max: Math.max(...data)
+            min: round(min, 4),
+            max: round(max, 4)
         };
     }
 
