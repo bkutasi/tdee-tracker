@@ -20,13 +20,13 @@
 
 // Load SyncDebug module (Node.js compatibility)
 // In browser, SyncDebug is loaded via script tag before this file
-let _SyncDebug;
+let _SyncDebug = null;
 if (typeof module !== 'undefined' && module.exports) {
     // Node.js environment - use require
     _SyncDebug = require('./sync-debug.js');
-} else {
-    // Browser environment - use global
-    _SyncDebug = (typeof _SyncDebug !== 'undefined') ? SyncDebug : null;
+} else if (typeof window !== 'undefined') {
+    // Browser environment - use global (will be set when scripts load)
+    _SyncDebug = window.SyncDebug || null;
 }
 
 const Sync = (function() {
