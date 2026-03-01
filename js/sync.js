@@ -287,11 +287,23 @@ const Sync = (function() {
             console.log(`[Sync] Merged to ${mergedEntries.length} total entries`);
 
             // Save merged data to LocalStorage
-            Storage.clearEntries();
+            // Storage expects entries as object keyed by date, not array
+            const allEntries = Storage.getAllEntries();
+            
+            // Merge remote entries into existing entries
             mergedEntries.forEach(entry => {
-                Storage.addEntry(entry);
+                if (entry.date) {
+                    allEntries[entry.date] = {
+                        weight: entry.weight,
+                        calories: entry.calories,
+                        notes: entry.notes || '',
+                        updatedAt: entry.updated_at || new Date().toISOString()
+                    };
+                }
             });
-
+            
+            // Save all entries back to LocalStorage
+            localStorage.setItem('tdee_entries', JSON.stringify(allEntries));
             console.log('[Sync] Merged data saved to LocalStorage');
 
             // Refresh UI components
