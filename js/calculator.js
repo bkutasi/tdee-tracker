@@ -15,15 +15,15 @@
 
 // Load sub-modules (Node.js compatibility)
 // In browser, EWMA and TDEE are loaded via script tags before this file
-let _EWMA, _TDEE;
+let _EWMA = null, _TDEE = null;
 if (typeof module !== 'undefined' && module.exports) {
     // Node.js environment - use require
     _EWMA = require('./calculator-ewma.js');
     _TDEE = require('./calculator-tdee.js');
-} else {
-    // Browser environment - use globals
-    _EWMA = (typeof _EWMA !== 'undefined') ? EWMA : null;
-    _TDEE = (typeof _TDEE !== 'undefined') ? TDEE : null;
+} else if (typeof window !== 'undefined') {
+    // Browser environment - use globals (will be set when scripts load)
+    _EWMA = window.EWMA || null;
+    _TDEE = window.TDEE || null;
 }
 
 const Calculator = (function () {
