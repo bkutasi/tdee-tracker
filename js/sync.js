@@ -842,7 +842,7 @@ const Sync = (function() {
         
         console.log('[Sync.saveWeightEntry] LocalStorage result:', localResult);
         
-        if (!localResult.success) {
+        if (localResult !== true) {
             console.error('[Sync.saveWeightEntry] LocalStorage save failed');
             return localResult;
         }
