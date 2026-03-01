@@ -400,7 +400,10 @@ const Sync = (function() {
     }
 
     /**
-     * Check if user is authenticated and online
+     * Check if sync can be executed immediately (authenticated AND online)
+     * Note: This is for immediate sync execution, NOT for queuing decisions.
+     * Operations should be queued whenever user is authenticated, regardless of online status.
+     * @returns {boolean} True if sync can execute now
      */
     function canSync() {
         const Auth = window.Auth;
@@ -418,10 +421,11 @@ const Sync = (function() {
         }
 
         if (!isOnline) {
-            log('Offline - queuing operations', 'warn');
+            log('Offline - will queue operations for later sync', 'info');
             return false;
         }
 
+        log(`canSync: authenticated=${isAuthenticated}, online=${isOnline} → can sync now`, 'debug');
         return true;
     }
 
@@ -671,27 +675,55 @@ const Sync = (function() {
     async function saveWeightEntry(entry) {
         const Storage = window.Storage;
 
+        console.log('[Sync.saveWeightEntry] Called with entry:', entry);
+
         // Validate entry has required date field
         if (!entry || !entry.date) {
+            console.error('[Sync.saveWeightEntry] Missing date field');
             return { success: false, error: 'Entry must include date field' };
         }
 
         // Save to LocalStorage immediately (optimistic UI)
+        console.log('[Sync.saveWeightEntry] Saving to LocalStorage...');
         const localResult = Storage.saveEntry(entry.date, {
             weight: entry.weight,
             calories: entry.calories,
             notes: entry.notes || ''
         });
         
+        console.log('[Sync.saveWeightEntry] LocalStorage result:', localResult);
+        
         if (!localResult.success) {
+            console.error('[Sync.saveWeightEntry] LocalStorage save failed');
             return localResult;
         }
 
-        // Queue sync to Supabase if authenticated
-        if (canSync()) {
-            const Auth = window.Auth;
-            const user = Auth.getCurrentUser();
+        // Check authentication status
+        const Auth = window.Auth;
+        if (!Auth) {
+            log('Auth module not available - entry saved locally only', 'warn');
+            console.warn('[Sync.saveWeightEntry] Auth module not available');
+            return localResult;
+        }
 
+        const isAuthenticated = Auth.isAuthenticated();
+        const user = Auth.getCurrentUser();
+
+        console.log('[Sync.saveWeightEntry] Auth check:', { 
+            isAuthenticated, 
+            userEmail: user?.email,
+            userId: user?.id 
+        });
+
+        log(`saveWeightEntry: isAuthenticated=${isAuthenticated}, user=${user ? user.email : 'null'}`, 'debug');
+
+        // Queue sync to Supabase if authenticated (regardless of online status)
+        // Offline users should still have operations queued for later sync
+        if (isAuthenticated && user) {
+            const isOnline = navigator.onLine;
+            console.log('[Sync.saveWeightEntry] Queueing operation for Supabase sync...');
+            log(`Queueing operation: online=${isOnline}, userId=${user.id}`, 'info');
+            
             queueOperation('create', 'weight_entries', {
                 user_id: user.id,
                 date: entry.date,
@@ -699,6 +731,11 @@ const Sync = (function() {
                 calories: entry.calories || null,
                 notes: entry.notes || null
             }, localResult.id);
+            
+            console.log('[Sync.saveWeightEntry] Operation queued. Queue length:', syncQueue.length);
+        } else {
+            console.warn('[Sync.saveWeightEntry] NOT queueing - user not authenticated');
+            log('User not authenticated - entry saved locally only (not queued)', 'warn');
         }
 
         return localResult;
@@ -719,9 +756,22 @@ const Sync = (function() {
             return localResult;
         }
 
-        // Queue sync to Supabase
-        if (canSync()) {
+        // Check authentication status
+        const Auth = window.Auth;
+        if (!Auth) {
+            log('Auth module not available - entry updated locally only', 'warn');
+            return localResult;
+        }
+
+        const isAuthenticated = Auth.isAuthenticated();
+        const user = Auth.getCurrentUser();
+
+        // Queue sync to Supabase if authenticated (regardless of online status)
+        if (isAuthenticated && user) {
+            log(`Queueing update operation: userId=${user.id}, entryId=${entry.id}`, 'info');
             queueOperation('update', 'weight_entries', entry, entry.id);
+        } else {
+            log('User not authenticated - entry updated locally only (not queued)', 'warn');
         }
 
         return localResult;
@@ -742,9 +792,21 @@ const Sync = (function() {
             return localResult;
         }
 
-        // Queue sync to Supabase
-        if (canSync()) {
+        // Check authentication status
+        const Auth = window.Auth;
+        if (!Auth) {
+            log('Auth module not available - entry deleted locally only', 'warn');
+            return localResult;
+        }
+
+        const isAuthenticated = Auth.isAuthenticated();
+
+        // Queue sync to Supabase if authenticated (regardless of online status)
+        if (isAuthenticated) {
+            log(`Queueing delete operation: entryId=${id}`, 'info');
             queueOperation('delete', 'weight_entries', { id }, id);
+        } else {
+            log('User not authenticated - entry deleted locally only (not queued)', 'warn');
         }
 
         return localResult;
@@ -928,6 +990,7 @@ const Sync = (function() {
         deleteWeightEntry,
         fetchWeightEntries,
         mergeEntries,
+        fetchAndMergeData,  // Added for auth state data fetch
         getStatus,
         getQueue,
         getLastSyncTime,

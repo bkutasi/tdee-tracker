@@ -157,6 +157,16 @@ const DailyEntry = (function () {
         setSyncPending(true);
 
         try {
+            // Debug: Log auth state before save
+            const Auth = window.Auth;
+            console.log('[DailyEntry.saveEntry] Before Sync.saveWeightEntry:', {
+                isAuthenticated: Auth?.isAuthenticated(),
+                currentUser: Auth?.getCurrentUser()?.email,
+                currentDate,
+                weightVal,
+                caloriesVal
+            });
+
             // Save via Sync module (LocalStorage + Supabase queue)
             const result = await Sync.saveWeightEntry({
                 date: currentDate,
@@ -164,6 +174,9 @@ const DailyEntry = (function () {
                 calories: caloriesVal,
                 notes: notesInput.value.trim()
             });
+
+            console.log('[DailyEntry.saveEntry] Sync.saveWeightEntry result:', result);
+            console.log('[DailyEntry.saveEntry] Sync queue after save:', Sync.getQueue?.().length || 'N/A');
 
             if (result.success) {
                 // Check if sync is pending (authenticated but not yet synced to Supabase)
