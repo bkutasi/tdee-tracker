@@ -1,21 +1,24 @@
 # JavaScript Core Modules
 
-> TDEE calculation engine, storage, and utilities. Vanilla ES6+ with IIFE modules.
+> TDEE calculation engine, storage, utilities, and Supabase sync. Vanilla ES6+ with IIFE modules.
 
 ## Overview
 
-**Files**: 4 core modules (calculator, storage, utils, app) + 6 UI components.
-**Pattern**: IIFE modules exposing globals (`Calculator`, `Storage`, `Utils`, `App`).
+**Files**: 5 core modules (calculator, storage, utils, app, sync) + 6 UI components.
+**Pattern**: IIFE modules exposing globals (`Calculator`, `Storage`, `Utils`, `App`, `Sync`, `Auth`).
 **Dependencies**: None — pure vanilla JS, loaded via `<script>` tags in HTML.
+**External**: Supabase JS client (loaded from CDN, pinned v2.47.0)
 
 ## Structure
 
 ```
 js/
-├── app.js            # Init coordinator (56 lines)
-├── calculator.js     # TDEE engine: EWMA, regression, confidence (774 lines)
-├── storage.js        # LocalStorage wrapper, import/export (457 lines)
+├── app.js            # Init coordinator (85 lines)
+├── calculator.js     # TDEE engine: EWMA, regression, confidence (875 lines)
+├── storage.js        # LocalStorage wrapper, import/export (510 lines)
 ├── utils.js          # Date/validation helpers (373 lines)
+├── sync.js           # Supabase sync: offline-first, queue, merge (1050 lines)
+├── auth.js           # Supabase Auth: magic link, OAuth, session (387 lines)
 └── ui/               # UI components (see js/ui/AGENTS.md)
 ```
 
@@ -30,6 +33,9 @@ js/
 | LocalStorage | `storage.js` | `init`, `getEntries`, `addEntry`, `exportData` |
 | Date validation | `utils.js` | `parseDate`, `isValidDate`, `formatDate` |
 | App init | `app.js` | `init`, `registerKeyboardShortcuts` |
+| **Supabase sync** | `sync.js` | `saveWeightEntry`, `syncAll`, `fetchWeightEntries`, `mergeEntries` |
+| **Auth** | `auth.js` | `init`, `signInWithMagicLink`, `signOut`, `getSession` |
+| **Debug sync** | `sync.js` | `SyncDebug.status()`, `SyncDebug.queue()`, `SyncDebug.forceSync()` |
 
 ## Code Map
 
@@ -137,5 +143,237 @@ node tests/node-test.js
 ## Notes
 
 - **calculator.js:412**: NOTE comment about day index mapping — verify if improvement needed
-- **Line count**: 774 lines (largest file) — complexity hotspot
+- **Line count**: 875 lines (largest file) — complexity hotspot
 - **No LSP**: TypeScript language server not installed — rely on tests for validation
+
+---
+
+## Supabase Sync Architecture
+
+### Overview
+
+**Sync Module** (`sync.js`): Offline-first data synchronization between LocalStorage and Supabase.
+
+**Key Features:**
+- ✅ Optimistic UI updates (LocalStorage first, instant feedback)
+- ✅ Background sync queue (processes when online + authenticated)
+- ✅ Conflict resolution (newest timestamp wins)
+- ✅ Offline support (queue operations, sync when reconnected)
+- ✅ Multi-device sync (automatic merge on login)
+
+### Sync Flow
+
+```
+User saves entry
+    ↓
+Sync.saveWeightEntry()
+    ├─→ Storage.saveEntry() → LocalStorage (INSTANT)
+    └─→ Queue operation → Sync queue
+         ↓
+    Background Sync (when online + authenticated)
+         ↓
+    Supabase API → weight_entries table
+         ↓
+    Queue cleared on success
+```
+
+### Merge Logic (on login)
+
+```
+Remote (Supabase) + Local (LocalStorage)
+    ↓
+Compare by date
+    ↓
+Conflict? → Newest timestamp wins
+    ↓
+Merged, sorted entries → LocalStorage
+    ↓
+UI refreshed automatically
+```
+
+### Public API
+
+**Core Methods:**
+```javascript
+// Save entry (optimistic UI + queue sync)
+await Sync.saveWeightEntry(entry)
+
+// Update entry
+await Sync.updateWeightEntry(entry)
+
+// Delete entry
+await Sync.deleteWeightEntry(id)
+
+// Fetch from Supabase
+const result = await Sync.fetchWeightEntries()
+
+// Merge remote + local
+const merged = Sync.mergeEntries(remoteEntries)
+
+// Manual sync trigger
+await Sync.syncAll()
+
+// Get status
+const status = Sync.getStatus()
+// Returns: { isOnline, isAuthenticated, pendingOperations, lastSyncTime, ... }
+```
+
+**Debug Utilities** (dev mode only):
+```javascript
+SyncDebug.help()        // Show all commands
+SyncDebug.status()      // Get sync status
+SyncDebug.queue()       // View pending operations
+SyncDebug.errors()      // View error history
+SyncDebug.forceSync()   // Trigger immediate sync
+SyncDebug.clearQueue()  // Clear pending operations
+SyncDebug.clearErrors() // Clear error history
+SyncDebug.lastSync()    // Get last sync time
+SyncDebug.testEntry()   // Create test entry
+SyncDebug.info()        // Full status report
+```
+
+### Auth Integration
+
+**Auth Module** (`auth.js`): Supabase authentication wrapper.
+
+**Features:**
+- Magic link (passwordless) authentication
+- OAuth support (Google, GitHub, etc.)
+- Session persistence in LocalStorage
+- Auth state change observers
+
+**Usage:**
+```javascript
+// Initialize
+await Auth.init()
+
+// Sign in with magic link
+await Auth.signInWithMagicLink('user@example.com')
+
+// Sign in with OAuth
+await Auth.signInWithOAuth('google')
+
+// Sign out
+await Auth.signOut()
+
+// Get current user
+const user = Auth.getCurrentUser()
+
+// Check authentication
+const isAuthenticated = Auth.isAuthenticated()
+
+// Get session
+const { session } = await Auth.getSession()
+```
+
+**Auth State Events:**
+- `SIGNED_IN` → Triggers data fetch + merge
+- `SIGNED_OUT` → Pauses sync
+- `TOKEN_REFRESHED` → Continues sync
+
+### Testing
+
+```bash
+# Run all tests (109 tests pass)
+node tests/node-test.js
+
+# Sync-specific tests
+# See tests/sync.test.js (35+ tests)
+# See tests/sync-browser.test.js (20+ tests)
+```
+
+**Test Coverage:**
+- Queue operations (create, persist, clear, load)
+- Sync execution (save, update, delete)
+- Merge logic (conflict resolution, timestamp comparison)
+- Auth integration (SIGNED_IN/SIGNED_OUT events)
+- Error handling (retry logic, error history)
+- Debug utilities (getStatus, getQueue, getErrorHistory)
+
+### Constants
+
+| Constant | File | Value | Purpose |
+|----------|------|-------|---------|
+| `SYNC_INTERVAL` | `sync.js:28` | 30000ms | Background sync interval |
+| `MAX_RETRIES` | `sync.js` | 3 | Max sync retry attempts |
+| `DEBUG_MODE` | `sync.js` | localhost | Enable debug logging |
+
+### Anti-Patterns
+
+- ❌ **DO NOT** call `Storage.saveEntry()` directly for user entries — use `Sync.saveWeightEntry()`
+- ❌ **DO NOT** bypass sync queue — breaks offline support
+- ❌ **DO NOT** sync without checking `canSync()` — wastes API calls
+- ❌ **DO NOT** ignore sync errors — check `SyncDebug.errors()`
+- ❌ **DO NOT** clear queue manually unless debugging — use `Sync.clearQueue()`
+
+### Debugging
+
+**Check sync status:**
+```javascript
+SyncDebug.status()
+// Output: {
+//   isOnline: true,
+//   isAuthenticated: true,
+//   pendingOperations: 0,
+//   lastSyncTime: "2026-03-01T10:00:00.000Z",
+//   errorCount: 0
+// }
+```
+
+**View pending operations:**
+```javascript
+SyncDebug.queue()
+// Output: [
+//   {
+//     id: "uuid",
+//     type: "create",
+//     table: "weight_entries",
+//     data: { weight: 80.5, calories: 2200 },
+//     timestamp: 1234567890,
+//     retries: 0
+//   }
+// ]
+```
+
+**Force sync:**
+```javascript
+await SyncDebug.forceSync()
+// Triggers immediate sync of all pending operations
+```
+
+**Common Issues:**
+
+| Issue | Debug Command | Solution |
+|-------|---------------|----------|
+| Data not syncing | `SyncDebug.status()` | Check `isAuthenticated` and `isOnline` |
+| Queue stuck | `SyncDebug.queue()` | Check for failed operations, use `SyncDebug.forceSync()` |
+| Auth not working | `SyncDebug.status()` | Check `isAuthenticated`, re-login |
+| Merge conflicts | `SyncDebug.info()` | Review conflict resolution (newest wins) |
+| Errors | `SyncDebug.errors()` | Review error history, check Supabase RLS policies |
+
+### Supabase Setup
+
+**Required Tables:**
+- `profiles` (extends auth.users)
+- `weight_entries` (user entries with RLS)
+
+**Schema:** See `supabase-schema.sql`
+
+**RLS Policies:**
+- Users can only SELECT/INSERT/UPDATE/DELETE their own data
+- Policy: `auth.uid() = user_id`
+
+**Environment:**
+```javascript
+// Required in js/config.js
+window.SUPABASE_CONFIG = {
+    url: 'https://your-project.supabase.co',
+    anonKey: 'your-anon-key',
+    siteUrl: 'http://localhost:8000'
+};
+```
+
+**Generate config:**
+```bash
+node scripts/generate-config.js
+```

@@ -855,6 +855,9 @@ let mockLocalStorage = createMockLocalStorage();
 global.localStorage = mockLocalStorage;
 
 // Mock navigator.onLine
+if (!global.navigator) {
+    global.navigator = {};
+}
 Object.defineProperty(global.navigator, 'onLine', {
     writable: true,
     value: true

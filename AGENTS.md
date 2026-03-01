@@ -2,13 +2,14 @@
 
 # TDEE Tracker — Agent Knowledge Base
 
-> Comprehensive guidelines for AI agents. Vanilla JS PWA, zero dependencies.
+> Comprehensive guidelines for AI agents. Vanilla JS PWA with Supabase sync, zero npm dependencies.
 
 ## Overview
 
-**Stack**: Vanilla ES6+ JavaScript, LocalStorage, PWA (offline-first). **Zero npm dependencies**.
+**Stack**: Vanilla ES6+ JavaScript, LocalStorage + Supabase, PWA (offline-first). **Zero npm dependencies**.
 **Architecture**: IIFE modules, manual script loading, `js/app.js` as coordinator.
-**Testing**: Custom test framework (80+ tests), dual runners (Node.js + browser).
+**Testing**: Custom test framework (109+ tests), dual runners (Node.js + browser).
+**Sync**: Offline-first with optimistic UI, background sync queue, multi-device support.
 
 ## Structure
 
@@ -16,13 +17,16 @@
 .
 ├── index.html          # Main app (17k lines, script loading order = dependency graph)
 ├── js/
-│   ├── calculator.js   # Core math: EWMA, TDEE, gap handling (774 lines)
-│   ├── storage.js      # LocalStorage wrapper, import/export (457 lines)
+│   ├── calculator.js   # Core math: EWMA, TDEE, gap handling (875 lines)
+│   ├── storage.js      # LocalStorage wrapper, import/export (510 lines)
 │   ├── utils.js        # Date helpers, validation (373 lines)
-│   └── ui/             # UI components (6 files, ~1.5k lines total)
-├── tests/              # Custom test framework, 80+ tests
-├── css/styles.css      # All styles (2.2k lines)
-└── sw.js               # Service worker (PWA)
+│   ├── sync.js         # Supabase sync: offline-first, queue, merge (1050 lines)
+│   ├── auth.js         # Supabase Auth: magic link, OAuth (387 lines)
+│   └── ui/             # UI components (6 files, ~2k lines total)
+├── tests/              # Custom test framework, 109+ tests
+├── css/styles.css      # All styles (2.3k lines)
+├── sw.js               # Service worker (PWA)
+└── supabase-schema.sql # Database schema
 ```
 
 ## Where to Look
