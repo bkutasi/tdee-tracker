@@ -370,6 +370,7 @@ const Auth = (function() {
         onAuthStateChange,
         getUserProfile,
         updateUserProfile,
+        _getSupabase: () => supabase,  // Expose Supabase client for Sync module
         _lastUser: null  // Track last known user for cross-module access
     };
     

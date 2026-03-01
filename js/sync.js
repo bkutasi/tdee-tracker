@@ -658,13 +658,30 @@ const Sync = (function() {
      */
     async function getSupabase() {
         const Auth = window.Auth;
-        if (!Auth) return null;
+        if (!Auth) {
+            log('getSupabase: Auth module not available', 'error');
+            return null;
+        }
 
-        const { session } = await Auth.getSession();
-        if (!session) return null;
+        try {
+            const { session } = await Auth.getSession();
+            if (!session) {
+                log('getSupabase: No active session', 'warn');
+                return null;
+            }
 
-        // Get Supabase instance from Auth
-        return Auth._getSupabase ? Auth._getSupabase() : null;
+            // Get Supabase instance from Auth
+            const supabase = Auth._getSupabase ? Auth._getSupabase() : null;
+            if (!supabase) {
+                log('getSupabase: Auth._getSupabase() returned null', 'error');
+            } else {
+                log('getSupabase: Supabase client retrieved successfully', 'debug');
+            }
+            return supabase;
+        } catch (error) {
+            log(`getSupabase: Error getting session: ${error.message}`, 'error', { error });
+            return null;
+        }
     }
 
     /**
