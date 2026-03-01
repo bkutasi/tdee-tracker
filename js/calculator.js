@@ -14,11 +14,16 @@
  */
 
 // Load sub-modules (Node.js compatibility)
-let EWMA, TDEE;
+// In browser, EWMA and TDEE are loaded via script tags before this file
+let _EWMA, _TDEE;
 if (typeof module !== 'undefined' && module.exports) {
     // Node.js environment - use require
-    EWMA = require('./calculator-ewma.js');
-    TDEE = require('./calculator-tdee.js');
+    _EWMA = require('./calculator-ewma.js');
+    _TDEE = require('./calculator-tdee.js');
+} else {
+    // Browser environment - use globals
+    _EWMA = (typeof _EWMA !== 'undefined') ? EWMA : null;
+    _TDEE = (typeof _TDEE !== 'undefined') ? TDEE : null;
 }
 
 const Calculator = (function () {
@@ -326,8 +331,8 @@ const Calculator = (function () {
      */
     function calculateStats(data) {
         // Use EWMA module if available, otherwise use inline implementation
-        if (typeof EWMA !== 'undefined' && EWMA.calculateStats) {
-            return EWMA.calculateStats(data);
+        if (typeof _EWMA !== 'undefined' && _EWMA.calculateStats) {
+            return _EWMA.calculateStats(data);
         }
         
         // Fallback inline implementation
@@ -359,8 +364,8 @@ const Calculator = (function () {
     return {
         // Core calculations (re-exported from EWMA module)
         calculateEWMA: function(current, previous, alpha) {
-            if (typeof EWMA !== 'undefined' && EWMA.calculateEWMA) {
-                return EWMA.calculateEWMA(current, previous, alpha);
+            if (typeof _EWMA !== 'undefined' && _EWMA.calculateEWMA) {
+                return _EWMA.calculateEWMA(current, previous, alpha);
             }
             // Fallback inline implementation
             if (previous === null || previous === undefined) {
@@ -371,8 +376,8 @@ const Calculator = (function () {
         },
         
         getAdaptiveAlpha: function(recentWeights) {
-            if (typeof EWMA !== 'undefined' && EWMA.getAdaptiveAlpha) {
-                return EWMA.getAdaptiveAlpha(recentWeights);
+            if (typeof _EWMA !== 'undefined' && _EWMA.getAdaptiveAlpha) {
+                return _EWMA.getAdaptiveAlpha(recentWeights);
             }
             // Fallback inline implementation
             if (!recentWeights || recentWeights.length < 3) return DEFAULT_ALPHA;
@@ -382,8 +387,8 @@ const Calculator = (function () {
         },
         
         calculateEWMAWeightDelta: function(processedEntries) {
-            if (typeof EWMA !== 'undefined' && EWMA.calculateEWMAWeightDelta) {
-                return EWMA.calculateEWMAWeightDelta(processedEntries);
+            if (typeof _EWMA !== 'undefined' && _EWMA.calculateEWMAWeightDelta) {
+                return _EWMA.calculateEWMAWeightDelta(processedEntries);
             }
             // Fallback inline implementation
             const withEWMA = processedEntries.filter(e => e.ewmaWeight !== null && e.ewmaWeight !== undefined);
@@ -395,8 +400,8 @@ const Calculator = (function () {
 
         // TDEE calculations (re-exported from TDEE module)
         calculateTDEE: function(params) {
-            if (typeof TDEE !== 'undefined' && TDEE.calculateTDEE) {
-                return TDEE.calculateTDEE(params);
+            if (typeof _TDEE !== 'undefined' && _TDEE.calculateTDEE) {
+                return _TDEE.calculateTDEE(params);
             }
             // Fallback inline implementation
             if (params.trackedDays === 0) return null;
@@ -406,8 +411,8 @@ const Calculator = (function () {
         },
         
         calculateRollingTDEE: function(weeklyData, windowSize) {
-            if (typeof TDEE !== 'undefined' && TDEE.calculateRollingTDEE) {
-                return TDEE.calculateRollingTDEE(weeklyData, windowSize);
+            if (typeof _TDEE !== 'undefined' && _TDEE.calculateRollingTDEE) {
+                return _TDEE.calculateRollingTDEE(weeklyData, windowSize);
             }
             // Fallback inline implementation
             const validWeeks = weeklyData.filter(w => w.tdee !== null && !isNaN(w.tdee)).slice(-windowSize);
@@ -417,32 +422,32 @@ const Calculator = (function () {
         },
         
         calculateSmoothedTDEE: function(currentTDEE, previousSmoothedTDEE, alpha) {
-            if (typeof TDEE !== 'undefined' && TDEE.calculateSmoothedTDEE) {
-                return TDEE.calculateSmoothedTDEE(currentTDEE, previousSmoothedTDEE, alpha);
+            if (typeof _TDEE !== 'undefined' && _TDEE.calculateSmoothedTDEE) {
+                return _TDEE.calculateSmoothedTDEE(currentTDEE, previousSmoothedTDEE, alpha);
             }
             // Fallback to EWMA
             return Calculator.calculateEWMA(currentTDEE, previousSmoothedTDEE, alpha);
         },
         
         calculateFastTDEE: function(entries, unit, minDays) {
-            if (typeof TDEE !== 'undefined' && TDEE.calculateFastTDEE) {
-                return TDEE.calculateFastTDEE(entries, unit, minDays);
+            if (typeof _TDEE !== 'undefined' && _TDEE.calculateFastTDEE) {
+                return _TDEE.calculateFastTDEE(entries, unit, minDays);
             }
             // Fallback implementation would go here (omitted for brevity)
             return { tdee: null, confidence: 'none', trackedDays: 0, hasOutliers: false };
         },
         
         calculateStableTDEE: function(entries, unit, windowDays, minDays) {
-            if (typeof TDEE !== 'undefined' && TDEE.calculateStableTDEE) {
-                return TDEE.calculateStableTDEE(entries, unit, windowDays, minDays);
+            if (typeof _TDEE !== 'undefined' && _TDEE.calculateStableTDEE) {
+                return _TDEE.calculateStableTDEE(entries, unit, windowDays, minDays);
             }
             // Fallback implementation would go here (omitted for brevity)
             return { tdee: null, confidence: 'none', trackedDays: 0 };
         },
         
         calculateSmoothTDEEArray: function(weeklyTdees, alpha) {
-            if (typeof TDEE !== 'undefined' && TDEE.calculateSmoothTDEEArray) {
-                return TDEE.calculateSmoothTDEEArray(weeklyTdees, alpha);
+            if (typeof _TDEE !== 'undefined' && _TDEE.calculateSmoothTDEEArray) {
+                return _TDEE.calculateSmoothTDEEArray(weeklyTdees, alpha);
             }
             // Fallback inline implementation
             const smoothed = [];
@@ -465,16 +470,16 @@ const Calculator = (function () {
         },
         
         calculatePeriodTDEE: function(entries, unit) {
-            if (typeof TDEE !== 'undefined' && TDEE.calculatePeriodTDEE) {
-                return TDEE.calculatePeriodTDEE(entries, unit);
+            if (typeof _TDEE !== 'undefined' && _TDEE.calculatePeriodTDEE) {
+                return _TDEE.calculatePeriodTDEE(entries, unit);
             }
             // Fallback implementation would go here
             return null;
         },
         
         calculateSlope: function(entries) {
-            if (typeof TDEE !== 'undefined' && TDEE.calculateSlope) {
-                return TDEE.calculateSlope(entries);
+            if (typeof _TDEE !== 'undefined' && _TDEE.calculateSlope) {
+                return _TDEE.calculateSlope(entries);
             }
             // Fallback implementation would go here
             return 0;
@@ -482,8 +487,8 @@ const Calculator = (function () {
 
         // Data processing (re-exported from TDEE module)
         processEntriesWithGaps: function(entries) {
-            if (typeof TDEE !== 'undefined' && TDEE.processEntriesWithGaps) {
-                return TDEE.processEntriesWithGaps(entries);
+            if (typeof _TDEE !== 'undefined' && _TDEE.processEntriesWithGaps) {
+                return _TDEE.processEntriesWithGaps(entries);
             }
             // Fallback inline implementation
             const processed = [];
@@ -508,8 +513,8 @@ const Calculator = (function () {
         },
         
         excludeCalorieOutliers: function(calories, threshold) {
-            if (typeof TDEE !== 'undefined' && TDEE.excludeCalorieOutliers) {
-                return TDEE.excludeCalorieOutliers(calories, threshold);
+            if (typeof _TDEE !== 'undefined' && _TDEE.excludeCalorieOutliers) {
+                return _TDEE.excludeCalorieOutliers(calories, threshold);
             }
             // Fallback implementation would go here
             return { filteredCalories: calories, filteredAvg: null, outliers: [], originalAvg: null };

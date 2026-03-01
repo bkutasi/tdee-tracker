@@ -19,10 +19,14 @@
 'use strict';
 
 // Load SyncDebug module (Node.js compatibility)
-let SyncDebug;
+// In browser, SyncDebug is loaded via script tag before this file
+let _SyncDebug;
 if (typeof module !== 'undefined' && module.exports) {
     // Node.js environment - use require
-    SyncDebug = require('./sync-debug.js');
+    _SyncDebug = require('./sync-debug.js');
+} else {
+    // Browser environment - use global
+    _SyncDebug = (typeof _SyncDebug !== 'undefined') ? SyncDebug : null;
 }
 
 const Sync = (function() {
@@ -45,7 +49,7 @@ const Sync = (function() {
      */
     async function init() {
         if (isInitialized) {
-            SyncDebug.info('Already initialized');
+            _SyncDebug.info('Already initialized');
             return;
         }
 
@@ -62,12 +66,12 @@ const Sync = (function() {
         // Wait for auth to be ready if Auth module exists
         const Auth = window.Auth;
         if (Auth) {
-            SyncDebug.info('Waiting for auth session...');
+            _SyncDebug.info('Waiting for auth session...');
             const authReady = await waitForAuthReady(Auth, 5000);
             if (authReady) {
-                SyncDebug.info('Auth session ready');
+                _SyncDebug.info('Auth session ready');
             } else {
-                SyncDebug.warn('Auth timeout - sync will retry when auth ready');
+                _SyncDebug.warn('Auth timeout - sync will retry when auth ready');
             }
         }
 
@@ -75,7 +79,7 @@ const Sync = (function() {
         startBackgroundSync();
 
         isInitialized = true;
-        SyncDebug.info('Initialized');
+        _SyncDebug.info('Initialized');
     }
 
     /**
@@ -95,7 +99,7 @@ const Sync = (function() {
                 }
             } catch (error) {
                 // Auth may not be fully initialized yet, continue polling
-                SyncDebug.debug(`Auth check pending: ${error.message}`);
+                _SyncDebug.debug(`Auth check pending: ${error.message}`);
             }
             
             await sleep(100);
@@ -121,10 +125,10 @@ const Sync = (function() {
             const stored = localStorage.getItem(QUEUE_KEY);
             if (stored) {
                 syncQueue = JSON.parse(stored);
-                SyncDebug.info(`Loaded ${syncQueue.length} pending operations`);
+                _SyncDebug.info(`Loaded ${syncQueue.length} pending operations`);
             }
         } catch (error) {
-            SyncDebug.error(`Failed to load queue: ${error.message}`);
+            _SyncDebug.error(`Failed to load queue: ${error.message}`);
             syncQueue = [];
         }
     }
@@ -136,7 +140,7 @@ const Sync = (function() {
         try {
             localStorage.setItem(QUEUE_KEY, JSON.stringify(syncQueue));
         } catch (error) {
-            SyncDebug.error(`Failed to save queue: ${error.message}`);
+            _SyncDebug.error(`Failed to save queue: ${error.message}`);
         }
     }
     
@@ -148,10 +152,10 @@ const Sync = (function() {
             const stored = localStorage.getItem(SYNC_HISTORY_KEY);
             if (stored) {
                 syncErrorHistory = JSON.parse(stored);
-                SyncDebug.info(`Loaded ${syncErrorHistory.length} error history entries`);
+                _SyncDebug.info(`Loaded ${syncErrorHistory.length} error history entries`);
             }
         } catch (error) {
-            SyncDebug.error(`Failed to load error history: ${error.message}`);
+            _SyncDebug.error(`Failed to load error history: ${error.message}`);
             syncErrorHistory = [];
         }
     }
@@ -163,7 +167,7 @@ const Sync = (function() {
         try {
             localStorage.setItem(SYNC_HISTORY_KEY, JSON.stringify(syncErrorHistory));
         } catch (error) {
-            SyncDebug.error(`Failed to save error history: ${error.message}`);
+            _SyncDebug.error(`Failed to save error history: ${error.message}`);
         }
     }
     
@@ -191,7 +195,7 @@ const Sync = (function() {
         }
         
         saveErrorHistory();
-        SyncDebug.error(`Error recorded: ${operation} - ${error.message || error}`);
+        _SyncDebug.error(`Error recorded: ${operation} - ${error.message || error}`);
     }
 
     /**
@@ -199,12 +203,12 @@ const Sync = (function() {
      */
     function setupNetworkListeners() {
         window.addEventListener('online', async () => {
-            SyncDebug.info('Network online - starting sync');
+            _SyncDebug.info('Network online - starting sync');
             await syncAll();
         });
 
         window.addEventListener('offline', () => {
-            SyncDebug.warn('Network offline - queuing operations');
+            _SyncDebug.warn('Network offline - queuing operations');
         });
     }
 
@@ -215,15 +219,15 @@ const Sync = (function() {
     function setupAuthStateListener() {
         const Auth = window.Auth;
         if (!Auth) {
-            SyncDebug.warn('Auth module not available - skipping auth listener setup');
+            _SyncDebug.warn('Auth module not available - skipping auth listener setup');
             return;
         }
 
         Auth.onAuthStateChange(async (event, user) => {
-            SyncDebug.info('Auth state changed:', event);
+            _SyncDebug.info('Auth state changed:', event);
 
             if (event === 'SIGNED_IN') {
-                SyncDebug.info('User signed in - syncing bidirectional data...');
+                _SyncDebug.info('User signed in - syncing bidirectional data...');
                 
                 // First, fetch remote data and merge with local
                 await fetchAndMergeData();
@@ -233,11 +237,11 @@ const Sync = (function() {
                 const backfillResult = await queueLocalEntriesForSync();
                 
                 if (backfillResult.success && backfillResult.queued > 0) {
-                    SyncDebug.info(`Queued ${backfillResult.queued} local entries for upload`);
+                    _SyncDebug.info(`Queued ${backfillResult.queued} local entries for upload`);
                     showToast(`Syncing ${backfillResult.queued} local entr${backfillResult.queued === 1 ? 'y' : 'ies'} to cloud...`, 'info');
                 }
             } else if (event === 'SIGNED_OUT') {
-                SyncDebug.info('User signed out - pausing sync');
+                _SyncDebug.info('User signed out - pausing sync');
                 // Keep queue for later, just pause sync operations
                 isSyncing = false;
             }
@@ -252,23 +256,23 @@ const Sync = (function() {
         const Storage = window.Storage;
 
         try {
-            SyncDebug.info('Fetching remote data...');
+            _SyncDebug.info('Fetching remote data...');
 
             // Fetch from Supabase
             const remoteResult = await fetchWeightEntries();
 
             if (!remoteResult.success) {
-                SyncDebug.error('Failed to fetch remote data:', remoteResult.error);
+                _SyncDebug.error('Failed to fetch remote data:', remoteResult.error);
                 showToast('Failed to fetch remote data. Using local data only.', 'error');
                 return;
             }
 
             const remoteEntries = remoteResult.entries || [];
-            SyncDebug.info(`Fetched ${remoteEntries.length} remote entries`);
+            _SyncDebug.info(`Fetched ${remoteEntries.length} remote entries`);
 
             // Merge with local data
             const mergedEntries = mergeEntries(remoteEntries);
-            SyncDebug.info(`Merged to ${mergedEntries.length} total entries`);
+            _SyncDebug.info(`Merged to ${mergedEntries.length} total entries`);
 
             // Save merged data to LocalStorage
             // Storage expects entries as object keyed by date, not array
@@ -288,7 +292,7 @@ const Sync = (function() {
             
             // Save all entries back to LocalStorage
             localStorage.setItem('tdee_entries', JSON.stringify(allEntries));
-            SyncDebug.info('Merged data saved to LocalStorage');
+            _SyncDebug.info('Merged data saved to LocalStorage');
 
             // Refresh UI components
             refreshUI();
@@ -307,7 +311,7 @@ const Sync = (function() {
             }));
 
         } catch (error) {
-            SyncDebug.error('Fetch and merge failed:', error);
+            _SyncDebug.error('Fetch and merge failed:', error);
             showToast('Sync failed. Your local data is safe.', 'error');
         }
     }
@@ -323,13 +327,13 @@ const Sync = (function() {
 
         // Check authentication
         if (!Auth || !Auth.isAuthenticated()) {
-            SyncDebug.info('Not authenticated - skipping');
+            _SyncDebug.info('Not authenticated - skipping');
             return { success: false, error: 'Not authenticated' };
         }
 
         const user = Auth.getCurrentUser();
         if (!user) {
-            SyncDebug.info('No user - skipping');
+            _SyncDebug.info('No user - skipping');
             return { success: false, error: 'No user found' };
         }
 
@@ -341,11 +345,11 @@ const Sync = (function() {
         }));
 
         if (localEntries.length === 0) {
-            SyncDebug.info('No local entries to queue');
+            _SyncDebug.info('No local entries to queue');
             return { success: true, queued: 0 };
         }
 
-        SyncDebug.info(`Queuing ${localEntries.length} local entries for sync...`);
+        _SyncDebug.info(`Queuing ${localEntries.length} local entries for sync...`);
 
         // Fetch remote entries to avoid duplicates
         const remoteResult = await fetchWeightEntries();
@@ -357,7 +361,7 @@ const Sync = (function() {
                     remoteDates.add(entry.date);
                 }
             });
-            SyncDebug.info(`Found ${remoteDates.size} remote entries`);
+            _SyncDebug.info(`Found ${remoteDates.size} remote entries`);
         }
 
         // Queue only entries that don't exist remotely AND have valid weight
@@ -368,14 +372,14 @@ const Sync = (function() {
         localEntries.forEach(entry => {
             // Skip if already exists remotely
             if (remoteDates.has(entry.date)) {
-                SyncDebug.debug(`Skipping ${entry.date} (already exists remotely)`);
+                _SyncDebug.debug(`Skipping ${entry.date} (already exists remotely)`);
                 skippedCount++;
                 return;
             }
             
             // Validate entry has required weight field
             if (entry.weight === null || entry.weight === undefined || entry.weight === '') {
-                SyncDebug.warn(`Skipping ${entry.date} (missing weight value - calories-only entries cannot be synced)`);
+                _SyncDebug.warn(`Skipping ${entry.date} (missing weight value - calories-only entries cannot be synced)`);
                 invalidCount++;
                 return;
             }
@@ -391,18 +395,18 @@ const Sync = (function() {
             queuedCount++;
         });
 
-        SyncDebug.info(`Queued ${queuedCount} entries for upload`);
+        _SyncDebug.info(`Queued ${queuedCount} entries for upload`);
         if (invalidCount > 0) {
-            SyncDebug.warn(`Skipped ${invalidCount} entries with missing weight values`);
+            _SyncDebug.warn(`Skipped ${invalidCount} entries with missing weight values`);
             showToast(`Skipped ${invalidCount} incomplete entries (weight required for sync)`, 'info');
         }
         if (skippedCount > 0) {
-            SyncDebug.debug(`Skipped ${skippedCount} entries already synced`);
+            _SyncDebug.debug(`Skipped ${skippedCount} entries already synced`);
         }
         
         // Trigger immediate sync if online
         if (navigator.onLine) {
-            SyncDebug.info('Triggering immediate sync...');
+            _SyncDebug.info('Triggering immediate sync...');
             await syncAll();
         }
 
@@ -413,7 +417,7 @@ const Sync = (function() {
      * Refresh all UI components after data merge
      */
     function refreshUI() {
-        SyncDebug.info('Refreshing UI components');
+        _SyncDebug.info('Refreshing UI components');
 
         // Refresh Dashboard
         if (window.Dashboard && typeof window.Dashboard.refresh === 'function') {
@@ -440,7 +444,7 @@ const Sync = (function() {
      * @param {string} type - Type: 'success', 'error', 'info'
      */
     function showToast(message, type = 'info') {
-        SyncDebug.info(`Toast (${type}):`, message);
+        _SyncDebug.info(`Toast (${type}):`, message);
 
         // Check if Components module has showToast
         if (window.Components && typeof window.Components.showToast === 'function') {
@@ -501,7 +505,7 @@ const Sync = (function() {
     function canSync() {
         const Auth = window.Auth;
         if (!Auth) {
-            SyncDebug.error('Auth module not available');
+            _SyncDebug.error('Auth module not available');
             return false;
         }
 
@@ -509,16 +513,16 @@ const Sync = (function() {
         const isOnline = navigator.onLine;
 
         if (!isAuthenticated) {
-            SyncDebug.warn('Not authenticated - skipping sync');
+            _SyncDebug.warn('Not authenticated - skipping sync');
             return false;
         }
 
         if (!isOnline) {
-            SyncDebug.info('Offline - will queue operations for later sync');
+            _SyncDebug.info('Offline - will queue operations for later sync');
             return false;
         }
 
-        SyncDebug.debug(`canSync: authenticated=${isAuthenticated}, online=${isOnline} → can sync now`);
+        _SyncDebug.debug(`canSync: authenticated=${isAuthenticated}, online=${isOnline} → can sync now`);
         return true;
     }
 
@@ -543,7 +547,7 @@ const Sync = (function() {
         syncQueue.push(operation);
         saveSyncQueue();
 
-        SyncDebug.log(`Queued ${type} operation for ${table} [ID: ${operation.id}]`, 'info', { operation });
+        _SyncDebug.log(`Queued ${type} operation for ${table} [ID: ${operation.id}]`, 'info', { operation });
 
         // Attempt immediate sync if online
         if (navigator.onLine) {
@@ -558,7 +562,7 @@ const Sync = (function() {
      */
     async function syncAll() {
         if (isSyncing) {
-            SyncDebug.log('Sync already in progress', 'warn');
+            _SyncDebug.log('Sync already in progress', 'warn');
             return;
         }
 
@@ -567,14 +571,14 @@ const Sync = (function() {
         }
 
         if (syncQueue.length === 0) {
-            SyncDebug.log('No pending operations', 'info');
+            _SyncDebug.log('No pending operations', 'info');
             return;
         }
 
         isSyncing = true;
         const startTime = Date.now();
         const operationCount = syncQueue.length;
-        SyncDebug.log(`Starting sync of ${operationCount} operations`, 'info');
+        _SyncDebug.log(`Starting sync of ${operationCount} operations`, 'info');
 
         const failed = [];
         const removed = []; // Track operations removed due to retry limit or duplicate errors
@@ -596,7 +600,7 @@ const Sync = (function() {
                     }
                 }
             } catch (error) {
-                SyncDebug.log(`Operation failed: ${error.message}`, 'error', { operation, error });
+                _SyncDebug.log(`Operation failed: ${error.message}`, 'error', { operation, error });
                 recordError(operation.type, error, { operation });
                 failed.push(operation);
             }
@@ -610,7 +614,7 @@ const Sync = (function() {
         lastSyncTime = Date.now();
         const duration = Date.now() - startTime;
         
-        SyncDebug.log(`Sync complete: ${operationCount - failed.length - removed.length}/${operationCount} succeeded. ${failed.length} pending retry. ${removed.length} removed (retry limit).`, 
+        _SyncDebug.log(`Sync complete: ${operationCount - failed.length - removed.length}/${operationCount} succeeded. ${failed.length} pending retry. ${removed.length} removed (retry limit).`, 
             failed.length > 0 || removed.length > 0 ? 'warn' : 'info');
 
         if (removed.length > 0) {
@@ -644,12 +648,12 @@ const Sync = (function() {
 
         // Retry limit
         if (retries > 3) {
-            SyncDebug.log(`Operation exceeded retry limit [ID: ${id}]`, 'error', { operation });
+            _SyncDebug.log(`Operation exceeded retry limit [ID: ${id}]`, 'error', { operation });
             recordError(`${type} (retry limit)`, new Error('Max retries exceeded'), { operation });
             return false;
         }
 
-        SyncDebug.log(`Executing ${type} on ${table} [ID: ${id}, Retry: ${retries}]`, 'debug');
+        _SyncDebug.log(`Executing ${type} on ${table} [ID: ${id}, Retry: ${retries}]`, 'debug');
 
         let result;
 
@@ -664,12 +668,12 @@ const Sync = (function() {
                 result = await deleteRecord(table, data);
                 break;
             default:
-                SyncDebug.log(`Unknown operation type: ${type}`, 'error', { operation });
+                _SyncDebug.log(`Unknown operation type: ${type}`, 'error', { operation });
                 return false;
         }
 
         if (result.success) {
-            SyncDebug.log(`${type} ${table} synced successfully [ID: ${id}]`, 'info');
+            _SyncDebug.log(`${type} ${table} synced successfully [ID: ${id}]`, 'info');
             return true;
         } else {
             const errorMessage = result.error?.message || result.error || 'Unknown error';
@@ -682,12 +686,12 @@ const Sync = (function() {
             
             if (isDuplicateKey) {
                 // Don't retry duplicate key errors - they won't succeed on retry
-                SyncDebug.log(`Duplicate key detected [ID: ${id}] - removing from queue (will be handled by existence check)`, 'warn');
+                _SyncDebug.log(`Duplicate key detected [ID: ${id}] - removing from queue (will be handled by existence check)`, 'warn');
                 recordError(`${type} ${table} (duplicate)`, result.error || new Error('Duplicate key'), { operation });
                 return false; // Operation will be removed from queue
             }
             
-            SyncDebug.log(`Operation failed [ID: ${id}]: ${errorMessage}`, 'error', { error: result.error });
+            _SyncDebug.log(`Operation failed [ID: ${id}]: ${errorMessage}`, 'error', { error: result.error });
             recordError(`${type} ${table}`, result.error || new Error('Operation failed'), { operation });
             operation.retries = retries + 1;
             return false;
@@ -722,7 +726,7 @@ const Sync = (function() {
 
                 // Entry exists - convert to UPDATE instead of INSERT
                 if (existing && existing.id) {
-                    SyncDebug.log(`Entry already exists [user_id: ${data.user_id}, date: ${data.date}] - converting to UPDATE`, 'info');
+                    _SyncDebug.log(`Entry already exists [user_id: ${data.user_id}, date: ${data.date}] - converting to UPDATE`, 'info');
                     return await updateRecord(table, { id: existing.id, ...data });
                 }
             }
@@ -805,27 +809,27 @@ const Sync = (function() {
     async function getSupabase() {
         const Auth = window.Auth;
         if (!Auth) {
-            SyncDebug.log('getSupabase: Auth module not available', 'error');
+            _SyncDebug.log('getSupabase: Auth module not available', 'error');
             return null;
         }
 
         try {
             const { session } = await Auth.getSession();
             if (!session) {
-                SyncDebug.log('getSupabase: No active session', 'warn');
+                _SyncDebug.log('getSupabase: No active session', 'warn');
                 return null;
             }
 
             // Get Supabase instance from Auth
             const supabase = Auth._getSupabase ? Auth._getSupabase() : null;
             if (!supabase) {
-                SyncDebug.log('getSupabase: Auth._getSupabase() returned null', 'error');
+                _SyncDebug.log('getSupabase: Auth._getSupabase() returned null', 'error');
             } else {
-                SyncDebug.log('getSupabase: Supabase client retrieved successfully', 'debug');
+                _SyncDebug.log('getSupabase: Supabase client retrieved successfully', 'debug');
             }
             return supabase;
         } catch (error) {
-            SyncDebug.log(`getSupabase: Error getting session: ${error.message}`, 'error', { error });
+            _SyncDebug.log(`getSupabase: Error getting session: ${error.message}`, 'error', { error });
             return null;
         }
     }
@@ -859,7 +863,7 @@ const Sync = (function() {
         // Check authentication status
         const Auth = window.Auth;
         if (!Auth) {
-            SyncDebug.log('Auth module not available - entry saved locally only', 'warn');
+            _SyncDebug.log('Auth module not available - entry saved locally only', 'warn');
             return localResult;
         }
 
@@ -870,7 +874,7 @@ const Sync = (function() {
         if (isAuthenticated && user) {
             // Validate entry has required weight field before queuing
             if (entry.weight === null || entry.weight === undefined || entry.weight === '') {
-                SyncDebug.log('Entry saved locally but not queued - missing weight value', 'warn');
+                _SyncDebug.log('Entry saved locally but not queued - missing weight value', 'warn');
                 return localResult;
             }
             
@@ -896,10 +900,10 @@ const Sync = (function() {
                 notes: entry.notes || null
             };
             
-            SyncDebug.log(`Queueing ${operationType} operation: userId=${user.id}, date=${entry.date}`, 'info');
+            _SyncDebug.log(`Queueing ${operationType} operation: userId=${user.id}, date=${entry.date}`, 'info');
             queueOperation(operationType, 'weight_entries', operationData, localResult.id);
         } else {
-            SyncDebug.log('User not authenticated - entry saved locally only (not queued)', 'warn');
+            _SyncDebug.log('User not authenticated - entry saved locally only (not queued)', 'warn');
         }
 
         return localResult;
@@ -923,7 +927,7 @@ const Sync = (function() {
         // Check authentication status
         const Auth = window.Auth;
         if (!Auth) {
-            SyncDebug.log('Auth module not available - entry updated locally only', 'warn');
+            _SyncDebug.log('Auth module not available - entry updated locally only', 'warn');
             return localResult;
         }
 
@@ -935,14 +939,14 @@ const Sync = (function() {
             // Validate entry has required weight field before queueing
             if (entry.weight === null || entry.weight === undefined || entry.weight === '') {
                 console.warn('[Sync.updateWeightEntry] Skipping queue - entry missing weight value');
-                SyncDebug.log('Entry updated locally but not queued - missing weight value', 'warn');
+                _SyncDebug.log('Entry updated locally but not queued - missing weight value', 'warn');
                 return localResult;
             }
             
-            SyncDebug.log(`Queueing update operation: userId=${user.id}, entryId=${entry.id}`, 'info');
+            _SyncDebug.log(`Queueing update operation: userId=${user.id}, entryId=${entry.id}`, 'info');
             queueOperation('update', 'weight_entries', entry, entry.id);
         } else {
-            SyncDebug.log('User not authenticated - entry updated locally only (not queued)', 'warn');
+            _SyncDebug.log('User not authenticated - entry updated locally only (not queued)', 'warn');
         }
 
         return localResult;
@@ -966,7 +970,7 @@ const Sync = (function() {
         // Check authentication status
         const Auth = window.Auth;
         if (!Auth) {
-            SyncDebug.log('Auth module not available - entry deleted locally only', 'warn');
+            _SyncDebug.log('Auth module not available - entry deleted locally only', 'warn');
             return localResult;
         }
 
@@ -974,10 +978,10 @@ const Sync = (function() {
 
         // Queue sync to Supabase if authenticated (regardless of online status)
         if (isAuthenticated) {
-            SyncDebug.log(`Queueing delete operation: entryId=${id}`, 'info');
+            _SyncDebug.log(`Queueing delete operation: entryId=${id}`, 'info');
             queueOperation('delete', 'weight_entries', { id }, id);
         } else {
-            SyncDebug.log('User not authenticated - entry deleted locally only (not queued)', 'warn');
+            _SyncDebug.log('User not authenticated - entry deleted locally only (not queued)', 'warn');
         }
 
         return localResult;
@@ -1092,7 +1096,7 @@ const Sync = (function() {
             isSyncing,
             errorCount: syncErrorHistory.length,
             recentErrors: syncErrorHistory.slice(0, 5),
-            debugMode: SyncDebug.DEBUG_MODE
+            debugMode: _SyncDebug.DEBUG_MODE
         };
     }
     
@@ -1139,7 +1143,7 @@ const Sync = (function() {
     function clearErrorHistory() {
         syncErrorHistory = [];
         saveErrorHistory();
-        SyncDebug.log('Error history cleared', 'info');
+        _SyncDebug.log('Error history cleared', 'info');
     }
 
     /**
@@ -1149,7 +1153,7 @@ const Sync = (function() {
         const count = syncQueue.length;
         syncQueue = [];
         saveSyncQueue();
-        SyncDebug.log(`Queue cleared (${count} operations removed)`, 'warn');
+        _SyncDebug.log(`Queue cleared (${count} operations removed)`, 'warn');
     }
     
     /**
@@ -1164,12 +1168,12 @@ const Sync = (function() {
         if (stuckOps.length > 0) {
             syncQueue = keptOps;
             saveSyncQueue();
-            SyncDebug.log(`Removed ${stuckOps.length} stuck operations (retry limit exceeded). ${keptOps.length} operations remaining.`, 'warn');
+            _SyncDebug.log(`Removed ${stuckOps.length} stuck operations (retry limit exceeded). ${keptOps.length} operations remaining.`, 'warn');
             showToast(`Removed ${stuckOps.length} stuck operations from queue`, 'info');
             return { removed: stuckOps.length, remaining: keptOps.length };
         }
         
-        SyncDebug.log('No stuck operations found in queue', 'info');
+        _SyncDebug.log('No stuck operations found in queue', 'info');
         return { removed: 0, remaining: initialCount };
     }
     
@@ -1196,7 +1200,7 @@ const Sync = (function() {
         
         if (removedCount > 0) {
             saveSyncQueue();
-            SyncDebug.log(`Filtered ${removedCount} invalid operations from queue (${initialCount} → ${syncQueue.length})`, 'warn');
+            _SyncDebug.log(`Filtered ${removedCount} invalid operations from queue (${initialCount} → ${syncQueue.length})`, 'warn');
             showToast(`Removed ${removedCount} invalid entries from sync queue (weight required)`, 'info');
             return { filtered: removedCount, remaining: syncQueue.length };
         }
@@ -1232,7 +1236,7 @@ if (typeof window !== 'undefined') {
     
     // Expose debug utilities in development mode
     
-    if (SyncDebug.DEBUG_MODE) {
+    if (_SyncDebug.DEBUG_MODE) {
         window.SyncDebug = {
             /**
              * Get current sync status
@@ -1340,24 +1344,24 @@ if (typeof window !== 'undefined') {
             help: () => {
                 console.log(`
 [SyncDebug] Available commands:
-  SyncDebug.status()         - Get detailed sync status
-  SyncDebug.queue()          - Get pending operations
-  SyncDebug.errors()         - Get error history
-  SyncDebug.forceSync()      - Trigger immediate sync
-  SyncDebug.clearQueue()     - Clear pending operations
-  SyncDebug.filterQueue()    - Remove invalid operations (missing weight)
-  SyncDebug.removeStuck()    - Remove operations exceeding retry limit
-  SyncDebug.clearErrors()    - Clear error history
-  SyncDebug.lastSync()       - Get last sync time
-  SyncDebug.testEntry()      - Create test entry
-  SyncDebug.info()           - Full status report
-  SyncDebug.backfillLocal()  - Queue all local entries for upload
-  SyncDebug.help()           - Show this help
+  _SyncDebug.status()         - Get detailed sync status
+  _SyncDebug.queue()          - Get pending operations
+  _SyncDebug.errors()         - Get error history
+  _SyncDebug.forceSync()      - Trigger immediate sync
+  _SyncDebug.clearQueue()     - Clear pending operations
+  _SyncDebug.filterQueue()    - Remove invalid operations (missing weight)
+  _SyncDebug.removeStuck()    - Remove operations exceeding retry limit
+  _SyncDebug.clearErrors()    - Clear error history
+  _SyncDebug.lastSync()       - Get last sync time
+  _SyncDebug.testEntry()      - Create test entry
+  _SyncDebug.info()           - Full status report
+  _SyncDebug.backfillLocal()  - Queue all local entries for upload
+  _SyncDebug.help()           - Show this help
                 `);
             }
         };
         
-        console.log('[Sync] Debug utilities exposed (window.SyncDebug). Type SyncDebug.help() for commands.');
+        console.log('[Sync] Debug utilities exposed (window.SyncDebug). Type _SyncDebug.help() for commands.');
     }
 }
 
