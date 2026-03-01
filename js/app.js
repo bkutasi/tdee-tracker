@@ -24,7 +24,18 @@ const App = (function () {
         // Initialize auth & sync (if configured)
         if (window.SUPABASE_CONFIG) {
             try {
+                console.log('[App] Initializing auth...');
                 await Auth.init();
+                
+                // Check if user is already authenticated (existing session)
+                const user = Auth.getCurrentUser();
+                if (user) {
+                    console.log('[App] User already authenticated, fetching data...');
+                    // Fetch and merge data from Supabase
+                    await Sync.fetchAndMergeData();
+                }
+                
+                console.log('[App] Auth ready, initializing sync...');
                 await Sync.init();
                 AuthModal.init();
                 console.log('[App] Auth & sync initialized');

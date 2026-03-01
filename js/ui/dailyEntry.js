@@ -7,6 +7,7 @@ const DailyEntry = (function () {
     'use strict';
 
     let currentDate = Utils.formatDate(new Date());
+    let syncPendingCount = 0;
     
     // Debounced refresh function to prevent excessive DOM updates
     // Uses 300ms delay to batch rapid changes
@@ -15,6 +16,25 @@ const DailyEntry = (function () {
         Dashboard.refresh();
         Chart.refresh();
     }, 300);
+
+    /**
+     * Show/hide sync pending badge
+     * @param {boolean} show - Whether to show the badge
+     */
+    function setSyncPending(show) {
+        const badge = document.getElementById('sync-pending-badge');
+        if (!badge) return;
+        
+        if (show) {
+            syncPendingCount++;
+            badge.classList.remove('hidden');
+        } else {
+            syncPendingCount = Math.max(0, syncPendingCount - 1);
+            if (syncPendingCount === 0) {
+                badge.classList.add('hidden');
+            }
+        }
+    }
 
     function init() {
         setupEventListeners();
@@ -104,7 +124,7 @@ const DailyEntry = (function () {
         Components.setText('weight-input-unit', unit);
     }
 
-    function saveEntry() {
+    async function saveEntry() {
         const weightInput = document.getElementById('weight-input');
         const caloriesInput = document.getElementById('calories-input');
         const notesInput = document.getElementById('notes-input');
@@ -133,26 +153,44 @@ const DailyEntry = (function () {
             }
         }
 
-        // Save
-        const success = Storage.saveEntry(currentDate, {
-            weight: weightVal,
-            calories: caloriesVal,
-            notes: notesInput.value.trim()
-        });
+        // Show sync pending indicator
+        setSyncPending(true);
 
-        if (success) {
-            Components.showToast('Entry saved!', 'success');
+        try {
+            // Save via Sync module (LocalStorage + Supabase queue)
+            const result = await Sync.saveWeightEntry({
+                date: currentDate,
+                weight: weightVal,
+                calories: caloriesVal,
+                notes: notesInput.value.trim()
+            });
 
-            // Trigger updates
-            WeeklyView.refresh();
-            Dashboard.refresh();
-            Chart.refresh();
-        } else {
+            if (result.success) {
+                // Check if sync is pending (authenticated but not yet synced to Supabase)
+                const syncStatus = Sync.getStatus();
+                const syncMessage = syncStatus.isAuthenticated && syncStatus.isOnline 
+                    ? 'Entry saved! Syncing to cloud...' 
+                    : 'Entry saved!';
+                
+                Components.showToast(syncMessage, 'success');
+
+                // Trigger updates
+                WeeklyView.refresh();
+                Dashboard.refresh();
+                Chart.refresh();
+            } else {
+                Components.showToast(result.error || 'Failed to save entry', 'error');
+            }
+        } catch (error) {
+            console.error('[DailyEntry] Save error:', error);
             Components.showToast('Failed to save entry', 'error');
+        } finally {
+            // Hide sync pending indicator
+            setSyncPending(false);
         }
     }
 
-    function autoSave() {
+    async function autoSave() {
         const weightInput = document.getElementById('weight-input');
         const caloriesInput = document.getElementById('calories-input');
         const notesInput = document.getElementById('notes-input');
@@ -163,11 +201,28 @@ const DailyEntry = (function () {
         // Only auto-save if we have at least one value
         if (weightVal === null && caloriesVal === null) return;
 
-        Storage.saveEntry(currentDate, {
-            weight: weightVal,
-            calories: caloriesVal,
-            notes: notesInput.value.trim()
-        });
+        // Show sync pending indicator (subtle for auto-save)
+        setSyncPending(true);
+
+        try {
+            // Save via Sync module (LocalStorage + Supabase queue)
+            // Silent failure for auto-save (no toast notifications)
+            const result = await Sync.saveWeightEntry({
+                date: currentDate,
+                weight: weightVal,
+                calories: caloriesVal,
+                notes: notesInput.value.trim()
+            });
+
+            if (!result.success) {
+                console.error('[DailyEntry] Auto-save failed:', result.error);
+            }
+        } catch (error) {
+            console.error('[DailyEntry] Auto-save error:', error);
+        } finally {
+            // Hide sync pending indicator
+            setSyncPending(false);
+        }
 
         // Use debounced refresh to prevent excessive DOM updates
         debouncedRefresh();

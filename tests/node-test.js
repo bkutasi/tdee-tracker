@@ -824,6 +824,575 @@ test('CSP has at least 4 directive types', () => {
     expect(directiveCount).toBeGreaterThanOrEqual(4);
 });
 
+console.log('\n=== Sync Module Tests ===\n');
+
+// Mock setup for Sync tests
+// Create window mock for Sync module (browser compatibility in Node.js)
+global.window = {
+    location: {
+        hostname: 'localhost',
+        protocol: 'file:'
+    },
+    addEventListener: () => {},
+    dispatchEvent: () => {},
+    CustomEvent: class { constructor(type, detail) { this.type = type; this.detail = detail; } }
+};
+
+const createMockLocalStorage = () => ({
+    data: {
+        tdee_entries: '{}',
+        tdee_settings: '{}',
+        tdee_sync_queue: '[]',
+        tdee_sync_history: '[]'
+    },
+    getItem(key) { return this.data[key] || null; },
+    setItem(key, value) { this.data[key] = value; },
+    removeItem(key) { delete this.data[key]; },
+    clear() { this.data = {}; }
+});
+
+let mockLocalStorage = createMockLocalStorage();
+global.localStorage = mockLocalStorage;
+
+// Mock navigator.onLine
+Object.defineProperty(global.navigator, 'onLine', {
+    writable: true,
+    value: true
+});
+
+// Mock crypto.randomUUID
+if (!global.crypto) {
+    global.crypto = {};
+}
+if (!global.crypto.randomUUID) {
+    global.crypto.randomUUID = () => 'mock-uuid-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+}
+
+// Mock Supabase client
+const mockSupabase = {
+    from: (table) => ({
+        insert: (data) => ({
+            select: () => ({
+                single: async () => ({
+                    data: { ...data, id: 'mock-id-' + Date.now() },
+                    error: null
+                })
+            })
+        }),
+        update: (data) => ({
+            eq: () => ({
+                select: () => ({
+                    single: async () => ({
+                        data,
+                        error: null
+                    })
+                })
+            })
+        }),
+        delete: () => ({
+            eq: () => ({
+                single: async () => ({ error: null })
+            })
+        }),
+        select: () => ({
+            order: () => ({
+                data: [],
+                error: null
+            })
+        })
+    })
+};
+
+// Load Sync module
+const Sync = require('../js/sync.js');
+
+// Helper to reset mock state between tests and return fresh Sync module
+function resetSyncMocks() {
+    mockLocalStorage = createMockLocalStorage();
+    global.localStorage = mockLocalStorage;
+    global.window.Auth = {
+        isAuthenticated: () => true,
+        getCurrentUser: () => ({ id: 'test-user-123', email: 'test@example.com' }),
+        getSession: async () => ({ session: { user: { id: 'test-user-123' } }, error: null }),
+        _getSupabase: () => mockSupabase,
+        onAuthStateChange: () => {}
+    };
+    // Attach Storage to window for Sync module access
+    global.window.Storage = Storage;
+    
+    // Re-require Sync module to reset its internal state
+    delete require.cache[require.resolve('../js/sync.js')];
+    return require('../js/sync.js');
+}
+
+// Initialize mocks
+resetSyncMocks();
+
+// Initialize Storage for Sync tests
+Storage.init();
+
+test('Sync.queueOperation creates operation with correct structure', () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    const operationId = Sync.queueOperation('create', 'weight_entries', { weight: 80, calories: 1600 }, 'local-123');
+    
+    expect(operationId).toBeDefined();
+    const queue = Sync.getQueue();
+    expect(queue).toHaveLength(1);
+    
+    const op = queue[0];
+    expect(op.type).toBe('create');
+    expect(op.table).toBe('weight_entries');
+    expect(op.data.weight).toBe(80);
+    expect(op.localId).toBe('local-123');
+    expect(op.retries).toBe(0);
+});
+
+test('Sync.queueOperation persists to localStorage', () => {
+    const Sync = resetSyncMocks();
+    
+    Sync.queueOperation('create', 'weight_entries', { weight: 80 });
+    
+    const stored = mockLocalStorage.data.tdee_sync_queue;
+    expect(stored).toBeDefined();
+    
+    const parsed = JSON.parse(stored);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].type).toBe('create');
+});
+
+test('Sync.loadSyncQueue loads from localStorage on init', () => {
+    // This test verifies queue persistence through localStorage
+    // Setup: Use queueOperation to add items (which saves to localStorage)
+    const Sync = resetSyncMocks();
+    Sync.init();
+    
+    Sync.queueOperation('create', 'weight_entries', { weight: 80 });
+    Sync.queueOperation('update', 'weight_entries', { weight: 81 });
+    
+    // Verify queue has 2 items
+    expect(Sync.getQueue()).toHaveLength(2);
+    
+    // Verify localStorage has the data
+    const stored = mockLocalStorage.data.tdee_sync_queue;
+    expect(JSON.parse(stored)).toHaveLength(2);
+    
+    // Simulate reload: create new Sync instance that should load from localStorage
+    const storedQueue = JSON.parse(stored);
+    mockLocalStorage.data.tdee_sync_queue = JSON.stringify(storedQueue);
+    
+    // Re-require Sync to simulate app restart
+    delete require.cache[require.resolve('../js/sync.js')];
+    const Sync2 = require('../js/sync.js');
+    Sync2.init();
+    
+    // Verify queue was loaded from localStorage
+    expect(Sync2.getQueue()).toHaveLength(2);
+});
+
+test('Sync.clearQueue removes all operations', () => {
+    const Sync = resetSyncMocks();
+    
+    Sync.queueOperation('create', 'weight_entries', { weight: 80 });
+    Sync.queueOperation('update', 'weight_entries', { weight: 81 });
+    
+    expect(Sync.getQueue()).toHaveLength(2);
+    
+    Sync.clearQueue();
+    
+    expect(Sync.getQueue()).toHaveLength(0);
+});
+
+test('Sync.saveWeightEntry saves to LocalStorage immediately', async () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    const entry = {
+        date: '2026-02-26',
+        weight: 80.5,
+        calories: 1600,
+        notes: 'Test entry'
+    };
+
+    const result = await Sync.saveWeightEntry(entry);
+
+    expect(result.success).toBeTrue();
+    const retrieved = Storage.getEntry('2026-02-26');
+    expect(retrieved.weight).toBe(80.5);
+    expect(retrieved.calories).toBe(1600);
+});
+
+test('Sync.saveWeightEntry returns error for missing date', async () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    const entry = { weight: 80, calories: 1600 };
+
+    const result = await Sync.saveWeightEntry(entry);
+
+    expect(result.success).toBeFalse();
+    expect(result.error).toBe('Entry must include date field');
+});
+
+test('Sync.saveWeightEntry queues sync operation', async () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    const entry = {
+        date: '2026-02-27',
+        weight: 81,
+        calories: 1700
+    };
+
+    await Sync.saveWeightEntry(entry);
+
+    const queue = Sync.getQueue();
+    expect(queue).toHaveLength(1);
+    expect(queue[0].type).toBe('create');
+});
+
+test('Sync.updateWeightEntry updates LocalStorage', async () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    Storage.saveEntry('2026-03-01', { weight: 80, calories: 1600, notes: 'Original' });
+    
+    const result = await Sync.updateWeightEntry({
+        date: '2026-03-01',
+        weight: 81,
+        calories: 1700,
+        notes: 'Updated'
+    });
+
+    expect(result.success).toBeTrue();
+    const retrieved = Storage.getEntry('2026-03-01');
+    expect(retrieved.weight).toBe(81);
+    expect(retrieved.calories).toBe(1700);
+});
+
+test('Sync.updateWeightEntry queues update operation', async () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    Storage.saveEntry('2026-03-02', { weight: 80 });
+    
+    await Sync.updateWeightEntry({
+        date: '2026-03-02',
+        weight: 81
+    });
+
+    const queue = Sync.getQueue();
+    expect(queue).toHaveLength(1);
+    expect(queue[0].type).toBe('update');
+});
+
+test('Sync.deleteWeightEntry deletes from LocalStorage', async () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    Storage.saveEntry('2026-03-04', { weight: 80 });
+    
+    const result = await Sync.deleteWeightEntry('2026-03-04');
+
+    expect(result.success).toBeTrue();
+    expect(Storage.getEntry('2026-03-04')).toBeNull();
+});
+
+test('Sync.deleteWeightEntry queues delete operation', async () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    Storage.saveEntry('2026-03-05', { weight: 80 });
+    
+    await Sync.deleteWeightEntry('2026-03-05');
+
+    const queue = Sync.getQueue();
+    expect(queue).toHaveLength(1);
+    expect(queue[0].type).toBe('delete');
+});
+
+test('Sync.mergeEntries combines remote and local data', () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    Storage.saveEntry('2026-03-06', { weight: 80, calories: 1600, updatedAt: '2026-03-06T10:00:00Z' });
+    
+    const remoteEntries = [
+        { date: '2026-03-07', weight: 81, calories: 1700, updated_at: '2026-03-07T10:00:00Z' }
+    ];
+
+    const merged = Sync.mergeEntries(remoteEntries);
+
+    expect(merged).toHaveLength(2);
+    const dates = merged.map(e => e.date);
+    expect(dates).toContain('2026-03-06');
+    expect(dates).toContain('2026-03-07');
+});
+
+test('Sync.mergeEntries conflict resolution: newest timestamp wins', () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    Storage.saveEntry('2026-03-08', { weight: 80, calories: 1600, updatedAt: '2026-03-08T10:00:00Z' });
+    
+    const remoteEntries = [
+        { 
+            date: '2026-03-08', 
+            weight: 82, 
+            calories: 1800, 
+            updated_at: '2026-03-08T15:00:00Z' 
+        }
+    ];
+
+    const merged = Sync.mergeEntries(remoteEntries);
+
+    const mergedEntry = merged.find(e => e.date === '2026-03-08');
+    expect(mergedEntry.weight).toBe(82);
+    expect(mergedEntry.calories).toBe(1800);
+});
+
+test('Sync.mergeEntries keeps local when local timestamp is newer', () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    // Save entry - it will get current timestamp (2026-03-01)
+    Storage.saveEntry('2026-03-09', { weight: 83, calories: 1900 });
+    
+    // Remote has OLDER timestamp (2025-12-01)
+    const remoteEntries = [
+        { 
+            date: '2026-03-09', 
+            weight: 80, 
+            calories: 1600, 
+            updated_at: '2025-12-01T10:00:00Z' 
+        }
+    ];
+
+    const merged = Sync.mergeEntries(remoteEntries);
+
+    // Local should win (newer timestamp)
+    const mergedEntry = merged.find(e => e.date === '2026-03-09');
+    expect(mergedEntry.weight).toBe(83);
+    expect(mergedEntry.calories).toBe(1900);
+});
+
+test('Sync.mergeEntries preserves local-only entries', () => {
+    const Sync = resetSyncMocks();
+    mockLocalStorage.clear();
+    Storage.init();
+    
+    Storage.saveEntry('2026-03-10', { weight: 80 });
+    Storage.saveEntry('2026-03-11', { weight: 81 });
+    
+    const remoteEntries = [
+        { date: '2026-03-12', weight: 82, updated_at: '2026-03-12T10:00:00Z' }
+    ];
+
+    const merged = Sync.mergeEntries(remoteEntries);
+
+    expect(merged).toHaveLength(3);
+    const dates = merged.map(e => e.date);
+    expect(dates).toContain('2026-03-10');
+    expect(dates).toContain('2026-03-11');
+    expect(dates).toContain('2026-03-12');
+});
+
+test('Sync.mergeEntries adds remote-only entries', () => {
+    const Sync = resetSyncMocks();
+    mockLocalStorage.clear();
+    Storage.init();
+    
+    const remoteEntries = [
+        { date: '2026-03-13', weight: 80, updated_at: '2026-03-13T10:00:00Z' },
+        { date: '2026-03-14', weight: 81, updated_at: '2026-03-14T10:00:00Z' }
+    ];
+
+    const merged = Sync.mergeEntries(remoteEntries);
+
+    expect(merged).toHaveLength(2);
+});
+
+test('Sync.mergeEntries sorts by date descending', () => {
+    const Sync = resetSyncMocks();
+    mockLocalStorage.clear();
+    Storage.init();
+    
+    Storage.saveEntry('2026-03-16', { weight: 80, updatedAt: '2026-03-16T10:00:00Z' });
+    
+    const remoteEntries = [
+        { date: '2026-03-14', weight: 78, updated_at: '2026-03-14T10:00:00Z' },
+        { date: '2026-03-18', weight: 82, updated_at: '2026-03-18T10:00:00Z' }
+    ];
+
+    const merged = Sync.mergeEntries(remoteEntries);
+
+    expect(merged[0].date).toBe('2026-03-18');
+    expect(merged[1].date).toBe('2026-03-16');
+    expect(merged[2].date).toBe('2026-03-14');
+});
+
+test('Sync.getStatus returns correct structure', () => {
+    const Sync = resetSyncMocks();
+    const status = Sync.getStatus();
+
+    expect(status).toBeDefined();
+    expect(typeof status.isOnline).toBe('boolean');
+    expect(typeof status.isAuthenticated).toBe('boolean');
+    expect(typeof status.pendingOperations).toBe('number');
+    expect(typeof status.isSyncing).toBe('boolean');
+    expect(typeof status.errorCount).toBe('number');
+});
+
+test('Sync.getStatus shows correct pending operations count', () => {
+    const Sync = resetSyncMocks();
+    mockLocalStorage.clear();
+    
+    Sync.queueOperation('create', 'weight_entries', { weight: 80 });
+    Sync.queueOperation('update', 'weight_entries', { weight: 81 });
+
+    const status = Sync.getStatus();
+    expect(status.pendingOperations).toBe(2);
+});
+
+test('Sync.getQueue returns pending operations', () => {
+    const Sync = resetSyncMocks();
+    mockLocalStorage.clear();
+    
+    Sync.queueOperation('create', 'weight_entries', { weight: 80 });
+    Sync.queueOperation('update', 'weight_entries', { weight: 81 });
+
+    const queue = Sync.getQueue();
+    expect(queue).toHaveLength(2);
+});
+
+test('Sync.getQueue includes operation metadata', () => {
+    const Sync = resetSyncMocks();
+    mockLocalStorage.clear();
+    
+    Sync.queueOperation('create', 'weight_entries', { weight: 80 }, 'local-123');
+
+    const queue = Sync.getQueue();
+    expect(queue[0]).toBeDefined();
+    expect(queue[0].type).toBe('create');
+    expect(queue[0].table).toBe('weight_entries');
+    expect(queue[0].retries).toBe(0);
+    expect(queue[0].localId).toBe('local-123');
+});
+
+test('Sync.getErrorHistory returns error entries', () => {
+    const Sync = resetSyncMocks();
+    Sync.init();
+    
+    // Manually record an error to test error history
+    // Use internal mechanism: directly set in localStorage then re-init
+    const errorEntry = {
+        id: 'test-error-1',
+        timestamp: Date.now(),
+        operation: 'test',
+        error: 'Test error',
+        details: {},
+        resolved: false
+    };
+    mockLocalStorage.data.tdee_sync_history = JSON.stringify([errorEntry]);
+    
+    // Re-require to load the error history
+    delete require.cache[require.resolve('../js/sync.js')];
+    const Sync2 = require('../js/sync.js');
+    Sync2.init();
+    
+    const history = Sync2.getErrorHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0].operation).toBe('test');
+});
+
+test('Sync.clearErrorHistory removes all errors', () => {
+    const Sync = resetSyncMocks();
+    Sync.init();
+    
+    // Set up error history
+    mockLocalStorage.data.tdee_sync_history = JSON.stringify([
+        { id: 'e1', timestamp: Date.now(), operation: 'create', error: 'Error 1', resolved: false }
+    ]);
+    
+    // Re-require to load
+    delete require.cache[require.resolve('../js/sync.js')];
+    const Sync2 = require('../js/sync.js');
+    Sync2.init();
+    
+    expect(Sync2.getErrorHistory()).toHaveLength(1);
+    
+    Sync2.clearErrorHistory();
+    expect(Sync2.getErrorHistory()).toHaveLength(0);
+});
+
+test('Sync.mergeEntries handles empty remote entries', () => {
+    const Sync = resetSyncMocks();
+    mockLocalStorage.clear();
+    Storage.init();
+    
+    const merged = Sync.mergeEntries([]);
+    expect(merged).toEqual([]);
+});
+
+test('Sync.saveWeightEntry handles null entry', async () => {
+    const Sync = resetSyncMocks();
+    mockLocalStorage.clear();
+    Storage.init();
+    
+    const result = await Sync.saveWeightEntry(null);
+    expect(result.success).toBeFalse();
+    expect(result.error).toBe('Entry must include date field');
+});
+
+test('Sync.saveWeightEntry handles undefined entry', async () => {
+    const Sync = resetSyncMocks();
+    mockLocalStorage.clear();
+    Storage.init();
+    
+    const result = await Sync.saveWeightEntry(undefined);
+    expect(result.success).toBeFalse();
+});
+
+test('Sync preserves data through full sync cycle', async () => {
+    const Sync = resetSyncMocks();
+    mockLocalStorage.clear();
+    Storage.init();
+    
+    const entry = {
+        date: '2026-03-20',
+        weight: 80.5,
+        calories: 1600,
+        notes: 'Integration test'
+    };
+
+    const result = await Sync.saveWeightEntry(entry);
+    expect(result.success).toBeTrue();
+
+    const retrieved = Storage.getEntry('2026-03-20');
+    expect(retrieved.weight).toBe(80.5);
+
+    const queue = Sync.getQueue();
+    expect(queue).toHaveLength(1);
+    expect(queue[0].type).toBe('create');
+});
+
+test('Sync handles multiple entry operations', async () => {
+    const Sync = resetSyncMocks();
+    mockLocalStorage.clear();
+    Storage.init();
+    
+    await Sync.saveWeightEntry({ date: '2026-03-21', weight: 80, calories: 1600 });
+    await Sync.saveWeightEntry({ date: '2026-03-22', weight: 81, calories: 1700 });
+    await Sync.updateWeightEntry({ date: '2026-03-21', weight: 80.5, calories: 1650 });
+
+    const queue = Sync.getQueue();
+    expect(queue).toHaveLength(3);
+    
+    const types = queue.map(o => o.type);
+    expect(types).toEqual(['create', 'create', 'update']);
+});
+
 // Summary
 console.log(`\n${'='.repeat(40)}`);
 console.log(`Results: ${passed} passed, ${failed} failed`);

@@ -195,6 +195,8 @@ const AuthModal = (function() {
     function renderLoggedInState(user) {
         const syncStatus = window.Sync?.getStatus() || {};
         const pendingOps = syncStatus.pendingOperations || 0;
+        const lastSync = syncStatus.lastSyncTimeFormatted || 'Never';
+        const hasErrors = (syncStatus.errorCount || 0) > 0;
 
         statusContainer.innerHTML = `
             <div class="auth-logged-in">
@@ -205,7 +207,9 @@ const AuthModal = (function() {
                     <div class="user-details">
                         <div class="user-email">${escapeHtml(user.email)}</div>
                         <div class="user-meta">
-                            <span class="badge badge-success">Online</span>
+                            <span class="badge ${syncStatus.isOnline ? 'badge-success' : 'badge-warning'}">
+                                ${syncStatus.isOnline ? 'Online' : 'Offline'}
+                            </span>
                             ${user.last_sign_in_at ? `
                                 <span class="text-muted">
                                     Last login: ${formatDate(user.last_sign_in_at)}
@@ -215,20 +219,51 @@ const AuthModal = (function() {
                     </div>
                 </div>
 
-                <div class="sync-status ${syncStatus.isOnline ? 'online' : 'offline'}">
-                    <div class="sync-indicator"></div>
-                    <div class="sync-info">
-                        <div class="sync-text">
-                            ${syncStatus.isOnline ? 'Synced' : 'Offline'}
-                            ${pendingOps > 0 ? `(${pendingOps} pending)` : ''}
-                        </div>
-                        <div class="sync-subtext text-muted">
-                            ${syncStatus.isOnline ? 'Data synced across devices' : 'Changes saved locally'}
+                <div class="sync-status-section mt-3">
+                    <div class="sync-status ${syncStatus.isOnline ? 'online' : 'offline'}">
+                        <div class="sync-indicator"></div>
+                        <div class="sync-info">
+                            <div class="sync-text">
+                                ${syncStatus.isOnline ? 'Synced' : 'Offline'}
+                                ${pendingOps > 0 ? `<span class="badge badge-warning ml-2">${pendingOps} pending</span>` : ''}
+                                ${hasErrors ? `<span class="badge badge-danger ml-2">${syncStatus.errorCount} errors</span>` : ''}
+                            </div>
+                            <div class="sync-subtext text-muted text-sm mt-1">
+                                Last sync: ${lastSync}
+                                ${syncStatus.isOnline ? '• Data synced across devices' : '• Changes saved locally'}
+                            </div>
                         </div>
                     </div>
+                    
+                    ${pendingOps > 0 || hasErrors ? `
+                        <div class="sync-debug-actions mt-2">
+                            ${pendingOps > 0 ? `
+                                <button id="view-queue-btn" class="btn btn-sm btn-ghost">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                                        <polyline points="10 9 9 9 8 9"></polyline>
+                                    </svg>
+                                    View Queue (${pendingOps})
+                                </button>
+                            ` : ''}
+                            ${hasErrors ? `
+                                <button id="view-errors-btn" class="btn btn-sm btn-ghost">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                    </svg>
+                                    View Errors (${syncStatus.errorCount})
+                                </button>
+                            ` : ''}
+                        </div>
+                    ` : ''}
                 </div>
 
-                <div class="auth-actions">
+                <div class="auth-actions mt-3">
                     <button id="sync-now-btn" class="btn btn-secondary btn-sm">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M23 4v6h-6"></path>
@@ -266,9 +301,13 @@ const AuthModal = (function() {
         // Attach event listeners
         const logoutBtn = statusContainer.querySelector('#logout-btn');
         const syncNowBtn = statusContainer.querySelector('#sync-now-btn');
+        const viewQueueBtn = statusContainer.querySelector('#view-queue-btn');
+        const viewErrorsBtn = statusContainer.querySelector('#view-errors-btn');
 
         logoutBtn?.addEventListener('click', handleLogout);
         syncNowBtn?.addEventListener('click', handleSyncNow);
+        viewQueueBtn?.addEventListener('click', handleViewQueue);
+        viewErrorsBtn?.addEventListener('click', handleViewErrors);
     }
 
     /**
@@ -455,6 +494,265 @@ const AuthModal = (function() {
         `;
 
         showMessage('Sync complete', 'success');
+        
+        // Re-render to update status
+        setTimeout(renderAuthState, 500);
+    }
+    
+    /**
+     * Handle view queue button
+     */
+    function handleViewQueue() {
+        const Sync = window.Sync;
+        if (!Sync) {
+            showMessage('Sync module not available', 'error');
+            return;
+        }
+        
+        const queue = Sync.getQueue();
+        
+        if (queue.length === 0) {
+            showMessage('Queue is empty', 'info');
+            return;
+        }
+        
+        // Create and show queue modal
+        showQueueModal(queue);
+    }
+    
+    /**
+     * Handle view errors button
+     */
+    function handleViewErrors() {
+        const Sync = window.Sync;
+        if (!Sync) {
+            showMessage('Sync module not available', 'error');
+            return;
+        }
+        
+        const errors = Sync.getErrorHistory();
+        
+        if (errors.length === 0) {
+            showMessage('No errors in history', 'info');
+            return;
+        }
+        
+        // Create and show errors modal
+        showErrorsModal(errors);
+    }
+    
+    /**
+     * Show queue details modal
+     * @param {array} queue - Array of pending operations
+     */
+    function showQueueModal(queue) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'queue-modal-overlay';
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = 'queue-modal';
+        
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">
+                        <span class="modal-icon">📋</span>
+                        Pending Operations (${queue.length})
+                    </h2>
+                    <button class="btn-icon modal-close" id="close-queue-modal">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="queue-list">
+                        ${queue.map(op => `
+                            <div class="queue-item">
+                                <div class="queue-item-header">
+                                    <span class="badge badge-${op.type === 'create' ? 'success' : op.type === 'update' ? 'info' : 'danger'}">
+                                        ${op.type.toUpperCase()}
+                                    </span>
+                                    <span class="text-mono text-sm">${op.table}</span>
+                                    <span class="text-muted text-sm">ID: ${op.id.slice(0, 8)}...</span>
+                                </div>
+                                <div class="queue-item-details">
+                                    <span>Time: ${op.timestampFormatted}</span>
+                                    <span>Retries: ${op.retries}</span>
+                                    ${op.localId ? `<span>Local ID: ${op.localId}</span>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="modal-actions mt-4">
+                        <button id="clear-queue-btn" class="btn btn-danger btn-sm">
+                            Clear Queue
+                        </button>
+                        <button id="close-queue-btn" class="btn btn-secondary btn-sm">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        // Show modal
+        setTimeout(() => {
+            overlay.classList.remove('hidden');
+            modal.classList.add('show');
+            modal.style.animation = 'slideUp var(--transition-normal) ease';
+        }, 10);
+        
+        // Attach close handlers
+        document.getElementById('close-queue-modal')?.addEventListener('click', () => {
+            closeQueueModal(overlay);
+        });
+        
+        document.getElementById('close-queue-btn')?.addEventListener('click', () => {
+            closeQueueModal(overlay);
+        });
+        
+        document.getElementById('clear-queue-btn')?.addEventListener('click', () => {
+            const Sync = window.Sync;
+            if (Sync) {
+                Sync.clearQueue();
+                closeQueueModal(overlay);
+                showMessage('Queue cleared', 'success');
+                renderAuthState();
+            }
+        });
+        
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closeQueueModal(overlay);
+            }
+        });
+    }
+    
+    /**
+     * Close queue modal
+     * @param {HTMLElement} overlay - Modal overlay element
+     */
+    function closeQueueModal(overlay) {
+        overlay.classList.add('hidden');
+        setTimeout(() => {
+            overlay.remove();
+        }, 200);
+    }
+    
+    /**
+     * Show error history modal
+     * @param {array} errors - Array of error entries
+     */
+    function showErrorsModal(errors) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'errors-modal-overlay';
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = 'errors-modal';
+        
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">
+                        <span class="modal-icon">⚠️</span>
+                        Sync Errors (${errors.length})
+                    </h2>
+                    <button class="btn-icon modal-close" id="close-errors-modal">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="errors-list">
+                        ${errors.map(err => `
+                            <div class="error-item">
+                                <div class="error-item-header">
+                                    <span class="badge badge-danger">${err.operation}</span>
+                                    <span class="text-muted text-sm">${err.timestampFormatted}</span>
+                                </div>
+                                <div class="error-item-message text-danger text-sm mt-1">
+                                    ${escapeHtml(err.error)}
+                                </div>
+                                ${err.details?.operation ? `
+                                    <div class="error-item-details text-muted text-xs mt-1">
+                                        Type: ${err.details.operation.type}, 
+                                        Table: ${err.details.operation.table},
+                                        Retries: ${err.details.operation.retries}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="modal-actions mt-4">
+                        <button id="clear-errors-btn" class="btn btn-danger btn-sm">
+                            Clear Error History
+                        </button>
+                        <button id="close-errors-btn" class="btn btn-secondary btn-sm">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        // Show modal
+        setTimeout(() => {
+            overlay.classList.remove('hidden');
+            modal.classList.add('show');
+            modal.style.animation = 'slideUp var(--transition-normal) ease';
+        }, 10);
+        
+        // Attach close handlers
+        document.getElementById('close-errors-modal')?.addEventListener('click', () => {
+            closeErrorsModal(overlay);
+        });
+        
+        document.getElementById('close-errors-btn')?.addEventListener('click', () => {
+            closeErrorsModal(overlay);
+        });
+        
+        document.getElementById('clear-errors-btn')?.addEventListener('click', () => {
+            const Sync = window.Sync;
+            if (Sync) {
+                Sync.clearErrorHistory();
+                closeErrorsModal(overlay);
+                showMessage('Error history cleared', 'success');
+                renderAuthState();
+            }
+        });
+        
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closeErrorsModal(overlay);
+            }
+        });
+    }
+    
+    /**
+     * Close errors modal
+     * @param {HTMLElement} overlay - Modal overlay element
+     */
+    function closeErrorsModal(overlay) {
+        overlay.classList.add('hidden');
+        setTimeout(() => {
+            overlay.remove();
+        }, 200);
     }
 
     /**
