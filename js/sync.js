@@ -237,7 +237,7 @@ const Sync = (function() {
 
     /**
      * Set up auth state change listener
-     * Triggers data fetch/merge on sign-in, pauses sync on sign-out
+     * Triggers data fetch/merge + upload on sign-in, pauses sync on sign-out
      */
     function setupAuthStateListener() {
         const Auth = window.Auth;
@@ -250,8 +250,19 @@ const Sync = (function() {
             console.log('[Sync] Auth state changed:', event);
 
             if (event === 'SIGNED_IN') {
-                console.log('[Sync] User signed in - fetching and merging data');
+                console.log('[Sync] User signed in - syncing bidirectional data...');
+                
+                // First, fetch remote data and merge with local
                 await fetchAndMergeData();
+                
+                // Then, upload any local-only entries to Supabase
+                // This happens automatically - no user action needed
+                const backfillResult = await queueLocalEntriesForSync();
+                
+                if (backfillResult.success && backfillResult.queued > 0) {
+                    console.log(`[Sync] Queued ${backfillResult.queued} local entries for upload`);
+                    showToast(`Syncing ${backfillResult.queued} local entr${backfillResult.queued === 1 ? 'y' : 'ies'} to cloud...`, 'info');
+                }
             } else if (event === 'SIGNED_OUT') {
                 console.log('[Sync] User signed out - pausing sync');
                 // Keep queue for later, just pause sync operations
@@ -326,6 +337,82 @@ const Sync = (function() {
             console.error('[Sync] Fetch and merge failed:', error);
             showToast('Sync failed. Your local data is safe.', 'error');
         }
+    }
+
+    /**
+     * Queue all local entries for upload to Supabase
+     * Used for initial sync or backfilling unsynced data
+     * @returns {Promise<{success: boolean, queued: number, error?: string}>}
+     */
+    async function queueLocalEntriesForSync() {
+        const Storage = window.Storage;
+        const Auth = window.Auth;
+
+        // Check authentication
+        if (!Auth || !Auth.isAuthenticated()) {
+            console.log('[Sync.queueLocalEntries] Not authenticated - skipping');
+            return { success: false, error: 'Not authenticated' };
+        }
+
+        const user = Auth.getCurrentUser();
+        if (!user) {
+            console.log('[Sync.queueLocalEntries] No user - skipping');
+            return { success: false, error: 'No user found' };
+        }
+
+        // Get all local entries
+        const allEntriesObj = Storage.getAllEntries();
+        const localEntries = Object.entries(allEntriesObj || {}).map(([date, entry]) => ({
+            date,
+            ...entry
+        }));
+
+        if (localEntries.length === 0) {
+            console.log('[Sync.queueLocalEntries] No local entries to queue');
+            return { success: true, queued: 0 };
+        }
+
+        console.log(`[Sync.queueLocalEntries] Queuing ${localEntries.length} local entries for sync...`);
+
+        // Fetch remote entries to avoid duplicates
+        const remoteResult = await fetchWeightEntries();
+        const remoteDates = new Set();
+        
+        if (remoteResult.success && remoteResult.entries) {
+            remoteResult.entries.forEach(entry => {
+                if (entry.date) {
+                    remoteDates.add(entry.date);
+                }
+            });
+            console.log(`[Sync.queueLocalEntries] Found ${remoteDates.size} remote entries`);
+        }
+
+        // Queue only entries that don't exist remotely
+        let queuedCount = 0;
+        localEntries.forEach(entry => {
+            if (!remoteDates.has(entry.date)) {
+                queueOperation('create', 'weight_entries', {
+                    user_id: user.id,
+                    date: entry.date,
+                    weight: entry.weight,
+                    calories: entry.calories || null,
+                    notes: entry.notes || null
+                }, entry.date);
+                queuedCount++;
+            } else {
+                console.log(`[Sync.queueLocalEntries] Skipping ${entry.date} (already exists remotely)`);
+            }
+        });
+
+        console.log(`[Sync.queueLocalEntries] Queued ${queuedCount} entries for upload`);
+        
+        // Trigger immediate sync if online
+        if (navigator.onLine) {
+            console.log('[Sync.queueLocalEntries] Triggering immediate sync...');
+            await syncAll();
+        }
+
+        return { success: true, queued: queuedCount };
     }
 
     /**
@@ -1020,6 +1107,7 @@ const Sync = (function() {
         fetchWeightEntries,
         mergeEntries,
         fetchAndMergeData,  // Added for auth state data fetch
+        queueLocalEntriesForSync,  // Added for backfilling local data
         getStatus,
         getQueue,
         getLastSyncTime,
@@ -1120,21 +1208,33 @@ if (typeof window !== 'undefined') {
             },
             
             /**
+             * Queue all local entries for upload to Supabase
+             * @returns {Promise<{success: boolean, queued: number}>}
+             */
+            backfillLocal: async () => {
+                console.log('[SyncDebug] Starting local data backfill...');
+                const result = await Sync.queueLocalEntriesForSync();
+                console.log('[SyncDebug] Backfill complete:', result);
+                return result;
+            },
+            
+            /**
              * Help - list available commands
              */
             help: () => {
                 console.log(`
 [SyncDebug] Available commands:
-  SyncDebug.status()     - Get detailed sync status
-  SyncDebug.queue()      - Get pending operations
-  SyncDebug.errors()     - Get error history
-  SyncDebug.forceSync()  - Trigger immediate sync
-  SyncDebug.clearQueue() - Clear pending operations
-  SyncDebug.clearErrors()- Clear error history
-  SyncDebug.lastSync()   - Get last sync time
-  SyncDebug.testEntry()  - Create test entry
-  SyncDebug.info()       - Full status report
-  SyncDebug.help()       - Show this help
+  SyncDebug.status()         - Get detailed sync status
+  SyncDebug.queue()          - Get pending operations
+  SyncDebug.errors()         - Get error history
+  SyncDebug.forceSync()      - Trigger immediate sync
+  SyncDebug.clearQueue()     - Clear pending operations
+  SyncDebug.clearErrors()    - Clear error history
+  SyncDebug.lastSync()       - Get last sync time
+  SyncDebug.testEntry()      - Create test entry
+  SyncDebug.info()           - Full status report
+  SyncDebug.backfillLocal()  - Queue all local entries for upload
+  SyncDebug.help()           - Show this help
                 `);
             }
         };

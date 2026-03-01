@@ -597,3 +597,86 @@ describe('Sync integration', () => {
         expect(types).toEqual(['create', 'create', 'update']);
     });
 });
+
+describe('Sync.queueLocalEntriesForSync', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        Storage.init();
+        
+        // Mock authenticated user
+        window.Auth = {
+            isAuthenticated: () => true,
+            getCurrentUser: () => ({ id: 'test-user-123', email: 'test@example.com' }),
+            getSession: async () => ({ session: { user: { id: 'test-user-123' } } }),
+            _getSupabase: () => null
+        };
+    });
+
+    afterEach(() => {
+        delete window.Auth;
+    });
+
+    it('queues local entries that do not exist remotely', async () => {
+        // Add local entries
+        Storage.saveEntry('2026-03-01', { weight: 80, calories: 1600, notes: 'Local 1' });
+        Storage.saveEntry('2026-03-02', { weight: 81, calories: 1700, notes: 'Local 2' });
+        Storage.saveEntry('2026-03-03', { weight: 82, calories: 1800, notes: 'Local 3' });
+
+        // Mock fetchWeightEntries to return only one remote entry
+        const originalFetch = Sync.fetchWeightEntries;
+        Sync.fetchWeightEntries = async () => ({
+            success: true,
+            entries: [{ date: '2026-03-01', weight: 80, calories: 1600, updated_at: '2026-03-01T10:00:00Z' }]
+        });
+
+        const result = await Sync.queueLocalEntriesForSync();
+
+        expect(result.success).toBeTrue();
+        expect(result.queued).toBe(2); // Only 2026-03-02 and 2026-03-03 should be queued
+
+        const queue = Sync.getQueue();
+        expect(queue).toHaveLength(2);
+        
+        const queuedDates = queue.map(op => op.data.date);
+        expect(queuedDates).toContain('2026-03-02');
+        expect(queuedDates).toContain('2026-03-03');
+        expect(queuedDates).not.toContain('2026-03-01');
+
+        // Restore original function
+        Sync.fetchWeightEntries = originalFetch;
+    });
+
+    it('returns zero queued when all local entries exist remotely', async () => {
+        Storage.saveEntry('2026-03-01', { weight: 80, calories: 1600 });
+
+        const originalFetch = Sync.fetchWeightEntries;
+        Sync.fetchWeightEntries = async () => ({
+            success: true,
+            entries: [{ date: '2026-03-01', weight: 80, calories: 1600, updated_at: '2026-03-01T10:00:00Z' }]
+        });
+
+        const result = await Sync.queueLocalEntriesForSync();
+
+        expect(result.success).toBeTrue();
+        expect(result.queued).toBe(0);
+        expect(Sync.getQueue()).toHaveLength(0);
+
+        Sync.fetchWeightEntries = originalFetch;
+    });
+
+    it('returns error when not authenticated', async () => {
+        window.Auth.isAuthenticated = () => false;
+
+        const result = await Sync.queueLocalEntriesForSync();
+
+        expect(result.success).toBeFalse();
+        expect(result.error).toBe('Not authenticated');
+    });
+
+    it('handles empty local storage', async () => {
+        const result = await Sync.queueLocalEntriesForSync();
+
+        expect(result.success).toBeTrue();
+        expect(result.queued).toBe(0);
+    });
+});
