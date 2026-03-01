@@ -245,8 +245,10 @@ const Chart = (function () {
         hitAreas = []; // Reset hit areas
 
         // Padding: left/right extra space for axis labels + point radius
+        // Extra horizontal padding (20px each side) prevents first/last points from touching axis labels
         const padding = { top: 30, right: 80, bottom: 50, left: 80 };
-        const chartWidth = width - padding.left - padding.right;
+        const horizontalPointPadding = 20; // Extra space for point radius and bar width
+        const chartWidth = width - padding.left - padding.right - (horizontalPointPadding * 2);
         const chartHeight = height - padding.top - padding.bottom;
 
         // Clear
@@ -285,8 +287,8 @@ const Chart = (function () {
         for (let i = 0; i <= numLines; i++) {
             const y = padding.top + (chartHeight / numLines) * i;
             ctx.beginPath();
-            ctx.moveTo(padding.left, y);
-            ctx.lineTo(width - padding.right, y);
+            ctx.moveTo(padding.left + horizontalPointPadding, y);
+            ctx.lineTo(width - padding.right - horizontalPointPadding, y);
             ctx.stroke();
 
             // Left Y-axis labels (Weight) - match X-axis style
@@ -317,7 +319,7 @@ const Chart = (function () {
             for (let i = 0; i < tdees.length; i++) {
                 if (tdees[i] === null) continue;
 
-                const x = padding.left + i * xStep - finalBarWidth / 2;
+                const x = padding.left + horizontalPointPadding + i * xStep - finalBarWidth / 2;
                 const barHeight = ((tdees[i] - tdeeMin) / tdeeRange) * chartHeight;
                 const y = padding.top + chartHeight - barHeight;
 
@@ -355,7 +357,7 @@ const Chart = (function () {
 
         ctx.beginPath();
         for (let i = 0; i < weights.length; i++) {
-            const x = padding.left + i * xStep;
+            const x = padding.left + horizontalPointPadding + i * xStep;
             const y = padding.top + ((weightMax - weights[i]) / weightRange) * chartHeight;
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
@@ -365,7 +367,7 @@ const Chart = (function () {
         // Draw weight points
         ctx.fillStyle = weightColor;
         for (let i = 0; i < weights.length; i++) {
-            const x = padding.left + i * xStep;
+            const x = padding.left + horizontalPointPadding + i * xStep;
             const y = padding.top + ((weightMax - weights[i]) / weightRange) * chartHeight;
 
             ctx.beginPath();
@@ -389,7 +391,7 @@ const Chart = (function () {
 
         const labelStep = Math.max(1, Math.floor(labels.length / 5));
         for (let i = 0; i < labels.length; i += labelStep) {
-            const x = padding.left + i * xStep;
+            const x = padding.left + horizontalPointPadding + i * xStep;
             const date = Utils.parseDate(labels[i]);
             const label = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
             // Position label in bottom padding area (below chart, above canvas edge)
