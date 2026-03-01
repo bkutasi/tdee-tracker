@@ -387,24 +387,45 @@ const Sync = (function() {
             console.log(`[Sync.queueLocalEntries] Found ${remoteDates.size} remote entries`);
         }
 
-        // Queue only entries that don't exist remotely
+        // Queue only entries that don't exist remotely AND have valid weight
         let queuedCount = 0;
+        let skippedCount = 0;
+        let invalidCount = 0;
+        
         localEntries.forEach(entry => {
-            if (!remoteDates.has(entry.date)) {
-                queueOperation('create', 'weight_entries', {
-                    user_id: user.id,
-                    date: entry.date,
-                    weight: entry.weight,
-                    calories: entry.calories || null,
-                    notes: entry.notes || null
-                }, entry.date);
-                queuedCount++;
-            } else {
+            // Skip if already exists remotely
+            if (remoteDates.has(entry.date)) {
                 console.log(`[Sync.queueLocalEntries] Skipping ${entry.date} (already exists remotely)`);
+                skippedCount++;
+                return;
             }
+            
+            // Validate entry has required weight field
+            if (entry.weight === null || entry.weight === undefined || entry.weight === '') {
+                console.log(`[Sync.queueLocalEntries] Skipping ${entry.date} (missing weight value - calories-only entries cannot be synced)`);
+                invalidCount++;
+                return;
+            }
+            
+            // Entry is valid - queue for sync
+            queueOperation('create', 'weight_entries', {
+                user_id: user.id,
+                date: entry.date,
+                weight: entry.weight,
+                calories: entry.calories || null,
+                notes: entry.notes || null
+            }, entry.date);
+            queuedCount++;
         });
 
         console.log(`[Sync.queueLocalEntries] Queued ${queuedCount} entries for upload`);
+        if (invalidCount > 0) {
+            console.warn(`[Sync.queueLocalEntries] Skipped ${invalidCount} entries with missing weight values`);
+            showToast(`Skipped ${invalidCount} incomplete entries (weight required for sync)`, 'info');
+        }
+        if (skippedCount > 0) {
+            console.log(`[Sync.queueLocalEntries] Skipped ${skippedCount} entries already synced`);
+        }
         
         // Trigger immediate sync if online
         if (navigator.onLine) {
@@ -836,6 +857,14 @@ const Sync = (function() {
         // Queue sync to Supabase if authenticated (regardless of online status)
         // Offline users should still have operations queued for later sync
         if (isAuthenticated && user) {
+            // Validate entry has required weight field before queuing
+            if (entry.weight === null || entry.weight === undefined || entry.weight === '') {
+                console.warn('[Sync.saveWeightEntry] Skipping queue - entry missing weight value (calories-only entries cannot be synced)');
+                log('Entry saved locally but not queued - missing weight value', 'warn');
+                // Entry is saved to LocalStorage but won't sync to Supabase
+                return localResult;
+            }
+            
             const isOnline = navigator.onLine;
             console.log('[Sync.saveWeightEntry] Queueing operation for Supabase sync...');
             log(`Queueing operation: online=${isOnline}, userId=${user.id}`, 'info');
@@ -1096,6 +1125,37 @@ const Sync = (function() {
         saveSyncQueue();
         log(`Queue cleared (${count} operations removed)`, 'warn');
     }
+    
+    /**
+     * Filter out invalid operations from the queue (entries missing required fields)
+     * This prevents sync failures due to data validation errors
+     */
+    function filterInvalidOperations() {
+        const initialCount = syncQueue.length;
+        let removedCount = 0;
+        
+        syncQueue = syncQueue.filter(op => {
+            // Check create operations for weight_entries
+            if (op.type === 'create' && op.table === 'weight_entries') {
+                // Validate required fields
+                if (op.data.weight === null || op.data.weight === undefined || op.data.weight === '') {
+                    console.log(`[Sync.filterInvalidOperations] Removing invalid operation [ID: ${op.id}] - missing weight value`);
+                    removedCount++;
+                    return false; // Remove from queue
+                }
+            }
+            return true; // Keep valid operations
+        });
+        
+        if (removedCount > 0) {
+            saveSyncQueue();
+            log(`Filtered ${removedCount} invalid operations from queue (${initialCount} → ${syncQueue.length})`, 'warn');
+            showToast(`Removed ${removedCount} invalid entries from sync queue (weight required)`, 'info');
+            return { filtered: removedCount, remaining: syncQueue.length };
+        }
+        
+        return { filtered: 0, remaining: syncQueue.length };
+    }
 
     // Public API
     return {
@@ -1114,6 +1174,7 @@ const Sync = (function() {
         getErrorHistory,
         clearErrorHistory,
         clearQueue,
+        filterInvalidOperations,  // Added to clean invalid entries from queue
         queueOperation
     };
 })();
@@ -1158,6 +1219,12 @@ if (typeof window !== 'undefined') {
              * Clear the sync queue
              */
             clearQueue: () => Sync.clearQueue(),
+            
+            /**
+             * Filter out invalid operations from the queue
+             * @returns {object} Filter results
+             */
+            filterQueue: () => Sync.filterInvalidOperations(),
             
             /**
              * Clear error history
@@ -1229,6 +1296,7 @@ if (typeof window !== 'undefined') {
   SyncDebug.errors()         - Get error history
   SyncDebug.forceSync()      - Trigger immediate sync
   SyncDebug.clearQueue()     - Clear pending operations
+  SyncDebug.filterQueue()    - Remove invalid operations (missing weight)
   SyncDebug.clearErrors()    - Clear error history
   SyncDebug.lastSync()       - Get last sync time
   SyncDebug.testEntry()      - Create test entry
