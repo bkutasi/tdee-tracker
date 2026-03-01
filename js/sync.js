@@ -604,12 +604,19 @@ const Sync = (function() {
         log(`Starting sync of ${operationCount} operations`, 'info');
 
         const failed = [];
+        const removed = []; // Track operations removed due to retry limit
 
         for (const operation of syncQueue) {
             try {
                 const success = await executeOperation(operation);
                 if (!success) {
-                    failed.push(operation);
+                    // Check if operation exceeded retry limit
+                    if (operation.retries > 3) {
+                        removed.push(operation);
+                        // Don't add to failed - remove from queue permanently
+                    } else {
+                        failed.push(operation);
+                    }
                 }
             } catch (error) {
                 log(`Operation failed: ${error.message}`, 'error', { operation, error });
@@ -618,7 +625,7 @@ const Sync = (function() {
             }
         }
 
-        // Keep failed operations for retry
+        // Keep failed operations for retry (only those under retry limit)
         syncQueue = failed;
         saveSyncQueue();
 
@@ -626,15 +633,20 @@ const Sync = (function() {
         lastSyncTime = Date.now();
         const duration = Date.now() - startTime;
         
-        log(`Sync complete: ${operationCount - failed.length}/${operationCount} succeeded in ${duration}ms. ${failed.length} failed.`, 
-            failed.length > 0 ? 'warn' : 'info');
+        log(`Sync complete: ${operationCount - failed.length - removed.length}/${operationCount} succeeded. ${failed.length} pending retry. ${removed.length} removed (retry limit).`, 
+            failed.length > 0 || removed.length > 0 ? 'warn' : 'info');
+
+        if (removed.length > 0) {
+            showToast(`${removed.length} operations removed from queue (max retries exceeded)`, 'error');
+        }
 
         // Dispatch sync complete event
         window.dispatchEvent(new CustomEvent('sync:complete', {
             detail: { 
-                success: failed.length === 0, 
+                success: failed.length === 0 && removed.length === 0, 
                 failed: failed.length,
-                succeeded: operationCount - failed.length,
+                succeeded: operationCount - failed.length - removed.length,
+                removed: removed.length,
                 duration
             }
         }));
@@ -913,6 +925,13 @@ const Sync = (function() {
 
         // Queue sync to Supabase if authenticated (regardless of online status)
         if (isAuthenticated && user) {
+            // Validate entry has required weight field before queueing
+            if (entry.weight === null || entry.weight === undefined || entry.weight === '') {
+                console.warn('[Sync.updateWeightEntry] Skipping queue - entry missing weight value');
+                log('Entry updated locally but not queued - missing weight value', 'warn');
+                return localResult;
+            }
+            
             log(`Queueing update operation: userId=${user.id}, entryId=${entry.id}`, 'info');
             queueOperation('update', 'weight_entries', entry, entry.id);
         } else {
@@ -1127,6 +1146,27 @@ const Sync = (function() {
     }
     
     /**
+     * Remove stuck operations that exceeded retry limit
+     * This cleans up the queue without losing all pending operations
+     */
+    function removeStuckOperations() {
+        const initialCount = syncQueue.length;
+        const stuckOps = syncQueue.filter(op => op.retries > 3);
+        const keptOps = syncQueue.filter(op => op.retries <= 3);
+        
+        if (stuckOps.length > 0) {
+            syncQueue = keptOps;
+            saveSyncQueue();
+            log(`Removed ${stuckOps.length} stuck operations (retry limit exceeded). ${keptOps.length} operations remaining.`, 'warn');
+            showToast(`Removed ${stuckOps.length} stuck operations from queue`, 'info');
+            return { removed: stuckOps.length, remaining: keptOps.length };
+        }
+        
+        log('No stuck operations found in queue', 'info');
+        return { removed: 0, remaining: initialCount };
+    }
+    
+    /**
      * Filter out invalid operations from the queue (entries missing required fields)
      * This prevents sync failures due to data validation errors
      */
@@ -1135,8 +1175,8 @@ const Sync = (function() {
         let removedCount = 0;
         
         syncQueue = syncQueue.filter(op => {
-            // Check create operations for weight_entries
-            if (op.type === 'create' && op.table === 'weight_entries') {
+            // Check create AND update operations for weight_entries
+            if (op.table === 'weight_entries' && (op.type === 'create' || op.type === 'update')) {
                 // Validate required fields
                 if (op.data.weight === null || op.data.weight === undefined || op.data.weight === '') {
                     console.log(`[Sync.filterInvalidOperations] Removing invalid operation [ID: ${op.id}] - missing weight value`);
@@ -1227,6 +1267,12 @@ if (typeof window !== 'undefined') {
             filterQueue: () => Sync.filterInvalidOperations(),
             
             /**
+             * Remove stuck operations that exceeded retry limit
+             * @returns {object} Results with removed and remaining counts
+             */
+            removeStuck: () => Sync.removeStuckOperations(),
+            
+            /**
              * Clear error history
              */
             clearErrors: () => Sync.clearErrorHistory(),
@@ -1297,6 +1343,7 @@ if (typeof window !== 'undefined') {
   SyncDebug.forceSync()      - Trigger immediate sync
   SyncDebug.clearQueue()     - Clear pending operations
   SyncDebug.filterQueue()    - Remove invalid operations (missing weight)
+  SyncDebug.removeStuck()    - Remove operations exceeding retry limit
   SyncDebug.clearErrors()    - Clear error history
   SyncDebug.lastSync()       - Get last sync time
   SyncDebug.testEntry()      - Create test entry
