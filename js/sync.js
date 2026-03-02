@@ -923,7 +923,8 @@ const Sync = (function() {
             _SyncDebug.log('User not authenticated - entry saved locally only (not queued)', 'warn');
         }
 
-        return localResult;
+        // Return consistent success object (not boolean) for proper error handling
+        return { success: true };
     }
 
     /**
@@ -1252,8 +1253,9 @@ if (typeof window !== 'undefined') {
     window.Sync = Sync;
     
     // Expose debug utilities in development mode
+    // Only if not already provided by sync-debug.js (avoid overwriting)
     
-    if (_SyncDebug.DEBUG_MODE) {
+    if (_SyncDebug.DEBUG_MODE && !window.SyncDebug) {
         window.SyncDebug = {
             /**
              * Get current sync status
