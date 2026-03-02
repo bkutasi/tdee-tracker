@@ -896,7 +896,7 @@ const Sync = (function() {
             }
             
             // Check if entry already exists in LocalStorage to determine operation type
-            const existingEntries = Storage.getEntries();
+            const existingEntries = Storage.getAllEntries();
             const existingEntry = existingEntries[entry.date];
             const isNewEntry = !existingEntry || !existingEntry.id;
             
