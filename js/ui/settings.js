@@ -78,8 +78,11 @@ const Settings = (function () {
             });
         });
 
-        // Export data
-        document.getElementById('export-data-btn').addEventListener('click', exportData);
+        // Export data (pretty-printed)
+        document.getElementById('export-data-pretty-btn').addEventListener('click', exportDataPretty);
+
+        // Export data (compact/minified)
+        document.getElementById('export-data-compact-btn').addEventListener('click', exportDataCompact);
 
         // Import data
         document.getElementById('import-data-btn').addEventListener('click', () => {
@@ -146,9 +149,12 @@ const Settings = (function () {
         Components.setText('storage-info', `${info.entriesCount} entries • ${info.usedFormatted} used`);
     }
 
-    function exportData() {
+    function exportData(format = 'pretty') {
         const data = Storage.exportData();
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const jsonString = format === 'compact' 
+            ? JSON.stringify(data) 
+            : JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
 
         const a = document.createElement('a');
@@ -159,7 +165,16 @@ const Settings = (function () {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        Components.showToast('Data exported!', 'success');
+        const formatMessage = format === 'compact' ? 'Compact' : 'Pretty';
+        Components.showToast(`Data exported (${formatMessage})!`, 'success');
+    }
+
+    function exportDataPretty() {
+        exportData('pretty');
+    }
+
+    function exportDataCompact() {
+        exportData('compact');
     }
 
     function importData(e) {
