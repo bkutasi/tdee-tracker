@@ -19,15 +19,32 @@
 'use strict';
 
 // Load SyncDebug module (Node.js compatibility)
-// In browser, SyncDebug is loaded via script tag before this file
-let _SyncDebug = null;
-if (typeof module !== 'undefined' && module.exports) {
-    // Node.js environment - use require
-    _SyncDebug = require('./sync-debug.js');
-} else if (typeof window !== 'undefined') {
-    // Browser environment - use global (will be set when scripts load)
-    _SyncDebug = window.SyncDebug || null;
+// Uses lazy getter + proxy to access window.SyncDebug at runtime, not load time
+// This fixes the issue where sync.js loads before sync-debug.js sets window.SyncDebug
+function _getSyncDebug() {
+    if (typeof module !== 'undefined' && module.exports) {
+        // Node.js environment - use require
+        return require('./sync-debug.js');
+    }
+    if (typeof window !== 'undefined' && window.SyncDebug) {
+        // Browser environment - access global at runtime
+        return window.SyncDebug;
+    }
+    return null;
 }
+
+// Proxy wrapper - delegates all property access to _getSyncDebug() at runtime
+// This allows all existing _SyncDebug.* calls to work without modification
+const _SyncDebug = new Proxy({}, {
+    get: function(target, prop) {
+        const debug = _getSyncDebug();
+        if (debug && debug[prop]) {
+            return debug[prop];
+        }
+        // Fallback no-op function for safety (prevents "Cannot read properties of null")
+        return function() { return null; };
+    }
+});
 
 const Sync = (function() {
     // Private state
