@@ -41,14 +41,17 @@ CREATE TABLE IF NOT EXISTS public.weight_entries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     date DATE NOT NULL,
-    weight DECIMAL(5,2) NOT NULL,
+    weight DECIMAL(5,2),
     calories INTEGER,
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Ensure one entry per day per user
-    UNIQUE(user_id, date)
+    UNIQUE(user_id, date),
+    
+    -- Ensure at least weight or calories is provided
+    CHECK (weight IS NOT NULL OR calories IS NOT NULL)
 );
 
 -- Enable Row Level Security
@@ -130,9 +133,35 @@ CREATE TRIGGER update_weight_entries_updated_at
     EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ============================================
+-- MIGRATION FOR EXISTING DATABASES
+-- ============================================
+-- Run this section if you already have the weight_entries table
+-- to support calories-only entries
+
+-- Make weight column nullable and add check constraint
+-- (Safe to run multiple times - uses IF NOT EXISTS)
+DO $$
+BEGIN
+    -- Remove NOT NULL constraint from weight column
+    ALTER TABLE public.weight_entries 
+    ALTER COLUMN weight DROP NOT NULL;
+    
+    -- Add check constraint if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'check_weight_or_calories'
+    ) THEN
+        ALTER TABLE public.weight_entries
+        ADD CONSTRAINT check_weight_or_calories
+        CHECK (weight IS NOT NULL OR calories IS NOT NULL);
+    END IF;
+END $$;
+
+-- ============================================
 -- INITIAL DATA (Optional - for testing)
 -- ============================================
 -- This will be populated by your existing LocalStorage data on first login
+
 
 -- ============================================
 -- VERIFICATION

@@ -394,9 +394,10 @@ const Sync = (function() {
                 return;
             }
             
-            // Validate entry has required weight field
-            if (entry.weight === null || entry.weight === undefined || entry.weight === '') {
-                _SyncDebug.warn(`Skipping ${entry.date} (missing weight value - calories-only entries cannot be synced)`);
+            // Validate entry has at least weight or calories
+            if ((entry.weight === null || entry.weight === undefined || entry.weight === '') &&
+                (entry.calories === null || entry.calories === undefined || entry.calories === '')) {
+                _SyncDebug.warn(`Skipping ${entry.date} (entry must have at least weight or calories)`);
                 invalidCount++;
                 return;
             }
@@ -405,7 +406,7 @@ const Sync = (function() {
             queueOperation('create', 'weight_entries', {
                 user_id: user.id,
                 date: entry.date,
-                weight: entry.weight,
+                weight: entry.weight || null,
                 calories: entry.calories || null,
                 notes: entry.notes || null
             }, entry.date);
@@ -414,8 +415,8 @@ const Sync = (function() {
 
         _SyncDebug.info(`Queued ${queuedCount} entries for upload`);
         if (invalidCount > 0) {
-            _SyncDebug.warn(`Skipped ${invalidCount} entries with missing weight values`);
-            showToast(`Skipped ${invalidCount} incomplete entries (weight required for sync)`, 'info');
+            _SyncDebug.warn(`Skipped ${invalidCount} entries with no data`);
+            showToast(`Skipped ${invalidCount} incomplete entries (must have weight or calories)`, 'info');
         }
         if (skippedCount > 0) {
             _SyncDebug.debug(`Skipped ${skippedCount} entries already synced`);
@@ -853,7 +854,7 @@ const Sync = (function() {
 
     /**
      * Save weight entry (LocalStorage + Sync Queue)
-     * @param {object} entry - Weight entry data (must include date, weight, calories, notes)
+     * @param {object} entry - Entry data (must include date; at least weight or calories required)
      * @returns {Promise<{success: boolean, id?: string, error?: string}>}
      */
     async function saveWeightEntry(entry) {
@@ -889,12 +890,6 @@ const Sync = (function() {
 
         // Queue sync to Supabase if authenticated (regardless of online status)
         if (isAuthenticated && user) {
-            // Validate entry has required weight field before queuing
-            if (entry.weight === null || entry.weight === undefined || entry.weight === '') {
-                _SyncDebug.log('Entry saved locally but not queued - missing weight value', 'warn');
-                return localResult;
-            }
-            
             // Check if entry already exists in LocalStorage to determine operation type
             const existingEntries = Storage.getAllEntries();
             const existingEntry = existingEntries[entry.date];
@@ -1206,9 +1201,12 @@ const Sync = (function() {
         syncQueue = syncQueue.filter(op => {
             // Check create AND update operations for weight_entries
             if (op.table === 'weight_entries' && (op.type === 'create' || op.type === 'update')) {
-                // Validate required fields
-                if (op.data.weight === null || op.data.weight === undefined || op.data.weight === '') {
-                    console.log(`[Sync.filterInvalidOperations] Removing invalid operation [ID: ${op.id}] - missing weight value`);
+                // Validate required fields - must have at least weight or calories
+                const hasWeight = op.data.weight !== null && op.data.weight !== undefined && op.data.weight !== '';
+                const hasCalories = op.data.calories !== null && op.data.calories !== undefined && op.data.calories !== '';
+                
+                if (!hasWeight && !hasCalories) {
+                    console.log(`[Sync.filterInvalidOperations] Removing invalid operation [ID: ${op.id}] - missing both weight and calories`);
                     removedCount++;
                     return false; // Remove from queue
                 }
@@ -1219,7 +1217,7 @@ const Sync = (function() {
         if (removedCount > 0) {
             saveSyncQueue();
             _SyncDebug.log(`Filtered ${removedCount} invalid operations from queue (${initialCount} → ${syncQueue.length})`, 'warn');
-            showToast(`Removed ${removedCount} invalid entries from sync queue (weight required)`, 'info');
+            showToast(`Removed ${removedCount} invalid entries from sync queue (must have weight or calories)`, 'info');
             return { filtered: removedCount, remaining: syncQueue.length };
         }
         

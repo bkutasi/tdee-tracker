@@ -13,7 +13,20 @@ const Components = (function () {
      * @param {number} duration - Duration in ms
      */
     function showToast(message, type = 'info', duration = 3000) {
+        // Prevent empty toast notifications
+        if (!message || message.trim() === '') {
+            console.warn('[Components.showToast] Ignored empty toast message');
+            return;
+        }
+
         const container = document.getElementById('toast-container');
+        
+        // Safety check: container might not exist yet
+        if (!container) {
+            console.warn('[Components.showToast] Toast container not found');
+            return;
+        }
+
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         toast.textContent = message;

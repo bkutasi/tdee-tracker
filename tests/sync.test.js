@@ -680,3 +680,184 @@ describe('Sync.queueLocalEntriesForSync', () => {
         expect(result.queued).toBe(0);
     });
 });
+
+describe('Sync.saveWeightEntry - Calories-only entries', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        Storage.init();
+    });
+
+    it('saves calories-only entry to LocalStorage (no weight)', async () => {
+        const entry = {
+            date: '2026-03-10',
+            weight: null,
+            calories: 2000,
+            notes: 'Calories only'
+        };
+
+        const result = await Sync.saveWeightEntry(entry);
+
+        expect(result.success).toBeTrue();
+        const retrieved = Storage.getEntry('2026-03-10');
+        expect(retrieved.weight).toBeNull();
+        expect(retrieved.calories).toBe(2000);
+        expect(retrieved.notes).toBe('Calories only');
+    });
+
+    it('does not queue calories-only entry for sync when not authenticated', async () => {
+        window.Auth = {
+            isAuthenticated: () => false,
+            getCurrentUser: () => null
+        };
+
+        const entry = {
+            date: '2026-03-11',
+            weight: null,
+            calories: 1800
+        };
+
+        const result = await Sync.saveWeightEntry(entry);
+
+        expect(result.success).toBeTrue();
+        const queue = Sync.getQueue();
+        expect(queue).toHaveLength(0);
+    });
+
+    it('queues calories-only entry for sync when authenticated', async () => {
+        window.Auth = {
+            isAuthenticated: () => true,
+            getCurrentUser: () => ({ id: 'user-789', email: 'test@example.com' }),
+            getSession: async () => ({ session: { user: { id: 'user-789' } } }),
+            _getSupabase: () => null,
+            onAuthStateChange: () => {}
+        };
+
+        const entry = {
+            date: '2026-03-12',
+            weight: null,
+            calories: 2200,
+            notes: 'High calorie day'
+        };
+
+        const result = await Sync.saveWeightEntry(entry);
+
+        expect(result.success).toBeTrue();
+        const queue = Sync.getQueue();
+        expect(queue).toHaveLength(1);
+        expect(queue[0].data.weight).toBeNull();
+        expect(queue[0].data.calories).toBe(2200);
+        expect(queue[0].data.notes).toBe('High calorie day');
+    });
+
+    it('saves weight-only entry to LocalStorage (no calories)', async () => {
+        const entry = {
+            date: '2026-03-13',
+            weight: 75.5,
+            calories: null,
+            notes: ''
+        };
+
+        const result = await Sync.saveWeightEntry(entry);
+
+        expect(result.success).toBeTrue();
+        const retrieved = Storage.getEntry('2026-03-13');
+        expect(retrieved.weight).toBe(75.5);
+        expect(retrieved.calories).toBeNull();
+    });
+
+    it('queues weight-only entry for sync when authenticated', async () => {
+        window.Auth = {
+            isAuthenticated: () => true,
+            getCurrentUser: () => ({ id: 'user-999', email: 'test@example.com' }),
+            getSession: async () => ({ session: { user: { id: 'user-999' } } }),
+            _getSupabase: () => null,
+            onAuthStateChange: () => {}
+        };
+
+        const entry = {
+            date: '2026-03-14',
+            weight: 76.0,
+            calories: null
+        };
+
+        const result = await Sync.saveWeightEntry(entry);
+
+        expect(result.success).toBeTrue();
+        const queue = Sync.getQueue();
+        expect(queue).toHaveLength(1);
+        expect(queue[0].data.weight).toBe(76.0);
+        expect(queue[0].data.calories).toBeNull();
+    });
+});
+
+describe('Components.showToast - Empty message handling', () => {
+    beforeEach(() => {
+        // Create toast container
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        const container = document.getElementById('toast-container');
+        if (container) {
+            container.remove();
+        }
+    });
+
+    it('does not create toast for empty message', () => {
+        const initialCount = document.querySelectorAll('.toast').length;
+        
+        Components.showToast('', 'error');
+        
+        const finalCount = document.querySelectorAll('.toast').length;
+        expect(finalCount).toBe(initialCount);
+    });
+
+    it('does not create toast for null message', () => {
+        const initialCount = document.querySelectorAll('.toast').length;
+        
+        Components.showToast(null, 'error');
+        
+        const finalCount = document.querySelectorAll('.toast').length;
+        expect(finalCount).toBe(initialCount);
+    });
+
+    it('does not create toast for undefined message', () => {
+        const initialCount = document.querySelectorAll('.toast').length;
+        
+        Components.showToast(undefined, 'error');
+        
+        const finalCount = document.querySelectorAll('.toast').length;
+        expect(finalCount).toBe(initialCount);
+    });
+
+    it('creates toast for valid message', () => {
+        const initialCount = document.querySelectorAll('.toast').length;
+        
+        Components.showToast('Test message', 'success');
+        
+        const finalCount = document.querySelectorAll('.toast').length;
+        expect(finalCount).toBe(initialCount + 1);
+        
+        const toast = document.querySelector('.toast');
+        expect(toast.textContent).toBe('Test message');
+        expect(toast.classList.contains('success')).toBeTrue();
+    });
+
+    it('creates error toast with correct class', () => {
+        Components.showToast('Error occurred', 'error');
+        
+        const toast = document.querySelector('.toast');
+        expect(toast.classList.contains('error')).toBeTrue();
+        expect(toast.textContent).toBe('Error occurred');
+    });
+
+    it('creates info toast with correct class', () => {
+        Components.showToast('Info message', 'info');
+        
+        const toast = document.querySelector('.toast');
+        expect(toast.classList.contains('info') || toast.classList.contains('toast')).toBeTrue();
+        expect(toast.textContent).toBe('Info message');
+    });
+});
