@@ -1137,7 +1137,9 @@ test('Sync.mergeEntries conflict resolution: newest timestamp wins', () => {
     const Sync = resetSyncMocks();
     Storage.init();
     
-    Storage.saveEntry('2026-03-08', { weight: 80, calories: 1600, updatedAt: '2026-03-08T10:00:00Z' });
+    // Directly set localStorage to preserve custom timestamp
+    const localEntries = { '2026-03-08': { weight: 80, calories: 1600, notes: '', updatedAt: '2026-03-08T10:00:00Z' } };
+    global.localStorage.setItem('tdee_entries', JSON.stringify(localEntries));
     
     const remoteEntries = [
         { 
@@ -1159,8 +1161,9 @@ test('Sync.mergeEntries keeps local when local timestamp is newer', () => {
     const Sync = resetSyncMocks();
     Storage.init();
     
-    // Save entry - it will get current timestamp (2026-03-01)
-    Storage.saveEntry('2026-03-09', { weight: 83, calories: 1900 });
+    // Directly set localStorage to preserve custom timestamp (newer than remote)
+    const localEntries = { '2026-03-09': { weight: 83, calories: 1900, notes: '', updatedAt: '2026-03-09T15:00:00Z' } };
+    global.localStorage.setItem('tdee_entries', JSON.stringify(localEntries));
     
     // Remote has OLDER timestamp (2025-12-01)
     const remoteEntries = [

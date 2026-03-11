@@ -296,8 +296,9 @@ describe('Sync.mergeEntries', () => {
     });
 
     it('conflict resolution: newest timestamp wins', () => {
-        // Local entry with older timestamp
-        Storage.saveEntry('2026-03-08', { weight: 80, calories: 1600, updatedAt: '2026-03-08T10:00:00Z' });
+        // Local entry with older timestamp - directly set in localStorage to preserve timestamp
+        const localEntries = { '2026-03-08': { weight: 80, calories: 1600, notes: '', updatedAt: '2026-03-08T10:00:00Z' } };
+        localStorage.setItem('tdee_entries', JSON.stringify(localEntries));
         
         // Remote entry with newer timestamp
         const remoteEntries = [
@@ -318,8 +319,9 @@ describe('Sync.mergeEntries', () => {
     });
 
     it('keeps local entry when local timestamp is newer', () => {
-        // Local entry with newer timestamp
-        Storage.saveEntry('2026-03-09', { weight: 83, calories: 1900, updatedAt: '2026-03-09T15:00:00Z' });
+        // Local entry with newer timestamp - directly set in localStorage to preserve timestamp
+        const localEntries = { '2026-03-09': { weight: 83, calories: 1900, notes: '', updatedAt: '2026-03-09T15:00:00Z' } };
+        localStorage.setItem('tdee_entries', JSON.stringify(localEntries));
         
         // Remote entry with older timestamp
         const remoteEntries = [

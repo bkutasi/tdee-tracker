@@ -15,6 +15,24 @@ development/
 ├── backend-navigation.md      # Specialized
 ├── fullstack-navigation.md    # Specialized
 │
+├── concepts/                  # Core architecture & patterns
+│   ├── navigation.md
+│   ├── supabase-auth.md
+│   ├── offline-first-sync.md
+│   └── jwt-session.md
+│
+├── examples/                  # Code examples & schemas
+│   ├── navigation.md
+│   └── supabase-schema.md
+│
+├── guides/                    # Step-by-step how-tos
+│   ├── navigation.md
+│   └── supabase-quickstart.md
+│
+├── errors/                    # Troubleshooting & common issues
+│   ├── navigation.md
+│   └── auth-errors.md
+│
 ├── principles/                # Universal (language-agnostic)
 │   ├── navigation.md
 │   ├── clean-code.md
@@ -56,7 +74,7 @@ development/
 │
 └── infrastructure/            # DevOps (future)
     ├── navigation.md
-    ├── docker/
+    └── docker/
     └── ci-cd/
 ```
 
@@ -66,6 +84,11 @@ development/
 
 | Task | Path |
 |------|------|
+| **Supabase Auth** | `concepts/supabase-auth.md` |
+| **Offline-first sync** | `concepts/offline-first-sync.md` |
+| **Database schema** | `examples/supabase-schema.md` |
+| **Quick start guide** | `guides/supabase-quickstart.md` |
+| **Auth troubleshooting** | `errors/auth-errors.md` |
 | **UI/Frontend** | `ui-navigation.md` |
 | **When to delegate frontend** | `frontend/when-to-delegate.md` |
 | **Backend/API** | `backend-navigation.md` |
@@ -77,6 +100,10 @@ development/
 
 ## By Concern
 
+**Concepts** → Core architecture (Supabase auth, offline-first sync, JWT sessions)
+**Examples** → Code samples (database schema with RLS)
+**Guides** → Step-by-step (5-min Supabase setup)
+**Errors** → Troubleshooting (auth issues, sync problems)
 **Principles** → Universal development practices
 **Frameworks** → Full-stack frameworks (Tanstack Start, Next.js)
 **AI** → AI frameworks and agent runtimes (MAStra AI)
