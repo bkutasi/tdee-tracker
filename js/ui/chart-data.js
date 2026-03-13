@@ -38,11 +38,11 @@ const ChartData = (function () {
         const labels = [];
 
         for (const week of weeklyData) {
-            // Add data point if we have EITHER weight OR TDEE
-            // This ensures TDEE bars show even for weeks without weight measurements
-            if (week.ewmaWeight !== null || week.tdee !== null) {
+            // Only include weeks where we have a valid weight (needed for weight line Y-axis)
+            // Null weights cause Math.min/max to return NaN, breaking chart rendering
+            if (week.ewmaWeight !== null) {
                 weights.push(week.ewmaWeight);
-                tdees.push(week.tdee);
+                tdees.push(week.tdee); // tdee can be null (no bar drawn)
                 labels.push(week.label);
             }
         }

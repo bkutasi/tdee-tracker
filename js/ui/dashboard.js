@@ -92,14 +92,6 @@ const Dashboard = (function () {
                 Components.setText('current-tdee', Components.formatValue(tdee, 0));
                 tdeeEl?.classList.remove('low-confidence');
 
-                // Add tooltip to TDEE value
-                if (tdeeEl) {
-                    Components.createTooltip(tdeeEl, 
-                        'Your Total Daily Energy Expenditure — the calories you burn daily. Calculated using your weight trend and calorie intake over the past 14 days.',
-                        { position: 'top' }
-                    );
-                }
-
                 if (isTheoretical) {
                     confidenceEl.className = 'confidence-badge confidence-low';
                     confidenceEl.textContent = 'ESTIMATED (PROFILE)';
@@ -113,9 +105,6 @@ const Dashboard = (function () {
                     const tierClass = confidenceTier ? confidenceTier.toLowerCase() : confidence;
                     confidenceEl.className = `confidence-badge confidence-${tierClass}`;
                     
-                    // Add tooltip to confidence badge
-                    const confidenceTooltip = 'Based on: tracking duration (30%), weight stability (25%), trend quality (25%), logging consistency (20%). Higher scores indicate more reliable TDEE estimates.';
-                    Components.createTooltip(confidenceEl, confidenceTooltip, { position: 'bottom' });
                     
                     // Display multi-factor confidence info
                     const accuracy = stableResult.accuracy || fastResult.accuracy;
@@ -160,14 +149,6 @@ const Dashboard = (function () {
         if (targetIntake && tdee) {
             Components.setText('target-intake', Components.formatValue(targetIntake, 0));
             
-            // Add tooltip to target intake value
-            if (targetIntakeEl) {
-                Components.createTooltip(targetIntakeEl, 
-                    'Your daily calorie target based on your TDEE and weight loss goal. This creates the deficit/surplus needed to reach your target weight.',
-                    { position: 'top' }
-                );
-            }
-            
             // Show deficit/surplus context if element exists
             if (targetContextEl) {
                 const deficitPercent = Math.round(targetDeficit * 100);
@@ -206,14 +187,7 @@ const Dashboard = (function () {
         // Current Weight
         Components.setText('current-weight', currentWeight ? Components.formatValue(currentWeight, 1) : '—');
         
-        // Add tooltip to current weight
-        const currentWeightEl = document.getElementById('current-weight');
-        if (currentWeightEl) {
-            Components.createTooltip(currentWeightEl, 
-                'Your current body weight. This value is smoothed using EWMA (Exponential Weighted Moving Average) to reduce daily fluctuations and show the true trend.',
-                { position: 'top' }
-            );
-        }
+
 
         // Weekly Change
         const weeklyData = calculateWeeklySummaries(processed, weightUnit);
@@ -224,19 +198,6 @@ const Dashboard = (function () {
         if (weeklyChange !== null) {
             const sign = weeklyChange >= 0 ? '+' : '';
             Components.setText('weekly-change', `${sign}${Components.formatValue(weeklyChange, 2)}`);
-            
-            // Add tooltip to weekly change
-            if (weeklyChangeEl) {
-                const changeDescription = weeklyChange < 0 
-                    ? 'Weight loss this week. Negative values indicate fat loss.'
-                    : weeklyChange > 0
-                    ? 'Weight gain this week. Positive values could be muscle, fat, or water weight.'
-                    : 'Weight stable this week.';
-                Components.createTooltip(weeklyChangeEl, 
-                    `Average weekly weight change over the last 4 weeks. ${changeDescription}`,
-                    { position: 'bottom' }
-                );
-            }
         } else {
             Components.setText('weekly-change', '—');
         }
@@ -290,30 +251,12 @@ const Dashboard = (function () {
             const trendLabel = document.createElement('span');
             trendLabel.className = 'trend-label';
             
-            let tooltipContent = '';
-            if (days === 7) {
-                tooltipContent = 'Short-term TDEE trend — more reactive to recent changes. Useful for detecting quick metabolic adaptations or diet impacts.';
-            } else if (days === 14) {
-                tooltipContent = 'Medium-term TDEE trend — more stable and research-backed minimum. Recommended as primary TDEE reference.';
-            }
-            
             trendLabel.textContent = `${days}-Day Trend`;
-            
-            // Add tooltip to label
-            Components.createTooltip(trendLabel, tooltipContent, { position: 'top' });
 
             // Create value element
             const trendValue = document.createElement('span');
             trendValue.className = 'trend-value';
             trendValue.textContent = tdee ? Components.formatValue(tdee, 0) : '—';
-            
-            // Add tooltip to value
-            if (tdee) {
-                const valueTooltip = days === 7 
-                    ? '7-day TDEE: More responsive to recent weight changes'
-                    : '14-day TDEE: More stable, recommended for daily tracking';
-                Components.createTooltip(trendValue, valueTooltip, { position: 'bottom' });
-            }
 
             trendItem.appendChild(trendLabel);
             trendItem.appendChild(trendValue);
