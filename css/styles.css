@@ -621,6 +621,15 @@ input::placeholder {
     text-decoration: none;
 }
 
+/* Save Entry Button - Centered in form */
+#save-entry-btn {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: 100%;
+    max-width: 300px;
+    margin-top: var(--space-2);
+}
+
 .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;

@@ -299,17 +299,8 @@ const Dashboard = (function () {
             
             trendLabel.textContent = `${days}-Day Trend`;
             
-            // Create a wrapper for label + info icon
-            const labelWrapper = document.createElement('div');
-            labelWrapper.style.display = 'flex';
-            labelWrapper.style.alignItems = 'center';
-            labelWrapper.style.justifyContent = 'center';
-            labelWrapper.style.gap = '4px';
-            labelWrapper.appendChild(trendLabel);
-            
-            // Add info icon with tooltip
-            const infoIcon = Components.createInfoIcon(tooltipContent, { position: 'top' });
-            labelWrapper.appendChild(infoIcon);
+            // Add tooltip to label
+            Components.createTooltip(trendLabel, tooltipContent, { position: 'top' });
 
             // Create value element
             const trendValue = document.createElement('span');
@@ -324,7 +315,7 @@ const Dashboard = (function () {
                 Components.createTooltip(trendValue, valueTooltip, { position: 'bottom' });
             }
 
-            trendItem.appendChild(labelWrapper);
+            trendItem.appendChild(trendLabel);
             trendItem.appendChild(trendValue);
             trendsContainer.appendChild(trendItem);
         });

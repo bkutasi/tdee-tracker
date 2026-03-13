@@ -38,14 +38,16 @@ const ChartData = (function () {
         const labels = [];
 
         for (const week of weeklyData) {
-            if (week.ewmaWeight !== null) {
+            // Add data point if we have EITHER weight OR TDEE
+            // This ensures TDEE bars show even for weeks without weight measurements
+            if (week.ewmaWeight !== null || week.tdee !== null) {
                 weights.push(week.ewmaWeight);
                 tdees.push(week.tdee);
                 labels.push(week.label);
             }
         }
         
-        console.log('[ChartData.getChartData] Extracted', weights.length, 'EWMA weights for chart');
+        console.log('[ChartData.getChartData] Extracted', weights.length, 'data points for chart');
 
         return { weights, tdees, labels };
     }
