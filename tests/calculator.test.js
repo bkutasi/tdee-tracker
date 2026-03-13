@@ -100,6 +100,32 @@ describe('Calculator.calculateTDEE', () => {
         expect(tdee).toBeNull();
     });
 
+    it('returns null for physiologically impossible TDEE (< 800 kcal)', () => {
+        // Extremely low calories + massive weight gain = impossible TDEE
+        // 500 cal + (2kg * 7716 / 7) = 500 + 2204 = 2704 (valid)
+        // But if we force an impossible scenario:
+        const tdee = Calculator.calculateTDEE({
+            avgCalories: 200,
+            weightDelta: 2,  // Gaining 2kg/week on 200 cal is impossible
+            trackedDays: 7,
+            unit: 'kg'
+        });
+        // This should return null as it's below 800 kcal
+        expect(tdee).toBeNull();
+    });
+
+    it('returns null for physiologically impossible TDEE (> 5000 kcal)', () => {
+        // Very high calories + massive weight loss = impossible TDEE
+        const tdee = Calculator.calculateTDEE({
+            avgCalories: 4500,
+            weightDelta: -3,  // Losing 3kg/week is extreme
+            trackedDays: 7,
+            unit: 'kg'
+        });
+        // 4500 + (3 * 7716 / 7) = 4500 + 3307 = 7807 (impossible)
+        expect(tdee).toBeNull();
+    });
+
     it('works with pounds', () => {
         // 1lb = 3500 cal
         const tdee = Calculator.calculateTDEE({
@@ -269,6 +295,52 @@ describe('Calculator.convertWeight', () => {
 
     it('returns same value for same unit', () => {
         expect(Calculator.convertWeight(80, 'kg', 'kg')).toBe(80);
+    });
+});
+
+describe('Calculator.calculateFastTDEE', () => {
+    it('uses trackedDays (calorie entries) not calendar days for TDEE calculation', () => {
+        // BUG FIX TEST: Previously used entries.length (7) instead of trackedDays (4)
+        // This caused TDEE to be artificially diluted: 209 kcal instead of ~2400 kcal
+        const entries = [
+            { date: '2025-01-01', weight: 80.0, calories: 2000 },
+            { date: '2025-01-02', weight: 80.2, calories: null }, // No calories
+            { date: '2025-01-03', weight: 80.1, calories: null }, // No calories
+            { date: '2025-01-04', weight: 80.3, calories: 2100 },
+            { date: '2025-01-05', weight: 80.0, calories: null }, // No calories
+            { date: '2025-01-06', weight: 79.8, calories: 1900 },
+            { date: '2025-01-07', weight: 79.9, calories: 2050 }
+        ];
+
+        const result = TDEE.calculateFastTDEE(entries, 'kg', 4);
+
+        // Should have 4 tracked days (days with calorie data)
+        expect(result.trackedDays).toBe(4);
+        
+        // TDEE should be reasonable (~2000-2500), NOT 209 kcal
+        // With avg ~2012 cal and slight weight loss (0.1kg over 7 days)
+        // TDEE ≈ 2012 + (0.1 * 7716 / 4) ≈ 2012 + 193 ≈ 2205
+        expect(result.tdee).toBeGreaterThan(1500);
+        expect(result.tdee).toBeLessThan(3000);
+        
+        // Confidence should be low (only 4 tracked days)
+        expect(result.confidence).toBe('low');
+    });
+
+    it('returns null TDEE when below minimum tracked days', () => {
+        const entries = [
+            { date: '2025-01-01', weight: 80.0, calories: 2000 },
+            { date: '2025-01-02', weight: 80.2, calories: null },
+            { date: '2025-01-03', weight: 80.1, calories: null },
+            { date: '2025-01-04', weight: 80.3, calories: null }
+        ];
+
+        const result = TDEE.calculateFastTDEE(entries, 'kg', 4);
+
+        expect(result.tdee).toBeNull();
+        expect(result.trackedDays).toBe(1);
+        expect(result.confidence).toBe('none');
+        expect(result.neededDays).toBe(3);
     });
 });
 

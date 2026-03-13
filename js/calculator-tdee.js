@@ -126,8 +126,22 @@ const TDEE = (function () {
         // TDEE = intake + (surplus or deficit from weight change)
         // If weight went down, delta is negative, so we ADD to intake
         const tdee = avgCalories + ((-weightDelta * calPerUnit) / trackedDays);
+        const roundedTdee = round(tdee, 0);
 
-        return round(tdee, 0);
+        // P0-2: Physiological range validation (800-5000 kcal)
+        // Human BMR alone is ~1200-1800 kcal/day. TDEE below 800 or above 5000 is impossible.
+        if (roundedTdee < 800 || roundedTdee > 5000) {
+            console.warn('[TDEE Validation] Impossible TDEE value detected:', {
+                tdee: roundedTdee,
+                avgCalories,
+                weightDelta,
+                trackedDays,
+                unit
+            });
+            return null;
+        }
+
+        return roundedTdee;
     }
 
     /**
@@ -314,7 +328,7 @@ const TDEE = (function () {
         const tdee = calculateTDEE({
             avgCalories,
             weightDelta,
-            trackedDays: entries.length, // Use total period length for proper scaling
+            trackedDays: calorieEntries.length, // FIX: Use actual tracked days (days with calorie data)
             unit
         });
 

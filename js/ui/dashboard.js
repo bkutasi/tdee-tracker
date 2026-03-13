@@ -79,25 +79,35 @@ const Dashboard = (function () {
         const confidenceEl = document.getElementById('tdee-confidence');
 
         if (tdee) {
-            tdee = Calculator.mround(tdee, 10);
-            Components.setText('current-tdee', Components.formatValue(tdee, 0));
-            tdeeEl?.classList.remove('low-confidence');
-
-            if (isTheoretical) {
-                confidenceEl.className = 'confidence-badge confidence-low';
-                confidenceEl.textContent = 'ESTIMATED (PROFILE)';
+            // Validate TDEE is within reasonable range before display
+            if (tdee < 800 || tdee > 5000) {
+                // Should not happen due to validation in calculateTDEE, but safety check
+                console.warn('[Dashboard] Invalid TDEE value for display:', tdee);
+                Components.setText('current-tdee', '—');
+                tdeeEl?.classList.add('low-confidence');
+                confidenceEl.className = 'confidence-badge';
+                confidenceEl.textContent = 'INVALID VALUE';
             } else {
-                confidenceEl.className = `confidence-badge confidence-${confidence}`;
-                // Display accuracy range based on scientific tiers
-                const accuracy = stableResult.accuracy || fastResult.accuracy;
-                if (confidence === 'high') {
-                    confidenceEl.textContent = `● High (${accuracy})`;
-                } else if (confidence === 'medium') {
-                    confidenceEl.textContent = `◐ Medium (${accuracy})`;
-                } else if (confidence === 'low') {
-                    confidenceEl.textContent = `○ Low (${accuracy})`;
+                tdee = Calculator.mround(tdee, 10);
+                Components.setText('current-tdee', Components.formatValue(tdee, 0));
+                tdeeEl?.classList.remove('low-confidence');
+
+                if (isTheoretical) {
+                    confidenceEl.className = 'confidence-badge confidence-low';
+                    confidenceEl.textContent = 'ESTIMATED (PROFILE)';
                 } else {
-                    confidenceEl.textContent = '○ Low';
+                    confidenceEl.className = `confidence-badge confidence-${confidence}`;
+                    // Display accuracy range based on scientific tiers
+                    const accuracy = stableResult.accuracy || fastResult.accuracy;
+                    if (confidence === 'high') {
+                        confidenceEl.textContent = `● High (${accuracy})`;
+                    } else if (confidence === 'medium') {
+                        confidenceEl.textContent = `◐ Medium (${accuracy})`;
+                    } else if (confidence === 'low') {
+                        confidenceEl.textContent = `○ Low (${accuracy})`;
+                    } else {
+                        confidenceEl.textContent = '○ Low';
+                    }
                 }
             }
         } else {
@@ -114,7 +124,48 @@ const Dashboard = (function () {
         // Target Intake
         const targetDeficit = settings.targetDeficit || -0.2;
         const targetIntake = tdee ? Calculator.calculateDailyTarget(tdee, targetDeficit) : null;
-        Components.setText('target-intake', targetIntake ? Components.formatValue(targetIntake, 0) : '—');
+        
+        // P1-5: Add target intake context (deficit/surplus info)
+        const targetIntakeEl = document.getElementById('target-intake');
+        const targetContextEl = document.getElementById('target-intake-context');
+        
+        if (targetIntake && tdee) {
+            Components.setText('target-intake', Components.formatValue(targetIntake, 0));
+            
+            // Show deficit/surplus context if element exists
+            if (targetContextEl) {
+                const deficitPercent = Math.round(targetDeficit * 100);
+                const deficitCalories = Math.round(tdee - targetIntake);
+                const isDeficit = targetDeficit < 0;
+                const isSurplus = targetDeficit > 0;
+                
+                if (isDeficit) {
+                    targetContextEl.textContent = `-${Math.abs(deficitCalories)} kcal/day (${deficitPercent}% deficit)`;
+                    targetContextEl.className = 'target-context deficit';
+                } else if (isSurplus) {
+                    targetContextEl.textContent = `+${deficitCalories} kcal/day (${deficitPercent}% surplus)`;
+                    targetContextEl.className = 'target-context surplus';
+                } else {
+                    targetContextEl.textContent = 'Maintenance (no deficit/surplus)';
+                    targetContextEl.className = 'target-context maintenance';
+                }
+                targetContextEl.style.display = 'block';
+            }
+        } else {
+            Components.setText('target-intake', '—');
+            
+            if (targetContextEl) {
+                if (!settings.targetDeficit) {
+                    targetContextEl.textContent = 'Set goal in settings';
+                } else if (!tdee) {
+                    targetContextEl.textContent = 'Calculate TDEE first';
+                } else {
+                    targetContextEl.textContent = '—';
+                }
+                targetContextEl.className = 'target-context';
+                targetContextEl.style.display = 'block';
+            }
+        }
 
         // Current Weight
         Components.setText('current-weight', currentWeight ? Components.formatValue(currentWeight, 1) : '—');
@@ -133,7 +184,7 @@ const Dashboard = (function () {
         // Outlier Warning
         const outlierEl = document.getElementById('tdee-outlier-warning');
         if (outlierEl) {
-            if (stableResult.hasOutliers && stableResult.outliers) {
+            if (stableResult.hasOutliers && stableResult.outliers && stableResult.outliers.length > 0) {
                 outlierEl.textContent = `⚠ Excluded ${stableResult.outliers.length} outlier day(s)`;
                 outlierEl.style.display = 'block';
             } else {
@@ -145,19 +196,14 @@ const Dashboard = (function () {
     }
 
     function renderTrends(allEntries, weightUnit) {
-        // We need the last N days of data, but we must account for gaps to ensure N *tracked* days 
-        // OR simply N calendar days?
-        // "3-7-14-21 day smoothed tdee" usually implies rolling window of calendar days.
-        // However, calculatePeriodTDEE needs data points.
-        // Let's filter entries within the last N days.
+        // Simplified trends: Only show 7-day and 14-day periods
+        // Removed 3-day (too volatile) and 21-day (redundant with 14-day)
 
         const trendsContainer = document.getElementById('tdee-trends-container');
         if (!trendsContainer) return;
 
-        const periods = [3, 7, 14, 21];
+        const periods = [7, 14]; // Simplified from [3, 7, 14, 21]
         const today = new Date();
-        // Reset time to ensure full day coverage if needed, but dates are strings YYYY-MM-DD
-        // We'll filter by date string comparison.
 
         let html = '';
 
@@ -167,8 +213,6 @@ const Dashboard = (function () {
             const startStr = Utils.formatDate(startDate);
 
             // Get entries from startDate to today
-            // processEntriesWithGaps already sorted them if passed correctly, 
-            // but let's filter the processed list which has 'date'
             const periodEntries = allEntries.filter(e => e.date >= startStr);
 
             // We need at least 2 data points with weight to calculate slope
@@ -179,7 +223,7 @@ const Dashboard = (function () {
 
             html += `
                 <div class="trend-item">
-                    <span class="trend-label">${days} Days</span>
+                    <span class="trend-label">${days}-Day Trend</span>
                     <span class="trend-value">
                         ${tdee ? Components.formatValue(tdee, 0) : '—'}
                     </span>
