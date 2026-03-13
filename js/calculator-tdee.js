@@ -19,8 +19,9 @@ const TDEE = (function () {
     const DEFAULT_ALPHA = 0.3;     // EWMA smoothing factor
     const VOLATILE_ALPHA = 0.1;    // Reduced alpha for volatile periods (CV > 2%)
     const ROLLING_WINDOW = 4;      // Weeks for rolling TDEE
-    const MIN_TRACKED_DAYS = 14;   // Minimum calorie-tracked days for valid TDEE (research-backed standard)
-    const OUTLIER_THRESHOLD = 3;   // Standard deviations for outlier detection
+    const MIN_TRACKED_DAYS = 14;           // Minimum for stable TDEE (dashboard, research-backed)
+    const MIN_WEEKLY_TRACKED_DAYS = 7;     // Minimum for weekly chart TDEE (practical minimum)
+    const OUTLIER_THRESHOLD = 3;           // Standard deviations for outlier detection
     const VOLATILE_CV_THRESHOLD = 2; // CV percentage threshold for volatility
 
     // Scientific confidence tiers (research-backed standards)
@@ -520,7 +521,24 @@ const TDEE = (function () {
         }
 
 
+        // Not enough tracked days for full TDEE calculation
         if (trackedDays < minDays) {
+            // CALORIE-AVERAGE FALLBACK:
+            // If we have at least 4 days of calorie data, use average as estimate
+            // This provides a TDEE estimate even without sufficient weight trend data
+            if (calorieEntries.length >= 4 && calResult.filteredAvg > 0) {
+                return {
+                    tdee: calResult.filteredAvg,  // Use calorie average as TDEE estimate
+                    confidence: 'low',
+                    trackedDays: calorieEntries.length,
+                    neededDays: minDays - trackedDays,
+                    hasLargeGap,
+                    fallback: 'calorie-average',
+                    note: 'Calorie-average estimate (insufficient weight data for energy balance calculation)'
+                };
+            }
+            
+            // No fallback available
             return { tdee: null, confidence, trackedDays, neededDays: minDays - trackedDays, hasLargeGap };
         }
 
@@ -966,6 +984,7 @@ const TDEE = (function () {
         VOLATILE_ALPHA,
         ROLLING_WINDOW,
         MIN_TRACKED_DAYS,
+        MIN_WEEKLY_TRACKED_DAYS,
         OUTLIER_THRESHOLD,
         VOLATILE_CV_THRESHOLD,
         CONFIDENCE_TIERS,

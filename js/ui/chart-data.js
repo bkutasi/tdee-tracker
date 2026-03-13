@@ -94,32 +94,37 @@ const ChartData = (function () {
                 contextEntries = [...weeks[prevWeekKey].entries, ...weekData.entries];
             }
 
-            // Calculate 14-day Stable TDEE
+            // Calculate stable TDEE (uses 7-day minimum for weekly chart)
             if (contextEntries.length >= 7) {
-                const stableResult = Calculator.calculateStableTDEE(contextEntries, weightUnit, 14);
+                const stableResult = Calculator.calculateStableTDEE(contextEntries, weightUnit, Calculator.MIN_WEEKLY_TRACKED_DAYS);
                 tdee = stableResult.tdee;
 
                 // HYBRID FALLBACK:
-                // If TDEE is missing or has low confidence (due to gaps), try Theoretical
-                if ((!tdee || stableResult.confidence === 'low' || stableResult.confidence === 'none') &&
-                    settings.age && settings.height && settings.gender) {
+                // If TDEE is missing or has low confidence, try fallbacks in order:
+                // 1. Calorie average (works without profile settings)
+                // 2. Theoretical TDEE (requires age, height, gender)
+                if (!tdee || stableResult.confidence === 'low' || stableResult.confidence === 'none') {
 
-                    // Need a weight for BMR. Use EWMA weight from this week, or fallback to any we can find
-                    const lastEntry = weekData.entries.filter(e => e.ewmaWeight).pop();
-                    const bmrWeight = lastEntry?.ewmaWeight || settings.startingWeight;
+                    // FALLBACK 1: Use calorie average (simplest, works without profile)
+                    if (summary.avgCalories && summary.avgCalories > 0) {
+                        tdee = summary.avgCalories;
+                    }
+                    // FALLBACK 2: Theoretical TDEE from BMR (requires profile settings)
+                    else if (settings.age && settings.height && settings.gender) {
 
-                    if (bmrWeight) {
-                        const bmrResult = Calculator.calculateBMR(bmrWeight, settings.height, settings.age, settings.gender);
-                        // Handle new return format {valid, bmr, error}
-                        if (bmrResult.valid) {
-                            const theoretical = Calculator.calculateTheoreticalTDEE(bmrResult, settings.activityLevel);
+                        // Need a weight for BMR. Use EWMA weight from this week, or fallback to any we can find
+                        const lastEntry = weekData.entries.filter(e => e.ewmaWeight).pop();
+                        const bmrWeight = lastEntry?.ewmaWeight || settings.startingWeight;
 
-                            if (theoretical) {
-                                // If we had no TDEE, take theoretical
-                                // If we had 'low' confidence TDEE, we might prefer theoretical IF the difference is huge?
-                                // User complaint was "996 kcal" (likely low tracked days).
-                                // Let's rely on Theoretical if confidence is LOW/NONE.
-                                tdee = theoretical;
+                        if (bmrWeight) {
+                            const bmrResult = Calculator.calculateBMR(bmrWeight, settings.height, settings.age, settings.gender);
+                            // Handle new return format {valid, bmr, error}
+                            if (bmrResult.valid) {
+                                const theoretical = Calculator.calculateTheoreticalTDEE(bmrResult, settings.activityLevel);
+
+                                if (theoretical) {
+                                    tdee = theoretical;
+                                }
                             }
                         }
                     }

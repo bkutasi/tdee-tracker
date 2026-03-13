@@ -30,14 +30,15 @@ const Calculator = (function () {
     'use strict';
 
     // Main constants (re-exported for backward compatibility)
-    const CALORIES_PER_KG = 7716;  // ~3500 cal/lb * 2.205
+    const CALORIES_PER_KG = 7716;              // ~3500 cal/lb * 2.205
     const CALORIES_PER_LB = 3500;
-    const DEFAULT_ALPHA = 0.3;     // EWMA smoothing factor
-    const VOLATILE_ALPHA = 0.1;   // Lower alpha for volatile periods
-    const OUTLIER_THRESHOLD = 3;  // Standard deviations for outlier detection
-    const ROLLING_WINDOW = 4;     // Weeks for rolling TDEE (reduced from 6 for faster response)
-    const MIN_TRACKED_DAYS = 14;  // Minimum calorie-tracked days required for valid TDEE (research-backed standard)
-    const CV_THRESHOLD = 0.02;    // Coefficient of variation threshold for volatility detection (2%)
+    const DEFAULT_ALPHA = 0.3;                 // EWMA smoothing factor
+    const VOLATILE_ALPHA = 0.1;                // Lower alpha for volatile periods
+    const OUTLIER_THRESHOLD = 3;               // Standard deviations for outlier detection
+    const ROLLING_WINDOW = 4;                  // Weeks for rolling TDEE (reduced from 6 for faster response)
+    const MIN_TRACKED_DAYS = 14;               // Minimum for stable TDEE (dashboard, research-backed)
+    const MIN_WEEKLY_TRACKED_DAYS = 7;         // Minimum for weekly chart TDEE (practical minimum)
+    const CV_THRESHOLD = 0.02;                 // Coefficient of variation threshold for volatility detection (2%)
 
     // Scientific confidence tiers (research-backed standards)
     const CONFIDENCE_TIERS = {
@@ -546,6 +547,7 @@ const Calculator = (function () {
         OUTLIER_THRESHOLD,
         ROLLING_WINDOW,
         MIN_TRACKED_DAYS,
+        MIN_WEEKLY_TRACKED_DAYS,
         CV_THRESHOLD,
         CONFIDENCE_TIERS
     };
