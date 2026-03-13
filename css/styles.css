@@ -1820,3 +1820,162 @@ input::placeholder {
     background: var(--color-warning-subtle);
     color: var(--color-warning);
 }
+
+/* ========================================
+   Version Badge
+======================================== */
+.app-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: var(--space-6) var(--space-4);
+    margin-top: var(--space-8);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg-secondary);
+}
+
+.version-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    transition: all var(--transition-fast) ease;
+}
+
+.version-badge:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-text-tertiary);
+}
+
+.version-badge__label {
+    font-weight: var(--font-weight-normal);
+    opacity: 0.8;
+}
+
+.version-badge__version {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    letter-spacing: -0.02em;
+}
+
+.version-badge__indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-success);
+    animation: pulse 2s ease infinite;
+}
+
+.version-badge__indicator.update-available {
+    background: var(--color-warning);
+    animation: pulse 1s ease infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
+
+/* ========================================
+   Update Notification
+======================================== */
+.update-notification {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    pointer-events: auto;
+    max-width: 400px;
+    animation: toastIn var(--transition-bounce) ease;
+}
+
+.update-notification__icon {
+    color: var(--color-accent);
+    flex-shrink: 0;
+    animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.update-notification__text {
+    flex: 1;
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+}
+
+.update-notification__actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+.update-notification__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast) ease;
+    flex-shrink: 0;
+}
+
+.update-notification__close:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+/* Responsive update notification */
+@media (max-width: 480px) {
+    .update-notification {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-3);
+        padding: var(--space-4);
+        width: calc(100% - var(--space-8));
+    }
+
+    .update-notification__actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .update-notification__icon {
+        align-self: flex-start;
+    }
+}
+
+/* Responsive footer */
+@media (max-width: 480px) {
+    .app-footer {
+        padding: var(--space-4) var(--space-3);
+    }
+
+    .version-badge {
+        font-size: var(--font-size-xs);
+        padding: var(--space-1) var(--space-2);
+    }
+}

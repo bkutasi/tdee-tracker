@@ -108,10 +108,10 @@ const Chart = (function () {
 
         if (recalcCallback || !cachedData) {
             const settings = Storage.getSettings();
-            cachedData = ChartData.getChartData(90, settings);  // 3 months for better mobile display
+            cachedData = ChartData.getChartData(120, settings);  // 4 months for better trend visibility
         } else {
             const settings = Storage.getSettings();
-            cachedData = ChartData.getChartData(90, settings);
+            cachedData = ChartData.getChartData(120, settings);
         }
         
         if (!ChartData.isValidData(cachedData)) {

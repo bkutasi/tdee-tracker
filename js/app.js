@@ -14,6 +14,11 @@ const App = (function () {
             console.warn('[App] Supabase config not found. Auth features disabled.');
         }
 
+        // Initialize version manager (check for SW updates)
+        if (typeof VersionManager !== 'undefined') {
+            await VersionManager.init();
+        }
+
         // Initialize storage
         Storage.init();
 

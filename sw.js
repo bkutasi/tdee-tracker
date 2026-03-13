@@ -3,7 +3,9 @@
  * Enables offline functionality with cache-first strategy
  */
 
-const CACHE_NAME = 'tdee-tracker-v1';
+// Version must be manually incremented before each deployment
+const CACHE_VERSION = '1.0.0';
+const CACHE_NAME = `tdee-tracker-v${CACHE_VERSION}`;
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -29,7 +31,10 @@ self.addEventListener('install', (event) => {
                 console.log('Caching static assets');
                 return cache.addAll(STATIC_ASSETS);
             })
-            .then(() => self.skipWaiting())
+            .then(() => {
+                console.log('Service worker installed, skipping waiting');
+                self.skipWaiting();
+            })
     );
 });
 
@@ -44,8 +49,19 @@ self.addEventListener('activate', (event) => {
                         .map((name) => caches.delete(name))
                 );
             })
-            .then(() => self.clients.claim())
+            .then(() => {
+                console.log('Service worker activated, claiming clients');
+                return self.clients.claim();
+            })
     );
+});
+
+// Handle messages from clients (e.g., skip waiting)
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        console.log('Received SKIP_WAITING message, activating immediately');
+        self.skipWaiting();
+    }
 });
 
 // Fetch: cache-first for static, network-first for dynamic
