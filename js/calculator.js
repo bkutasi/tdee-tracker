@@ -36,14 +36,14 @@ const Calculator = (function () {
     const VOLATILE_ALPHA = 0.1;   // Lower alpha for volatile periods
     const OUTLIER_THRESHOLD = 3;  // Standard deviations for outlier detection
     const ROLLING_WINDOW = 4;     // Weeks for rolling TDEE (reduced from 6 for faster response)
-    const MIN_TRACKED_DAYS = 4;   // Minimum calorie-tracked days required for valid TDEE
+    const MIN_TRACKED_DAYS = 14;  // Minimum calorie-tracked days required for valid TDEE (research-backed standard)
     const CV_THRESHOLD = 0.02;    // Coefficient of variation threshold for volatility detection (2%)
 
-    // Scientific confidence tiers (Hall & Chow 2011)
+    // Scientific confidence tiers (research-backed standards)
     const CONFIDENCE_TIERS = {
-        HIGH: { minDays: 14, minWeightChange: 0.5, accuracy: '±5-10%' },
-        MEDIUM: { minDays: 7, minWeightChange: 0.3, accuracy: '±10-15%' },
-        LOW: { minDays: 4, minWeightChange: 0.2, accuracy: '±15-25%' }
+        HIGH: { minDays: 28, minWeightChange: 0.5, accuracy: '±5-10%' },
+        MEDIUM: { minDays: 14, minWeightChange: 0.3, accuracy: '±10-15%' },
+        LOW: { minDays: 7, minWeightChange: 0.2, accuracy: '±15-25%' }
     };
 
     /**

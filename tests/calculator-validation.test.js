@@ -9,14 +9,14 @@
  */
 
 describe('Scientific Confidence Tiers', () => {
-    it('HIGH confidence requires 14+ days (Hall & Chow 2011)', () => {
+    it('HIGH confidence requires 28+ days (research-backed standard)', () => {
         const entries = [];
-        for (let i = 0; i < 14; i++) {
+        for (let i = 0; i < 28; i++) {
             const date = new Date('2025-01-01');
             date.setDate(date.getDate() + i);
             entries.push({
                 date: date.toISOString().split('T')[0],
-                weight: 80 - (i * 0.1),
+                weight: 80 - (i * 0.05),
                 calories: 1800
             });
         }
@@ -26,14 +26,14 @@ describe('Scientific Confidence Tiers', () => {
         expect(result.accuracy).toBe('±5-10%');
     });
 
-    it('MEDIUM confidence for 7-13 days', () => {
+    it('MEDIUM confidence for 14-27 days', () => {
         const entries = [];
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 20; i++) {
             const date = new Date('2025-01-01');
             date.setDate(date.getDate() + i);
             entries.push({
                 date: date.toISOString().split('T')[0],
-                weight: 80 - (i * 0.1),
+                weight: 80 - (i * 0.05),
                 calories: 1800
             });
         }
@@ -43,14 +43,14 @@ describe('Scientific Confidence Tiers', () => {
         expect(result.accuracy).toBe('±10-15%');
     });
 
-    it('LOW confidence for 4-6 days', () => {
+    it('LOW confidence for 7-13 days', () => {
         const entries = [];
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 10; i++) {
             const date = new Date('2025-01-01');
             date.setDate(date.getDate() + i);
             entries.push({
                 date: date.toISOString().split('T')[0],
-                weight: 80 - (i * 0.1),
+                weight: 80 - (i * 0.05),
                 calories: 1800
             });
         }
@@ -60,14 +60,14 @@ describe('Scientific Confidence Tiers', () => {
         expect(result.accuracy).toBe('±15-25%');
     });
 
-    it('None confidence for <4 days', () => {
+    it('None confidence for <7 days', () => {
         const entries = [];
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 5; i++) {
             const date = new Date('2025-01-01');
             date.setDate(date.getDate() + i);
             entries.push({
                 date: date.toISOString().split('T')[0],
-                weight: 80 - (i * 0.1),
+                weight: 80 - (i * 0.05),
                 calories: 1800
             });
         }

@@ -17,15 +17,33 @@ const TDEE = (function () {
     const CALORIES_PER_KG = 7716;  // ~3500 cal/lb * 2.205
     const CALORIES_PER_LB = 3500;
     const DEFAULT_ALPHA = 0.3;     // EWMA smoothing factor
+    const VOLATILE_ALPHA = 0.1;    // Reduced alpha for volatile periods (CV > 2%)
     const ROLLING_WINDOW = 4;      // Weeks for rolling TDEE
-    const MIN_TRACKED_DAYS = 4;    // Minimum calorie-tracked days for valid TDEE
+    const MIN_TRACKED_DAYS = 14;   // Minimum calorie-tracked days for valid TDEE (research-backed standard)
     const OUTLIER_THRESHOLD = 3;   // Standard deviations for outlier detection
+    const VOLATILE_CV_THRESHOLD = 2; // CV percentage threshold for volatility
 
-    // Scientific confidence tiers (Hall & Chow 2011)
+    // Scientific confidence tiers (research-backed standards)
     const CONFIDENCE_TIERS = {
-        HIGH: { minDays: 14, minWeightChange: 0.5, accuracy: '±5-10%' },
-        MEDIUM: { minDays: 7, minWeightChange: 0.3, accuracy: '±10-15%' },
-        LOW: { minDays: 4, minWeightChange: 0.2, accuracy: '±15-25%' }
+        HIGH: { minDays: 28, minWeightChange: 0.5, accuracy: '±5-10%' },
+        MEDIUM: { minDays: 14, minWeightChange: 0.3, accuracy: '±10-15%' },
+        LOW: { minDays: 7, minWeightChange: 0.2, accuracy: '±15-25%' }
+    };
+
+    // Multi-factor confidence scoring weights (must sum to 1.0)
+    const CONFIDENCE_WEIGHTS = {
+        DAYS_TRACKED: 0.30,    // 30% weight
+        CV: 0.25,              // 25% weight (weight volatility)
+        R_SQUARED: 0.25,       // 25% weight (trend fit quality)
+        LOGGING_CONSISTENCY: 0.20  // 20% weight (days with both weight + calories)
+    };
+
+    // Confidence score thresholds for tier mapping
+    const CONFIDENCE_SCORE_TIERS = {
+        HIGH: 80,    // Score >= 80
+        MEDIUM: 60,  // Score 60-79
+        LOW: 40,     // Score 40-59
+        NONE: 0      // Score < 40
     };
 
     /**
@@ -70,6 +88,60 @@ const TDEE = (function () {
             min: round(min, 4),
             max: round(max, 4)
         };
+    }
+
+    /**
+     * Calculate Coefficient of Variation (CV) for weight volatility detection
+     * CV = (stdDev / mean) * 100 (percentage)
+     * Higher CV indicates more volatile/fluctuating weights
+     * @param {number[]} weights - Array of weight values
+     * @returns {number|null} CV as percentage, or null if cannot calculate (empty array or zero mean)
+     */
+    function calculateCV(weights) {
+        // Handle empty array
+        if (!weights || weights.length === 0) {
+            return null;
+        }
+
+        // Calculate statistics
+        const stats = calculateStats(weights);
+
+        // Handle zero mean (would cause division by zero)
+        if (stats.mean === 0) {
+            return null;
+        }
+
+        // CV = (stdDev / mean) * 100
+        const cv = (stats.stdDev / stats.mean) * 100;
+        return round(cv, 2);
+    }
+
+    /**
+     * Determine if weight data is volatile based on CV threshold
+     * @param {number} cv - Coefficient of Variation percentage
+     * @param {number} threshold - CV threshold for volatility (default: 2%)
+     * @returns {boolean} True if volatile (CV > threshold)
+     */
+    function isVolatile(cv, threshold = 2) {
+        if (cv === null || cv === undefined) {
+            return false;
+        }
+        return cv > threshold;
+    }
+
+    /**
+     * Get adaptive alpha based on weight volatility (CV)
+     * Lower alpha for volatile periods (more smoothing), higher for stable
+     * @param {number} cv - Coefficient of Variation percentage
+     * @returns {number} Adaptive alpha smoothing factor
+     */
+    function getAdaptiveAlpha(cv) {
+        // If CV is null or not volatile, use default alpha
+        if (cv === null || !isVolatile(cv)) {
+            return DEFAULT_ALPHA;
+        }
+        // Volatile periods: use lower alpha for more smoothing
+        return VOLATILE_ALPHA;
     }
 
     /**
@@ -324,6 +396,11 @@ const TDEE = (function () {
             return { tdee: null, confidence, trackedDays, hasOutliers };
         }
 
+        // Calculate CV for weight volatility detection
+        const weights = processed.filter(e => e.ewmaWeight !== null).map(e => e.ewmaWeight);
+        const cv = calculateCV(weights);
+        const isWeightVolatile = isVolatile(cv);
+
         // Calculate TDEE
         const tdee = calculateTDEE({
             avgCalories,
@@ -332,7 +409,28 @@ const TDEE = (function () {
             unit
         });
 
-        return { tdee, confidence, trackedDays, hasOutliers, outliers: calResult.outliers, accuracy };
+        // Calculate multi-factor confidence score
+        const fastEntriesForConfidence = entries; // Pass original entries for logging consistency calc
+        const confidenceResult = calculateMultiFactorConfidence({
+            trackedDays,
+            cv,
+            rSquared: null, // Fast TDEE doesn't calculate R²
+            entries: fastEntriesForConfidence
+        });
+
+        return { 
+            tdee, 
+            confidence, 
+            confidenceScore: confidenceResult.confidenceScore,
+            confidenceTier: confidenceResult.confidenceTier,
+            confidenceBreakdown: confidenceResult.breakdown,
+            trackedDays, 
+            hasOutliers, 
+            outliers: calResult.outliers, 
+            accuracy,
+            cv,
+            isVolatile: isWeightVolatile
+        };
     }
 
     /**
@@ -474,15 +572,284 @@ const TDEE = (function () {
         const calPerUnit = unit === 'kg' ? CALORIES_PER_KG : CALORIES_PER_LB;
         const tdee = round(avgCalories - (slope * calPerUnit), 0);
 
+        // Calculate CV for weight volatility detection
+        const weights = processed.filter(e => e.ewmaWeight !== null).map(e => e.ewmaWeight);
+        const cv = calculateCV(weights);
+        const isWeightVolatile = isVolatile(cv);
+
+        // Calculate R² for trend fit quality
+        const rSquared = calculateRSquared(ewmaData);
+        const fitQuality = getFitQuality(rSquared);
+
+        // Calculate multi-factor confidence score
+        const stableEntriesForConfidence = entries; // Pass original entries for logging consistency calc
+        const confidenceResult = calculateMultiFactorConfidence({
+            trackedDays,
+            cv,
+            rSquared,
+            entries: stableEntriesForConfidence
+        });
+
         return {
             tdee,
             confidence,
+            confidenceScore: confidenceResult.confidenceScore,
+            confidenceTier: confidenceResult.confidenceTier,
+            confidenceBreakdown: confidenceResult.breakdown,
             trackedDays,
             slope: round(slope * 7, 3), // kg/week for display
             hasOutliers: calResult.outliers.length > 0,
             outliers: calResult.outliers,
             hasLargeGap,
-            maxGap
+            maxGap,
+            cv,
+            isVolatile: isWeightVolatile,
+            rSquared,
+            fitQuality
+        };
+    }
+
+    /**
+     * Calculate linear regression coefficients (slope and intercept)
+     * @param {Object[]} dataPoints - Array of {x, y} data points
+     * @returns {Object|null} { slope, intercept } or null if insufficient data
+     */
+    function calculateLinearRegression(dataPoints) {
+        if (!dataPoints || dataPoints.length < 2) {
+            return null;
+        }
+
+        const n = dataPoints.length;
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+
+        for (const { x, y } of dataPoints) {
+            sumX += x;
+            sumY += y;
+            sumXY += x * y;
+            sumXX += x * x;
+        }
+
+        const denominator = (n * sumXX - sumX * sumX);
+        if (denominator === 0) {
+            return null;
+        }
+
+        const slope = (n * sumXY - sumX * sumY) / denominator;
+        const intercept = (sumY - slope * sumX) / n;
+
+        return { slope, intercept };
+    }
+
+    /**
+     * Calculate R² (coefficient of determination) for trend fit quality
+     * R² = 1 - (SS_res / SS_tot) where SS_res = Σ(y - ŷ)², SS_tot = Σ(y - ȳ)²
+     * @param {Object[]} dataPoints - Array of {x, y} data points (e.g., {dayIndex, weight})
+     * @returns {number|null} R² value (0 to 1, where 1 = perfect linear fit), or null if cannot calculate
+     */
+    function calculateRSquared(dataPoints) {
+        // Edge case: need at least 2 data points
+        if (!dataPoints || dataPoints.length < 2) {
+            return null;
+        }
+
+        // Calculate mean of y values (ȳ)
+        let sumY = 0;
+        for (const { y } of dataPoints) {
+            sumY += y;
+        }
+        const meanY = sumY / dataPoints.length;
+
+        // Calculate total sum of squares (SS_tot = Σ(y - ȳ)²)
+        let ssTot = 0;
+        for (const { y } of dataPoints) {
+            ssTot += (y - meanY) ** 2;
+        }
+
+        // Edge case: zero variance (all y values are the same)
+        if (ssTot === 0) {
+            return null;
+        }
+
+        // Get linear regression line
+        const regression = calculateLinearRegression(dataPoints);
+        if (regression === null) {
+            return null;
+        }
+
+        // Calculate residual sum of squares (SS_res = Σ(y - ŷ)²)
+        let ssRes = 0;
+        for (const { x, y } of dataPoints) {
+            const yHat = regression.slope * x + regression.intercept;
+            ssRes += (y - yHat) ** 2;
+        }
+
+        // R² = 1 - (SS_res / SS_tot)
+        const rSquared = 1 - (ssRes / ssTot);
+        return round(rSquared, 4);
+    }
+
+    /**
+     * Get fit quality description based on R² value
+     * @param {number} rSquared - R² value (0 to 1)
+     * @returns {string|null} Fit quality: 'excellent' (>0.8), 'good' (0.6-0.8), 'fair' (0.4-0.6), 'poor' (<0.4), or null if rSquared is null
+     */
+    function getFitQuality(rSquared) {
+        if (rSquared === null || rSquared === undefined) {
+            return null;
+        }
+
+        if (rSquared > 0.8) {
+            return 'excellent';
+        } else if (rSquared > 0.6) {
+            return 'good';
+        } else if (rSquared > 0.4) {
+            return 'fair';
+        } else {
+            return 'poor';
+        }
+    }
+
+    /**
+     * Calculate days tracked score (0-100 points)
+     * @param {number} daysTracked - Number of tracked days
+     * @returns {number} Score: 100 (28+ days), 70 (14-27), 40 (7-13), 10 (<7)
+     */
+    function getDaysTrackedScore(daysTracked) {
+        if (daysTracked >= 28) return 100;
+        if (daysTracked >= 14) return 70;
+        if (daysTracked >= 7) return 40;
+        return 10;
+    }
+
+    /**
+     * Calculate CV score (0-100 points)
+     * Lower CV = more stable = higher score
+     * @param {number|null} cv - Coefficient of Variation percentage
+     * @returns {number} Score: 100 (CV<1%), 80 (1-2%), 60 (2-3%), 30 (>3%)
+     */
+    function getCVScore(cv) {
+        if (cv === null || cv === undefined) return 30; // Default to low score if unknown
+        
+        if (cv < 1) return 100;      // Very stable
+        if (cv < 2) return 80;       // Stable
+        if (cv < 3) return 60;       // Somewhat volatile
+        return 30;                    // Very volatile
+    }
+
+    /**
+     * Calculate R² score (0-100 points)
+     * Higher R² = better fit = higher score
+     * @param {number|null} rSquared - R² value (0 to 1)
+     * @returns {number} Score: 100 (R²>0.8), 70 (0.5-0.8), 40 (<0.5)
+     */
+    function getRSquaredScore(rSquared) {
+        if (rSquared === null || rSquared === undefined) return 40; // Default to low score if unknown
+        
+        if (rSquared > 0.8) return 100;   // Excellent fit
+        if (rSquared >= 0.5) return 70;   // Moderate fit
+        return 40;                         // Poor fit
+    }
+
+    /**
+     * Calculate logging consistency score (0-100 points)
+     * @param {Object[]} entries - Array of daily entries
+     * @param {number} totalDays - Total days in tracking period
+     * @returns {number} Score: percentage of days with both weight AND calories
+     */
+    function getLoggingConsistencyScore(entries, totalDays) {
+        if (!entries || entries.length === 0 || totalDays <= 0) return 0;
+        
+        // Count days with both weight AND calories
+        let daysWithBoth = 0;
+        for (const entry of entries) {
+            const hasWeight = entry.weight !== null && !isNaN(entry.weight);
+            const hasCalories = entry.calories !== null && !isNaN(entry.calories);
+            if (hasWeight && hasCalories) {
+                daysWithBoth++;
+            }
+        }
+        
+        // Calculate percentage
+        const consistency = (daysWithBoth / totalDays) * 100;
+        return round(consistency, 0);
+    }
+
+    /**
+     * Calculate multi-factor confidence score combining days tracked, CV, R², and logging consistency
+     * @param {Object} tdeeResult - TDEE calculation result containing: trackedDays, entries, cv, rSquared
+     * @returns {Object} { confidenceScore (0-100), confidenceTier (HIGH/MEDIUM/LOW/NONE), breakdown: { daysScore, cvScore, rSquaredScore, loggingScore } }
+     */
+    function calculateMultiFactorConfidence(tdeeResult) {
+        if (!tdeeResult) {
+            return {
+                confidenceScore: 0,
+                confidenceTier: 'NONE',
+                breakdown: {
+                    daysScore: 0,
+                    cvScore: 0,
+                    rSquaredScore: 0,
+                    loggingScore: 0
+                }
+            };
+        }
+
+        // Extract data from TDEE result
+        const trackedDays = tdeeResult.trackedDays || 0;
+        const cv = tdeeResult.cv !== undefined ? tdeeResult.cv : null;
+        const rSquared = tdeeResult.rSquared !== undefined ? tdeeResult.rSquared : null;
+        const entries = tdeeResult.entries || [];
+        
+        // Calculate total days from entries (calendar span)
+        let totalDays = trackedDays;
+        if (entries.length > 0) {
+            // Calculate calendar span from first to last entry
+            const dates = entries.map(e => new Date(e.date).getTime()).filter(t => !isNaN(t));
+            if (dates.length >= 2) {
+                const minDate = Math.min(...dates);
+                const maxDate = Math.max(...dates);
+                const spanDays = Math.round((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+                totalDays = Math.max(spanDays, trackedDays);
+            } else if (entries.length === 1) {
+                totalDays = 1;
+            }
+        }
+
+        // Calculate individual factor scores
+        const daysScore = getDaysTrackedScore(trackedDays);
+        const cvScore = getCVScore(cv);
+        const rSquaredScore = getRSquaredScore(rSquared);
+        const loggingScore = getLoggingConsistencyScore(entries, totalDays);
+
+        // Calculate weighted average
+        const weightedScore = 
+            (daysScore * CONFIDENCE_WEIGHTS.DAYS_TRACKED) +
+            (cvScore * CONFIDENCE_WEIGHTS.CV) +
+            (rSquaredScore * CONFIDENCE_WEIGHTS.R_SQUARED) +
+            (loggingScore * CONFIDENCE_WEIGHTS.LOGGING_CONSISTENCY);
+
+        const confidenceScore = round(weightedScore, 0);
+
+        // Map to confidence tier
+        let confidenceTier;
+        if (confidenceScore >= CONFIDENCE_SCORE_TIERS.HIGH) {
+            confidenceTier = 'HIGH';
+        } else if (confidenceScore >= CONFIDENCE_SCORE_TIERS.MEDIUM) {
+            confidenceTier = 'MEDIUM';
+        } else if (confidenceScore >= CONFIDENCE_SCORE_TIERS.LOW) {
+            confidenceTier = 'LOW';
+        } else {
+            confidenceTier = 'NONE';
+        }
+
+        return {
+            confidenceScore,
+            confidenceTier,
+            breakdown: {
+                daysScore,
+                cvScore,
+                rSquaredScore,
+                loggingScore
+            }
         };
     }
 
@@ -575,14 +942,35 @@ const TDEE = (function () {
         round,
         getEnergyDensity,
 
+        // CV calculation (weight volatility)
+        calculateCV,
+        isVolatile,
+        getAdaptiveAlpha,
+
+        // R² calculation (trend fit quality)
+        calculateRSquared,
+        getFitQuality,
+        calculateLinearRegression,
+
+        // Multi-factor confidence scoring
+        calculateMultiFactorConfidence,
+        getDaysTrackedScore,
+        getCVScore,
+        getRSquaredScore,
+        getLoggingConsistencyScore,
+
         // Constants (for testing)
         CALORIES_PER_KG,
         CALORIES_PER_LB,
         DEFAULT_ALPHA,
+        VOLATILE_ALPHA,
         ROLLING_WINDOW,
         MIN_TRACKED_DAYS,
         OUTLIER_THRESHOLD,
-        CONFIDENCE_TIERS
+        VOLATILE_CV_THRESHOLD,
+        CONFIDENCE_TIERS,
+        CONFIDENCE_WEIGHTS,
+        CONFIDENCE_SCORE_TIERS
     };
 })();
 

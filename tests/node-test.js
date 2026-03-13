@@ -430,27 +430,11 @@ test('calculateFastTDEE returns null with insufficient data', () => {
     ];
     const result = Calculator.calculateFastTDEE(entries, 'kg');
     expect(result.tdee).toBeNull();
-    expect(result.neededDays).toBe(2); // Needs 2 more (MIN_TRACKED_DAYS - 2)
+    expect(result.neededDays).toBe(12); // Needs 12 more (MIN_TRACKED_DAYS 14 - 2)
 });
 
-test('calculateFastTDEE works with sufficient data', () => {
-    const entries = [
-        { date: '2025-01-01', weight: 80, calories: 1600 },
-        { date: '2025-01-02', weight: 80.3, calories: 1700 },
-        { date: '2025-01-03', weight: 80.1, calories: 1600 },
-        { date: '2025-01-04', weight: 80.0, calories: 1650 },
-        { date: '2025-01-05', weight: 79.8, calories: 1600 },
-    ];
-    const result = Calculator.calculateFastTDEE(entries, 'kg');
-    // Should have a valid TDEE
-    if (result.tdee === null) {
-        throw new Error('Expected TDEE to be calculated');
-    }
-    expect(result.confidence).toBe('low'); // 5 days = low (4-6 days per CONFIDENCE_TIERS)
-});
-
-test('calculateFastTDEE high confidence with 14+ days', () => {
-    // Need 14+ days for high confidence per CONFIDENCE_TIERS
+test('calculateFastTDEE works with sufficient data (14+ days)', () => {
+    // Create 14 days of data - minimum for valid TDEE
     const entries = [];
     for (let i = 0; i < 14; i++) {
         const date = new Date('2025-01-01');
@@ -458,7 +442,28 @@ test('calculateFastTDEE high confidence with 14+ days', () => {
         const dateStr = date.toISOString().split('T')[0];
         entries.push({
             date: dateStr,
-            weight: 80 - (i * 0.1), // Gradual weight loss
+            weight: 80 - (i * 0.05), // Gradual weight loss
+            calories: 1600 + (i % 3) * 100
+        });
+    }
+    const result = Calculator.calculateFastTDEE(entries, 'kg');
+    // Should have a valid TDEE
+    if (result.tdee === null) {
+        throw new Error('Expected TDEE to be calculated');
+    }
+    expect(result.confidence).toBe('medium'); // 14 days = medium confidence
+});
+
+test('calculateFastTDEE high confidence with 28+ days', () => {
+    // Need 28+ days for high confidence per CONFIDENCE_TIERS
+    const entries = [];
+    for (let i = 0; i < 28; i++) {
+        const date = new Date('2025-01-01');
+        date.setDate(date.getDate() + i);
+        const dateStr = date.toISOString().split('T')[0];
+        entries.push({
+            date: dateStr,
+            weight: 80 - (i * 0.05), // Gradual weight loss
             calories: 1600 + (i % 3) * 100 // Vary calories slightly
         });
     }
@@ -467,16 +472,16 @@ test('calculateFastTDEE high confidence with 14+ days', () => {
 });
 
 test('calculateStableTDEE detects large gaps and downgrades confidence', () => {
-    // 14 days of data with a 4-day gap in weight in the middle
+    // 28 days of data with a 4-day gap in weight in the middle
     const entries = [];
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 28; i++) {
         const date = new Date('2025-01-01');
         date.setDate(date.getDate() + i);
         const dateStr = date.toISOString().split('T')[0];
 
         let weight = 80;
-        // Create 4-day gap (days 5, 6, 7, 8)
-        if (i >= 5 && i <= 8) {
+        // Create 4-day gap (days 10-13)
+        if (i >= 10 && i <= 13) {
             weight = null;
         }
 
@@ -487,7 +492,7 @@ test('calculateStableTDEE detects large gaps and downgrades confidence', () => {
         });
     }
 
-    const result = Calculator.calculateStableTDEE(entries, 'kg', 14, 4);
+    const result = Calculator.calculateStableTDEE(entries, 'kg', 28, 14);
 
     // Should have valid TDEE but low confidence due to gap
     if (result.tdee === null) {
@@ -504,7 +509,7 @@ test('calculateStableTDEE detects large gaps and downgrades confidence', () => {
 });
 
 test('MIN_TRACKED_DAYS constant is exported', () => {
-    expect(Calculator.MIN_TRACKED_DAYS).toBe(4);
+    expect(Calculator.MIN_TRACKED_DAYS).toBe(14);
 });
 
 console.log('\n=== Utils Date Type Safety Tests ===\n');

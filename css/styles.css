@@ -430,6 +430,25 @@ body {
     margin-top: var(--space-1);
 }
 
+/* Target Intake Context */
+.target-context {
+    font-size: var(--font-size-xs);
+    margin-top: var(--space-1);
+    display: none;
+}
+
+.target-context.deficit {
+    color: var(--color-success);
+}
+
+.target-context.surplus {
+    color: var(--color-warning);
+}
+
+.target-context.maintenance {
+    color: var(--color-text-secondary);
+}
+
 .stat-value.low-confidence {
     font-size: var(--font-size-sm);
     opacity: 0.7;
@@ -1791,4 +1810,178 @@ input::placeholder {
 .badge-warning {
     background: var(--color-warning-subtle);
     color: var(--color-warning);
+}
+
+/* ========================================
+   Tooltip Styles
+======================================== */
+.tooltip {
+    position: absolute;
+    z-index: var(--z-dropdown);
+    max-width: 280px;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transition-fast), visibility var(--transition-fast), transform var(--transition-fast);
+    transform: translateX(-50%);
+}
+
+.tooltip-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.tooltip-text {
+    display: block;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+    line-height: var(--line-height-relaxed);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--color-border);
+    text-align: left;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+/* Tooltip positions */
+.tooltip-top {
+    bottom: 100%;
+    left: 50%;
+    margin-bottom: var(--space-2);
+    transform: translateX(-50%) translateY(4px);
+}
+
+.tooltip-top.tooltip-visible {
+    transform: translateX(-50%) translateY(0);
+}
+
+.tooltip-bottom {
+    top: 100%;
+    left: 50%;
+    margin-top: var(--space-2);
+    transform: translateX(-50%) translateY(-4px);
+}
+
+.tooltip-bottom.tooltip-visible {
+    transform: translateX(-50%) translateY(0);
+}
+
+.tooltip-left {
+    right: 100%;
+    top: 50%;
+    margin-right: var(--space-2);
+    transform: translateY(-50%) translateX(4px);
+}
+
+.tooltip-left.tooltip-visible {
+    transform: translateY(-50%) translateX(0);
+}
+
+.tooltip-right {
+    left: 100%;
+    top: 50%;
+    margin-left: var(--space-2);
+    transform: translateY(-50%) translateX(-4px);
+}
+
+.tooltip-right.tooltip-visible {
+    transform: translateY(-50%) translateX(0);
+}
+
+/* Tooltip arrow */
+.tooltip-text::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 0;
+    border: 6px solid transparent;
+}
+
+.tooltip-top .tooltip-text::after {
+    top: 100%;
+    left: 50%;
+    margin-left: -6px;
+    border-top-color: var(--color-bg-tertiary);
+}
+
+.tooltip-bottom .tooltip-text::after {
+    bottom: 100%;
+    left: 50%;
+    margin-left: -6px;
+    border-bottom-color: var(--color-bg-tertiary);
+}
+
+.tooltip-left .tooltip-text::after {
+    left: 100%;
+    top: 50%;
+    margin-top: -6px;
+    border-left-color: var(--color-bg-tertiary);
+}
+
+.tooltip-right .tooltip-text::after {
+    right: 100%;
+    top: 50%;
+    margin-top: -6px;
+    border-right-color: var(--color-bg-tertiary);
+}
+
+/* Info icon for tooltips */
+.tooltip-info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: var(--space-1);
+    font-size: var(--font-size-sm);
+    cursor: help;
+    opacity: 0.7;
+    transition: opacity var(--transition-fast);
+    user-select: none;
+}
+
+.tooltip-info-icon:hover {
+    opacity: 1;
+}
+
+.tooltip-trigger {
+    cursor: help;
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .tooltip-text {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .tooltip-text {
+        border-width: 2px;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .tooltip,
+    .tooltip-text,
+    .tooltip-visible {
+        transition: none;
+    }
+}
+
+/* Mobile optimization */
+@media (max-width: 480px) {
+    .tooltip {
+        max-width: 240px;
+    }
+    
+    .tooltip-text {
+        font-size: var(--font-size-xs);
+        padding: var(--space-2);
+    }
 }

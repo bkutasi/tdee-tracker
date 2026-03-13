@@ -11,7 +11,7 @@ CALORIES_PER_KG = 7716    // ~3500 cal/lb × 2.205
 CALORIES_PER_LB = 3500
 DEFAULT_ALPHA = 0.3       // EWMA smoothing factor
 VOLATILE_ALPHA = 0.1      // For volatile periods (CV > 2%)
-MIN_TRACKED_DAYS = 4      // Minimum for valid TDEE
+MIN_TRACKED_DAYS = 14     // Minimum for valid TDEE (research-backed standard)
 ```
 
 ## Core Formulas
@@ -65,9 +65,10 @@ calculateRollingTDEE(weeklyData, windowSize = 4)
 
 | Level | Criteria | Reliability |
 |-------|----------|-------------|
-| High | 6+ tracked days | ±5% accuracy |
-| Medium | 4-5 tracked days | ±10% accuracy |
-| Low | <4 days OR >2 day weight gap | Unreliable |
+| High | 28+ tracked days | ±5-10% accuracy |
+| Medium | 14-27 tracked days | ±10-15% accuracy |
+| Low | 7-13 tracked days | ±15-25% accuracy |
+| None | <7 days OR >2 day weight gap | Unreliable |
 
 ## Gap Handling Strategy
 

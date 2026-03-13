@@ -119,7 +119,7 @@ const alpha = getAdaptiveAlpha(recentWeights);
 | `CALORIES_PER_KG` | `calculator.js:17` | 7716 | Energy density (3500 × 2.205) |
 | `DEFAULT_ALPHA` | `calculator.js:19` | 0.3 | EWMA smoothing factor |
 | `VOLATILE_ALPHA` | `calculator.js:20` | 0.1 | Reduced alpha for volatility |
-| `MIN_TRACKED_DAYS` | `calculator.js:23` | 4 | Minimum for valid TDEE |
+| `MIN_TRACKED_DAYS` | `calculator.js:39` | 14 | Minimum for valid TDEE (research-backed standard) |
 | `OUTLIER_THRESHOLD` | `calculator.js:21` | 3 | Std devs for outlier detection |
 
 ## Testing
