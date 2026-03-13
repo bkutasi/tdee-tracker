@@ -298,19 +298,71 @@
                         </div>
                     </div>
 
+                    <!-- Data Management Section -->
                     <div class="setting-group">
-                        <h3>Data</h3>
-                        <div class="btn-group">
-                            <button class="btn btn-secondary" id="export-data-pretty-btn">Export (Pretty)</button>
-                            <button class="btn btn-secondary" id="export-data-compact-btn">Export (Compact)</button>
-                            <button class="btn btn-secondary" id="import-data-btn">Import Data</button>
-                            <button class="btn btn-error btn-ghost" id="clear-data-btn">Clear
-                                Data</button>
+                        <h3>Data Management</h3>
+                        
+                        <!-- Export Format Selector -->
+                        <div class="input-group">
+                            <label for="export-format">Export Format</label>
+                            <select id="export-format">
+                                <option value="pretty" selected>Readable (Pretty-printed)</option>
+                                <option value="compact">Compact (Minified)</option>
+                            </select>
                         </div>
+                        
+                        <!-- Primary Export Button -->
+                        <div class="btn-group">
+                            <button class="btn btn-primary" id="export-data-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Export Data
+                            </button>
+                            <button class="btn btn-secondary" id="import-data-btn">Import</button>
+                            <button class="btn btn-ghost" id="clear-data-btn">Clear Data</button>
+                        </div>
+                        
                         <input type="file" id="import-file" accept=".json" class="hidden">
                         <p class="help-text">
                             <span id="storage-info">0 entries • 0 KB used</span>
                         </p>
+                    </div>
+
+                    <!-- Advanced Settings Section (Collapsible) -->
+                    <div class="setting-group advanced-settings">
+                        <button class="advanced-settings-toggle" 
+                                id="advanced-settings-toggle"
+                                aria-expanded="false"
+                                aria-controls="advanced-settings-content">
+                            <svg class="advanced-settings-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+                            </svg>
+                            <span>Advanced Settings</span>
+                            <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                        </button>
+                        
+                        <div class="advanced-settings-content hidden" id="advanced-settings-content">
+                            <div class="advanced-settings-item">
+                                <h4>Compact Export</h4>
+                                <p class="help-text">Minified JSON for developers or automated processing</p>
+                                <button class="btn btn-secondary btn-sm" id="export-compact-btn">
+                                    Export Compact JSON
+                                </button>
+                            </div>
+                            
+                            <!-- Placeholder for future advanced features -->
+                            <div class="advanced-settings-item">
+                                <h4>Data Cleanup</h4>
+                                <p class="help-text">Remove entries older than X days (coming soon)</p>
+                                <button class="btn btn-secondary btn-sm" disabled>Coming Soon</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

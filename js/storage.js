@@ -328,14 +328,29 @@ const Storage = (function () {
 
     /**
      * Export all data for backup
-     * @returns {Object} All data
+     * Sorts entries by date (newest first) for consistent, readable exports
+     * @returns {Object} All data with sorted entries
      */
     function exportData() {
+        const allEntries = getAllEntries();
+        
+        // Sort entries by date (newest first)
+        // This ensures consistent export order regardless of insertion order
+        const sortedEntries = Object.entries(allEntries)
+            .sort(([dateA], [dateB]) => {
+                // Descending order: newest dates first
+                return dateB.localeCompare(dateA);
+            })
+            .reduce((sorted, [date, entry]) => {
+                sorted[date] = entry;
+                return sorted;
+            }, {});
+        
         return {
             version: CURRENT_SCHEMA_VERSION,
             exportedAt: new Date().toISOString(),
             settings: getSettings(),
-            entries: getAllEntries()
+            entries: sortedEntries
         };
     }
 

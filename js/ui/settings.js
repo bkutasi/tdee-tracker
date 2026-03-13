@@ -78,11 +78,31 @@ const Settings = (function () {
             });
         });
 
-        // Export data (pretty-printed)
-        document.getElementById('export-data-pretty-btn').addEventListener('click', exportDataPretty);
+        // Export data (with format selector)
+        const exportBtn = document.getElementById('export-data-btn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', exportDataWithFormat);
+        }
 
-        // Export data (compact/minified)
-        document.getElementById('export-data-compact-btn').addEventListener('click', exportDataCompact);
+        // Export compact (advanced section)
+        const exportCompactBtn = document.getElementById('export-compact-btn');
+        if (exportCompactBtn) {
+            exportCompactBtn.addEventListener('click', () => {
+                exportData('compact');
+            });
+        }
+
+        // Advanced settings toggle
+        const advancedToggle = document.getElementById('advanced-settings-toggle');
+        if (advancedToggle) {
+            advancedToggle.addEventListener('click', () => {
+                const isExpanded = advancedToggle.getAttribute('aria-expanded') === 'true';
+                const content = document.getElementById('advanced-settings-content');
+                
+                advancedToggle.setAttribute('aria-expanded', !isExpanded);
+                content.classList.toggle('hidden', isExpanded);
+            });
+        }
 
         // Import data
         document.getElementById('import-data-btn').addEventListener('click', () => {
@@ -149,6 +169,19 @@ const Settings = (function () {
         Components.setText('storage-info', `${info.entriesCount} entries • ${info.usedFormatted} used`);
     }
 
+    /**
+     * Export data with selected format from dropdown
+     */
+    function exportDataWithFormat() {
+        const formatSelect = document.getElementById('export-format');
+        const format = formatSelect ? formatSelect.value : 'pretty';
+        exportData(format);
+    }
+
+    /**
+     * Export data in specified format
+     * @param {string} format - 'pretty' or 'compact'
+     */
     function exportData(format = 'pretty') {
         const data = Storage.exportData();
         const jsonString = format === 'compact' 
@@ -167,14 +200,6 @@ const Settings = (function () {
 
         const formatMessage = format === 'compact' ? 'Compact' : 'Pretty';
         Components.showToast(`Data exported (${formatMessage})!`, 'success');
-    }
-
-    function exportDataPretty() {
-        exportData('pretty');
-    }
-
-    function exportDataCompact() {
-        exportData('compact');
     }
 
     function importData(e) {
