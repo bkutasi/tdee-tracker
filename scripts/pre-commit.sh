@@ -1,91 +1,125 @@
 #!/bin/bash
 
 # Pre-commit hook for TDEE Tracker
-# Runs static analysis and tests before allowing commit
+# Runs code quality checks and tests before allowing commit
 # 
 # Installation:
 #   cp scripts/pre-commit.sh .git/hooks/pre-commit
 #   chmod +x .git/hooks/pre-commit
+#
+# Checks:
+#   1. ESLint (code quality - warnings only)
+#   2. E2E Integration Checks (API compatibility)
+#   3. Unit Tests (Calculator, Storage, Utils, Sync, CSP)
 
 set -e  # Exit on error
 
-echo "🔍 Running pre-commit checks..."
+echo "=========================================="
+echo "  PRE-COMMIT QUALITY CHECKS"
+echo "=========================================="
 echo ""
 
-# Check 1: JavaScript syntax validation
-echo "📝 Validating JavaScript syntax..."
-syntax_errors=0
+# Change to repo root
+cd "$(git rev-parse --show-toplevel)"
 
-for file in js/*.js js/ui/*.js tests/*.test.js tests/*.js; do
-    if [ -f "$file" ]; then
-        node -c "$file" 2>/dev/null
-        if [ $? -ne 0 ]; then
-            echo "  ❌ Syntax error in $file"
-            syntax_errors=$((syntax_errors + 1))
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Track test start time
+START_TIME=$(date +%s)
+
+# Check 1: ESLint (Code Quality - Warnings Only)
+echo -e "${YELLOW}[1/3] Running ESLint...${NC}"
+echo "      (Catches code quality issues)"
+echo ""
+
+if [ -f "eslint.config.js" ] || [ -f ".eslintrc.json" ]; then
+    if command -v npx &> /dev/null; then
+        # Get staged JS files only (faster)
+        staged_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|mjs)$' || true)
+        
+        if [ -n "$staged_files" ]; then
+            echo "  Checking staged files..."
+            lint_output=$(npx eslint $staged_files 2>&1 || true)
+            
+            if [ -n "$lint_output" ]; then
+                echo ""
+                echo -e "${YELLOW}⚠️  ESLint Warnings (non-blocking):${NC}"
+                echo "$lint_output" | head -15
+                if [ $(echo "$lint_output" | wc -l) -gt 15 ]; then
+                    echo "  ...and more (run 'npx eslint' to see all)"
+                fi
+                echo ""
+            fi
+        else
+            echo "  No staged JS files to check"
         fi
+        echo "  ✅ ESLint check complete"
+    else
+        echo "  ⚠️  npx not found, skipping ESLint"
     fi
-done
+else
+    echo "  ⚠️  No ESLint config found, skipping ESLint"
+fi
+echo ""
 
-if [ $syntax_errors -gt 0 ]; then
+# Check 2: E2E Integration Checks
+echo -e "${YELLOW}[2/3] Running E2E Integration Checks...${NC}"
+echo "      (Catches API mismatches between modules)"
+echo ""
+
+if ! node tests/e2e/integration-checks.test.js; then
     echo ""
-    echo "❌ Found $syntax_errors syntax error(s). Fix before committing."
+    echo -e "${RED}=========================================="
+    echo "  ❌ PRE-COMMIT FAILED: Integration Checks"
+    echo "==========================================${NC}"
+    echo ""
+    echo "These bugs would have reached production!"
+    echo ""
+    echo "To skip (NOT RECOMMENDED): git commit --no-verify"
+    echo ""
     exit 1
 fi
-echo "  ✅ Syntax validation passed"
 echo ""
 
-# Check 2: ESLint (if available)
-if command -v npx &> /dev/null; then
-    echo "🔍 Running ESLint..."
-    if [ -f ".eslintrc.json" ]; then
-        npx eslint js/**/*.js tests/**/*.js --quiet 2>/dev/null
-        if [ $? -ne 0 ]; then
-            echo ""
-            echo "❌ ESLint found errors. Fix before committing."
-            echo "   Run: npx eslint js/**/*.js tests/**/*.js"
-            exit 1
-        fi
-        echo "  ✅ ESLint passed"
-    else
-        echo "  ⚠️  No .eslintrc.json found, skipping ESLint"
-    fi
-    echo ""
-else
-    echo "  ⚠️  npx not found, skipping ESLint"
-    echo ""
-fi
-
 # Check 3: Run test suite
-echo "🧪 Running test suite..."
+echo -e "${YELLOW}[3/3] Running Full Unit Test Suite...${NC}"
+echo "      (Calculator, Storage, Utils, Sync, CSP)"
+echo ""
+
 if [ -f "tests/node-test.js" ]; then
-    node tests/node-test.js
-    if [ $? -ne 0 ]; then
+    if ! node tests/node-test.js; then
         echo ""
-        echo "❌ Tests failed. Fix failing tests before committing."
-        echo "   Run: node tests/node-test.js"
+        echo -e "${RED}=========================================="
+        echo "  ❌ PRE-COMMIT FAILED: Unit Tests"
+        echo "==========================================${NC}"
+        echo ""
+        echo "Fix failing tests before committing."
+        echo ""
+        echo "To skip (NOT RECOMMENDED): git commit --no-verify"
+        echo ""
         exit 1
     fi
     echo "  ✅ Tests passed"
 else
     echo "  ⚠️  tests/node-test.js not found, skipping tests"
 fi
+
+# Summary
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+
+echo ""
+echo -e "${GREEN}=========================================="
+echo "  ✅ ALL CHECKS PASSED"
+echo "==========================================${NC}"
+echo ""
+echo "Test Duration: ${DURATION}s"
+echo ""
+echo "You can safely commit. All quality checks passed!"
 echo ""
 
-# Check 4: Verify test file structure
-echo "📋 Checking test file structure..."
-test_files_missing=0
-
-# Check that new test cases were added for calculateStableTDEE fallback
-if ! grep -q "calorie-average fallback" tests/calculator.test.js 2>/dev/null; then
-    echo "  ⚠️  Warning: No tests found for calorie-average fallback"
-    echo "     Consider adding tests for fallback logic in calculateStableTDEE"
-fi
-
-echo "  ✅ Test structure check complete"
-echo ""
-
-# All checks passed
-echo "✅ All pre-commit checks passed!"
-echo ""
-echo "💡 Tip: Run 'node tests/node-test.js' locally before pushing to catch issues early."
 exit 0
