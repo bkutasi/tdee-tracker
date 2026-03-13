@@ -611,7 +611,6 @@ input::placeholder {
     background: var(--color-accent);
     color: white;
     border-color: var(--color-accent);
-    grid-column: 1 / -1;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -700,6 +699,18 @@ input::placeholder {
     display: flex;
     gap: var(--space-3);
     flex-wrap: wrap;
+}
+
+/* Settings button group spacing */
+.setting-group .btn-group {
+    margin-top: var(--space-2);
+    margin-bottom: var(--space-2);
+}
+
+/* Equal button widths in settings */
+.setting-group .btn-group .btn {
+    flex: 1;
+    min-width: 120px;
 }
 
 .btn-ghost {

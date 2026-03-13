@@ -78,10 +78,10 @@ const Settings = (function () {
             });
         });
 
-        // Export data (with format selector)
+        // Export data (pretty-printed by default)
         const exportBtn = document.getElementById('export-data-btn');
         if (exportBtn) {
-            exportBtn.addEventListener('click', exportDataWithFormat);
+            exportBtn.addEventListener('click', exportDataPretty);
         }
 
         // Export compact (advanced section)
@@ -170,12 +170,10 @@ const Settings = (function () {
     }
 
     /**
-     * Export data with selected format from dropdown
+     * Export data (pretty-printed by default)
      */
-    function exportDataWithFormat() {
-        const formatSelect = document.getElementById('export-format');
-        const format = formatSelect ? formatSelect.value : 'pretty';
-        exportData(format);
+    function exportDataPretty() {
+        exportData('pretty');
     }
 
     /**

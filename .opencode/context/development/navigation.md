@@ -19,19 +19,36 @@ development/
 │   ├── navigation.md
 │   ├── supabase-auth.md
 │   ├── offline-first-sync.md
-│   └── jwt-session.md
+│   ├── jwt-session.md
+│   ├── row-level-security.md
+│   ├── sync-debugging.md
+│   └── model-context-protocol.md
 │
 ├── examples/                  # Code examples & schemas
 │   ├── navigation.md
-│   └── supabase-schema.md
+│   ├── supabase-schema.md
+│   └── magic-link-flow.md
 │
 ├── guides/                    # Step-by-step how-tos
 │   ├── navigation.md
-│   └── supabase-quickstart.md
+│   ├── supabase-quickstart.md
+│   ├── supabase-auth-setup.md
+│   ├── running-migrations.md
+│   ├── cloudflare-pages-deployment.md
+│   ├── pre-commit-setup.md
+│   └── creating-skills.md
 │
 ├── errors/                    # Troubleshooting & common issues
 │   ├── navigation.md
-│   └── auth-errors.md
+│   ├── auth-errors.md
+│   ├── not-null-constraint-error.md
+│   ├── deployment-errors.md
+│   └── sync-integration-errors.md
+│
+├── lookup/                    # Configuration reference
+│   ├── navigation.md
+│   ├── auth-configuration.md
+│   └── deployment-config.md
 │
 ├── principles/                # Universal (language-agnostic)
 │   ├── navigation.md
@@ -86,9 +103,20 @@ development/
 |------|------|
 | **Supabase Auth** | `concepts/supabase-auth.md` |
 | **Offline-first sync** | `concepts/offline-first-sync.md` |
+| **RLS policies** | `concepts/row-level-security.md` |
+| **Sync debugging** | `concepts/sync-debugging.md` |
 | **Database schema** | `examples/supabase-schema.md` |
+| **Magic link flow** | `examples/magic-link-flow.md` |
 | **Quick start guide** | `guides/supabase-quickstart.md` |
+| **Auth setup** | `guides/supabase-auth-setup.md` |
+| **Running migrations** | `guides/running-migrations.md` |
+| **Cloudflare deployment** | `guides/cloudflare-pages-deployment.md` |
+| **Pre-commit hooks** | `guides/pre-commit-setup.md` |
 | **Auth troubleshooting** | `errors/auth-errors.md` |
+| **Sync errors** | `errors/sync-integration-errors.md` |
+| **Deployment errors** | `errors/deployment-errors.md` |
+| **Auth configuration** | `lookup/auth-configuration.md` |
+| **Deployment config** | `lookup/deployment-config.md` |
 | **UI/Frontend** | `ui-navigation.md` |
 | **When to delegate frontend** | `frontend/when-to-delegate.md` |
 | **Backend/API** | `backend-navigation.md` |

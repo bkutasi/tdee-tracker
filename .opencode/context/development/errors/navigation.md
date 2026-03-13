@@ -11,6 +11,9 @@
 | File | Purpose | Lines |
 |------|---------|-------|
 | [auth-errors.md](auth-errors.md) | Config issues, magic link problems, sync failures, deploy errors | 142 |
+| [not-null-constraint-error.md](not-null-constraint-error.md) | Database NOT NULL violations: missing user_id, validation, prevention | 169 |
+| [deployment-errors.md](deployment-errors.md) | Build failures, 404s, env vars, CORS, service worker issues | 175 |
+| [sync-integration-errors.md](sync-integration-errors.md) | Queue not processing, duplicates, data loss, conflicts, retry loops | 199 |
 
 ---
 

@@ -12,6 +12,12 @@
 |------|---------|-------|
 | [supabase-schema.md](supabase-schema.md) | Complete schema with RLS policies, indexes, triggers | 89 |
 
+## Authentication Flows
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| [magic-link-flow.md](magic-link-flow.md) | Complete magic link auth flow: request, callback, session, UI integration | 147 |
+
 ---
 
 ## Quick Reference

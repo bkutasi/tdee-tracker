@@ -11,6 +11,11 @@
 | File | Purpose | Lines |
 |------|---------|-------|
 | [supabase-quickstart.md](supabase-quickstart.md) | 7-step setup: Create project, get credentials, deploy | 108 |
+| [supabase-auth-setup.md](supabase-auth-setup.md) | Configure magic link, OAuth providers, URL settings | 147 |
+| [running-migrations.md](running-migrations.md) | Apply schema changes, rollback strategy, verification | 151 |
+| [cloudflare-pages-deployment.md](cloudflare-pages-deployment.md) | Deploy to Cloudflare Pages: build settings, env vars, custom domain | 142 |
+| [pre-commit-setup.md](pre-commit-setup.md) | Automate code quality checks: syntax, tests, file sizes | 148 |
+| [creating-skills.md](creating-skills.md) | Create agent skills: structure, workflows, resources | 154 |
 
 ---
 
