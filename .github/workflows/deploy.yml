@@ -27,13 +27,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install ESLint
+        run: npm install -g eslint@latest @eslint/js@latest globals@latest
 
       - name: Run ESLint
-        run: npm run lint
+        run: npx eslint js/
         env:
           CI: true
 
@@ -52,10 +51,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Run test suite
         run: node tests/node-test.js
@@ -85,7 +80,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Generate config from secrets
         run: node scripts/generate-config.js
