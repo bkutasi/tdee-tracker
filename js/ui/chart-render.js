@@ -36,10 +36,11 @@ const ChartRender = (function () {
         const weightColor = styles.weightColor;
         const tdeeColor = styles.tdeeColor;
 
-        // Calculate weight scale
-        const weightMin = Math.min(...weights) - 1;
-        const weightMax = Math.max(...weights) + 1;
-        const weightRange = weightMax - weightMin;
+        // Calculate weight scale (filter null values to prevent NaN)
+        const validWeights = weights.filter(w => w !== null);
+        const weightMin = validWeights.length > 0 ? Math.min(...validWeights) - 1 : 0;
+        const weightMax = validWeights.length > 0 ? Math.max(...validWeights) + 1 : 100;
+        const weightRange = weightMax - weightMin || 1; // Prevent division by zero
 
         // Calculate TDEE scale
         const validTdees = tdees.filter(t => t !== null && !isNaN(t));
@@ -167,29 +168,44 @@ const ChartRender = (function () {
 
     /**
      * Draw weight line and points
+     * Handles null values by creating gaps in the line where weight data is missing
      */
     function drawWeightLine(ctx, data, styles, hitAreas) {
         const { weights, xStep, chartHeight, padding, horizontalPointPadding, weightMax, weightRange } = data;
         const { weightColor } = styles;
 
-        // Draw weight line (Stroke)
+        // Draw weight line (Stroke) with gaps for null values
         ctx.strokeStyle = weightColor;
         ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
         ctx.beginPath();
+        let isFirstPoint = true;
+
         for (let i = 0; i < weights.length; i++) {
+            if (weights[i] === null) {
+                isFirstPoint = true; // Reset on null to create gap
+                continue;
+            }
+            
             const x = padding.left + horizontalPointPadding + i * xStep;
             const y = padding.top + ((weightMax - weights[i]) / weightRange) * chartHeight;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
+            
+            if (isFirstPoint) {
+                ctx.moveTo(x, y);
+                isFirstPoint = false;
+            } else {
+                ctx.lineTo(x, y);
+            }
         }
         ctx.stroke();
 
-        // Draw weight points
+        // Draw weight points (only for non-null values)
         ctx.fillStyle = weightColor;
         for (let i = 0; i < weights.length; i++) {
+            if (weights[i] === null) continue; // Skip null weights
+            
             const x = padding.left + horizontalPointPadding + i * xStep;
             const y = padding.top + ((weightMax - weights[i]) / weightRange) * chartHeight;
 
@@ -292,7 +308,8 @@ const ChartRender = (function () {
     }
 
     /**
-     * Draw empty state message
+     * Draw empty state message with contextual guidance
+     * Pure function - no side effects, only canvas drawing
      */
     function drawEmptyState(ctx, data, width, height, styles) {
         const { textColor } = styles;
@@ -301,28 +318,32 @@ const ChartRender = (function () {
         ctx.fillStyle = textColor;
         ctx.textAlign = 'center';
         
-        // Check if we have calorie-only data
-        const hasCalories = data && data.tdees && data.tdees.length > 0;
-        const hasAnyWeights = data && data.weights && data.weights.length > 0;
+        // Check what data is available
+        const hasTDEEData = data && data.tdees && data.tdees.some(t => t !== null);
+        const hasWeightData = data && data.weights && data.weights.some(w => w !== null);
+        const weightCount = data && data.weights ? data.weights.filter(w => w !== null).length : 0;
         
-        if (hasCalories && !hasAnyWeights) {
-            // User has calorie data but no weight measurements
+        if (hasTDEEData && !hasWeightData) {
+            // User has TDEE/calorie data but no weight measurements
             ctx.font = '14px -apple-system, sans-serif';
-            ctx.fillText('Add weight measurements to see the chart', width / 2, height / 2 - 10);
+            ctx.fillText('Add weight measurements to see TDEE bars on the chart', width / 2, height / 2 - 10);
             ctx.font = '12px -apple-system, sans-serif';
             ctx.fillStyle = textColor.replace(')', ', 0.7)').replace('rgb', 'rgba');
-            ctx.fillText('(You have calorie data, but no weight entries)', width / 2, height / 2 + 15);
-        } else if (hasAnyWeights && data.weights.length < 2) {
+            ctx.fillText('(You have calorie data - add weights to see full TDEE calculation)', width / 2, height / 2 + 15);
+        } else if (weightCount === 1) {
             // Only 1 weight entry - need at least 2 for a trend
             ctx.font = '14px -apple-system, sans-serif';
-            ctx.fillText('Add more weight entries to see the trend', width / 2, height / 2 - 10);
+            ctx.fillText('Add more weight entries to see trends', width / 2, height / 2 - 10);
             ctx.font = '12px -apple-system, sans-serif';
             ctx.fillStyle = textColor.replace(')', ', 0.7)').replace('rgb', 'rgba');
             ctx.fillText('(Need at least 2 weight measurements)', width / 2, height / 2 + 15);
         } else {
             // No data at all
             ctx.font = '14px -apple-system, sans-serif';
-            ctx.fillText('Add more data to see your progress', width / 2, height / 2);
+            ctx.fillText('Add weight and calorie entries to see your progress', width / 2, height / 2);
+            ctx.font = '12px -apple-system, sans-serif';
+            ctx.fillStyle = textColor.replace(')', ', 0.7)').replace('rgb', 'rgba');
+            ctx.fillText('(Track both for accurate TDEE calculation)', width / 2, height / 2 + 25);
         }
     }
 

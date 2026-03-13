@@ -38,13 +38,11 @@ const ChartData = (function () {
         const labels = [];
 
         for (const week of weeklyData) {
-            // Only include weeks where we have a valid weight (needed for weight line Y-axis)
-            // Null weights cause Math.min/max to return NaN, breaking chart rendering
-            if (week.ewmaWeight !== null) {
-                weights.push(week.ewmaWeight);
-                tdees.push(week.tdee); // tdee can be null (no bar drawn)
-                labels.push(week.label);
-            }
+            // Include all weeks - weights can be null, tdees can be null
+            // Null values are handled gracefully in chart-render.js (scale calculations, rendering)
+            weights.push(week.ewmaWeight); // Can be null for weeks without weight measurements
+            tdees.push(week.tdee);         // Can be null (no bar drawn)
+            labels.push(week.label);
         }
         
         console.log('[ChartData.getChartData] Extracted', weights.length, 'data points for chart');
