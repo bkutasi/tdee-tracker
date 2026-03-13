@@ -108,10 +108,10 @@ const Chart = (function () {
 
         if (recalcCallback || !cachedData) {
             const settings = Storage.getSettings();
-            cachedData = ChartData.getChartData(180, settings);  // Extended from 56 to 180 days
+            cachedData = ChartData.getChartData(90, settings);  // 3 months for better mobile display
         } else {
             const settings = Storage.getSettings();
-            cachedData = ChartData.getChartData(56, settings);
+            cachedData = ChartData.getChartData(90, settings);
         }
         
         if (!ChartData.isValidData(cachedData)) {
