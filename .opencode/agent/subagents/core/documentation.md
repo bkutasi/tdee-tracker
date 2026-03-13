@@ -15,6 +15,9 @@ permission:
   task:
     contextscout: "allow"
     "*": "deny"
+dependencies:
+  - context:core/standards/docs
+  - context:core/workflows/delegation
 ---
 
 # DocWriter

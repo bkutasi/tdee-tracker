@@ -22,6 +22,8 @@ permission:
   task:
     contextscout: "allow"
     "*": "deny"
+dependencies:
+  - context:core/standards/code
 ---
 
 # BuildAgent

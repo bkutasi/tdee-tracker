@@ -1280,3 +1280,155 @@ describe('Calculator - R² Integration with Stable TDEE', () => {
         expect(['poor', 'fair']).toContain(result.fitQuality);
     });
 });
+
+describe('TDEE.calculateStableTDEE - Fallback Logic (Regression Prevention)', () => {
+    it('returns calorie-average fallback when insufficient weight data but 4+ calorie entries', () => {
+        // Arrange: Only 5 days of weight data (below 14-day minimum) but 10 days of calories
+        // This tests the calorie-average fallback code path that triggered the calResult bug
+        const entries = [];
+        const startDate = new Date('2025-01-01');
+        for (let i = 0; i < 10; i++) {
+            entries.push({
+                date: new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                weight: i < 5 ? 80.0 - (i * 0.1) : null,  // Only 5 days of weight
+                calories: 2000 + (i * 50)  // 10 days of calories: 2000, 2050, 2100, ..., 2450
+            });
+        }
+        
+        // Act
+        const result = TDEE.calculateStableTDEE(entries, 'kg', 14, 14);
+        
+        // Assert
+        expect(result.tdee).toBeGreaterThan(2100);  // Calorie average ~2225 (outliers excluded)
+        expect(result.tdee).toBeLessThan(2300);
+        expect(result.confidence).toBe('low');
+        expect(result.fallback).toBe('calorie-average');
+        expect(result.trackedDays).toBe(10);
+        expect(result.neededDays).toBe(4);  // 14 - 10
+        expect(result.note).toContain('insufficient weight data');
+    });
+    
+    it('returns null when insufficient data and no calorie fallback available (< 4 calorie entries)', () => {
+        // Arrange: Only 3 days of data (below minimum AND below fallback threshold of 4)
+        const entries = [];
+        const startDate = new Date('2025-01-01');
+        for (let i = 0; i < 3; i++) {
+            entries.push({
+                date: new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                weight: 80.0 - (i * 0.1),
+                calories: 2000
+            });
+        }
+        
+        // Act
+        const result = TDEE.calculateStableTDEE(entries, 'kg', 14, 14);
+        
+        // Assert
+        expect(result.tdee).toBeNull();
+        expect(result.confidence).toBe('none');
+        expect(result.trackedDays).toBe(3);
+        expect(result.neededDays).toBe(11);
+    });
+    
+    it('handles calorie-average fallback with outlier exclusion', () => {
+        // Arrange: 5 days of weight, 7 days of calories with one extreme outlier
+        // Outlier should be excluded from average calculation
+        const entries = [
+            { date: '2025-01-01', weight: 80.0, calories: 2000 },
+            { date: '2025-01-02', weight: 79.9, calories: 2100 },
+            { date: '2025-01-03', weight: 79.8, calories: 1950 },
+            { date: '2025-01-04', weight: 79.7, calories: 2050 },
+            { date: '2025-01-05', weight: 79.6, calories: 5000 },  // Outlier!
+            { date: '2025-01-06', weight: null, calories: 2000 },
+            { date: '2025-01-07', weight: null, calories: 2100 }
+        ];
+        
+        // Act
+        const result = TDEE.calculateStableTDEE(entries, 'kg', 14, 14);
+        
+        // Assert
+        // Outlier (5000) should be excluded, average of remaining ~2033
+        expect(result.tdee).toBeGreaterThan(1950);
+        expect(result.tdee).toBeLessThan(2150);
+        expect(result.fallback).toBe('calorie-average');
+        expect(result.hasOutliers).toBe(true);
+    });
+    
+    it('returns calorie fallback even with large gaps if 4+ calorie entries exist', () => {
+        // Arrange: Large gap in weight data, but sufficient calorie entries
+        const entries = [
+            { date: '2025-01-01', weight: 80.0, calories: 2000 },
+            { date: '2025-01-02', weight: null, calories: 2100 },
+            { date: '2025-01-03', weight: null, calories: 2050 },
+            { date: '2025-01-04', weight: null, calories: 1950 },
+            { date: '2025-01-05', weight: null, calories: 2000 },
+            { date: '2025-01-06', weight: null, calories: 2100 }
+        ];
+        
+        // Act
+        const result = TDEE.calculateStableTDEE(entries, 'kg', 14, 14);
+        
+        // Assert
+        expect(result.tdee).toBeGreaterThan(1950);
+        expect(result.tdee).toBeLessThan(2150);
+        expect(result.fallback).toBe('calorie-average');
+        expect(result.hasLargeGap).toBe(true);
+    });
+});
+
+describe('TDEE.calculateStableTDEE - Regression Edge Cases (Regression Prevention)', () => {
+    it('returns null when EWMA data has insufficient points for regression (< 2)', () => {
+        // Arrange: All weight entries are null (no EWMA data can be calculated)
+        const entries = [];
+        const startDate = new Date('2025-01-01');
+        for (let i = 0; i < 14; i++) {
+            entries.push({
+                date: new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                weight: null,  // No weight data
+                calories: 2000
+            });
+        }
+        
+        // Act
+        const result = TDEE.calculateStableTDEE(entries, 'kg', 14, 14);
+        
+        // Assert
+        expect(result.tdee).toBeNull();
+    });
+    
+    it('returns null when regression denominator is zero (all same day index)', () => {
+        // Arrange: All entries on same date (edge case, causes zero denominator)
+        const entries = Array(14).fill({
+            date: '2025-01-01',
+            weight: 80.0,
+            calories: 2000
+        });
+        
+        // Act
+        const result = TDEE.calculateStableTDEE(entries, 'kg', 14, 14);
+        
+        // Assert
+        expect(result.tdee).toBeNull();
+    });
+    
+    it('handles entries with mixed null weights (some valid EWMA, some not)', () => {
+        // Arrange: Some weights are null, but enough for EWMA calculation
+        const entries = [];
+        const startDate = new Date('2025-01-01');
+        for (let i = 0; i < 14; i++) {
+            entries.push({
+                date: new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                weight: i % 3 === 0 ? null : 80.0 - (i * 0.05),  // Every 3rd day is null
+                calories: 2000
+            });
+        }
+        
+        // Act
+        const result = TDEE.calculateStableTDEE(entries, 'kg', 14, 14);
+        
+        // Assert
+        // Should still calculate TDEE from available EWMA data
+        expect(result.tdee).not.toBeNull();
+        expect(result.confidence).toBe('high');  // 14 days with good data
+    });
+});

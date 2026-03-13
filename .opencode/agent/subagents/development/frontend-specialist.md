@@ -21,6 +21,9 @@ permission:
     "**/*.env*": "deny"
     "**/*.key": "deny"
     "**/*.secret": "deny"
+dependencies:
+  - context:core/standards/code
+  - context:ui/web
 ---
 
 # Frontend Design Subagent

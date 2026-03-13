@@ -12,6 +12,9 @@ permission:
     "**/*": "deny"
   task:
     contextscout: "allow"
+dependencies:
+  - context:core/workflows/review
+  - context:core/standards/code
 ---
 
 # CodeReviewer

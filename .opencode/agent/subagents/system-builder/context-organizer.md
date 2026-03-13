@@ -11,6 +11,8 @@ permission:
     "**/*.env*": "deny"
     "**/*.key": "deny"
     "**/*.secret": "deny"
+dependencies:
+  - context:core/context-system
 ---
 
 # Context Organizer

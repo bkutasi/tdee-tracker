@@ -22,6 +22,10 @@ permission:
   skill:
     "*": "deny"
     "task-management": "allow"
+dependencies:
+  - context:core/task-management
+  - context:core/standards/code
+  - context:core/standards/security
 ---
 
 <context>

@@ -17,7 +17,8 @@ permission:
     "*": "deny"
   task:
     "*": "deny"
-
+dependencies:
+  - context:core/context-system
 ---
 
 # ContextScout

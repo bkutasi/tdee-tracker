@@ -25,6 +25,8 @@ permission:
   task:
     contextscout: "allow"
     externalscout: "allow"
+dependencies:
+  - context:core/standards/tests
 ---
 
 # TestEngineer

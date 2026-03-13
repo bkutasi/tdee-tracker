@@ -20,6 +20,9 @@ permission:
     "**/__pycache__/**": "deny"
     "**/*.pyc": "deny"
     ".git/**": "deny"
+dependencies:
+  - context:core/standards/code
+  - context:core/standards/security
 ---
 
 # Development Agent

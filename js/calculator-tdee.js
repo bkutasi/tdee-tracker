@@ -465,26 +465,14 @@ const TDEE = (function () {
     }
 
     /**
-     * Calculate "Stable" TDEE - uses linear regression on EWMA weights over longer window
-     * Much more stable than single-week calculations, resistant to water/glycogen fluctuations
-     * @param {Object[]} entries - Array of daily entries (should be 14+ days)
-     * @param {string} unit - 'kg' or 'lb'
-     * @param {number} windowDays - Window size for regression (default: 14)
-     * @param {number} minDays - Minimum calorie-tracked days required
-     * @returns {Object} { tdee, confidence, trackedDays, slope, hasLargeGap }
+     * Detect large gaps in weight data (>2 consecutive days without weight)
+     * @param {Object[]} entries - Array of daily entries
+     * @returns {Object} { hasLargeGap, maxGap }
      */
-    function calculateStableTDEE(entries, unit = 'kg', windowDays = 14, minDays = MIN_TRACKED_DAYS) {
-        if (!entries || entries.length < 7) {
-            return { tdee: null, confidence: 'none', trackedDays: 0 };
-        }
-
-        // Process entries to get EWMA weights
-        const processed = processEntriesWithGaps(entries);
-
-        // Detect large gaps in weight data (>2 consecutive days without weight)
-        let hasLargeGap = false;
+    function detectWeightGaps(entries) {
         let maxGap = 0;
         let consecutiveNoWeight = 0;
+        
         for (const entry of entries) {
             if (entry.weight === null || entry.weight === undefined) {
                 consecutiveNoWeight++;
@@ -493,16 +481,24 @@ const TDEE = (function () {
                 consecutiveNoWeight = 0;
             }
         }
-        hasLargeGap = maxGap > 2;
+        
+        return {
+            hasLargeGap: maxGap > 2,
+            maxGap
+        };
+    }
 
-        // Get calorie entries
-        const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
-        const trackedDays = calorieEntries.length;
-
-        // Determine confidence based on scientific tiers AND gap presence
+    /**
+     * Determine confidence level based on scientific tiers and gap presence
+     * @param {number} trackedDays - Number of calorie-tracked days
+     * @param {boolean} hasLargeGap - Whether large gaps exist in weight data
+     * @param {number} windowDays - Window size for regression
+     * @returns {Object} { confidence, accuracy }
+     */
+    function determineConfidenceLevel(trackedDays, hasLargeGap, windowDays) {
         let confidence = 'none';
         let accuracy = null;
-        const windowCoverage = trackedDays / windowDays;
+        
         if (hasLargeGap) {
             // Large gap reduces max confidence to 'low'
             if (trackedDays >= MIN_TRACKED_DAYS) {
@@ -519,53 +515,71 @@ const TDEE = (function () {
             confidence = 'low';
             accuracy = CONFIDENCE_TIERS.LOW.accuracy;
         }
+        
+        return { confidence, accuracy };
+    }
 
-
-        // Not enough tracked days for full TDEE calculation
-        if (trackedDays < minDays) {
-            // CALORIE-AVERAGE FALLBACK:
-            // If we have at least 4 days of calorie data, use average as estimate
-            // This provides a TDEE estimate even without sufficient weight trend data
-            if (calorieEntries.length >= 4) {
-                // Calculate calorie average with outlier exclusion
-                const fallbackCalories = calorieEntries.map(e => e.calories);
-                const calResultFallback = excludeCalorieOutliers(fallbackCalories);
-                
-                if (calResultFallback.filteredAvg > 0) {
-                    return {
-                        tdee: calResultFallback.filteredAvg,  // Use calorie average as TDEE estimate
-                        confidence: 'low',
-                        trackedDays: calorieEntries.length,
-                        neededDays: minDays - trackedDays,
-                        hasLargeGap,
-                        fallback: 'calorie-average',
-                        note: 'Calorie-average estimate (insufficient weight data for energy balance calculation)'
-                    };
-                }
-            }
-            
-            // No fallback available
-            return { tdee: null, confidence, trackedDays, neededDays: minDays - trackedDays, hasLargeGap };
+    /**
+     * Calculate calorie-average fallback when insufficient weight data for energy balance
+     * @param {Object[]} calorieEntries - Array of entries with calorie data
+     * @param {number} minDays - Minimum tracked days required
+     * @param {boolean} hasLargeGap - Whether large gaps exist
+     * @returns {Object|null} Fallback result or null if not applicable
+     */
+    function calculateCalorieAverageFallback(calorieEntries, minDays, hasLargeGap) {
+        // If we have at least 4 days of calorie data, use average as estimate
+        if (calorieEntries.length < 4) {
+            return null;
         }
+        
+        // Calculate calorie average with outlier exclusion
+        const fallbackCalories = calorieEntries.map(e => e.calories);
+        const calResultFallback = excludeCalorieOutliers(fallbackCalories);
+        
+        if (calResultFallback.filteredAvg > 0) {
+            return {
+                tdee: calResultFallback.filteredAvg,
+                confidence: 'low',
+                trackedDays: calorieEntries.length,
+                neededDays: minDays - calorieEntries.length,
+                hasLargeGap,
+                fallback: 'calorie-average',
+                note: 'Calorie-average estimate (insufficient weight data for energy balance calculation)'
+            };
+        }
+        
+        return null;
+    }
 
-        // Build regression data from EWMA weights
-        const ewmaData = processed
+    /**
+     * Build regression data from EWMA weights with day indices
+     * @param {Object[]} processed - Processed entries with EWMA weights
+     * @returns {Object[]} Array of { dayIndex, weight } for regression
+     */
+    function buildRegressionData(processed) {
+        return processed
             .filter(e => e.ewmaWeight !== null && e.ewmaWeight !== undefined)
             .map((e, i, arr) => {
-                // Calculate day index from first entry
                 const dayIndex = Math.round(
                     (new Date(e.date) - new Date(arr[0].date)) / (1000 * 60 * 60 * 24)
                 );
                 return { dayIndex, weight: e.ewmaWeight };
             });
+    }
 
+    /**
+     * Perform linear regression on EWMA weights (single pass)
+     * @param {Object[]} ewmaData - Array of { dayIndex, weight }
+     * @returns {Object|null} { slope } or null if cannot calculate
+     */
+    function performLinearRegression(ewmaData) {
         if (ewmaData.length < 2) {
-            return { tdee: null, confidence, trackedDays, hasLargeGap };
+            return null;
         }
 
-        // Linear regression on EWMA weights (single pass)
         const n = ewmaData.length;
         let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        
         for (const { dayIndex, weight } of ewmaData) {
             sumX += dayIndex;
             sumY += weight;
@@ -575,44 +589,48 @@ const TDEE = (function () {
 
         const denominator = (n * sumXX - sumX * sumX);
         if (denominator === 0) {
-            return { tdee: null, confidence, trackedDays, hasLargeGap };
+            return null;
         }
 
         const slope = (n * sumXY - sumX * sumY) / denominator;
+        return { slope };
+    }
 
-        // Slope is kg/day. Positive = gaining, Negative = losing
-        // Calculate average calories (with outlier exclusion)
-        const calories = calorieEntries.map(e => e.calories);
-        const calResult = excludeCalorieOutliers(calories);
-        const avgCalories = calResult.filteredAvg;
-
-        if (avgCalories === null) {
-            return { tdee: null, confidence, trackedDays, hasLargeGap };
-        }
-
+    /**
+     * Calculate TDEE from slope and average calories
+     * @param {number} avgCalories - Average daily calorie intake
+     * @param {number} slope - Weight change slope (kg/day)
+     * @param {string} unit - 'kg' or 'lb'
+     * @returns {number} Estimated TDEE
+     */
+    function calculateTDEEFromSlope(avgCalories, slope, unit) {
+        const calPerUnit = unit === 'kg' ? CALORIES_PER_KG : CALORIES_PER_LB;
         // TDEE = avgCalories - (slope * cal_per_unit)
         // If slope is negative (losing), we subtract negative = add
         // If slope is positive (gaining), we subtract positive = lower TDEE
-        const calPerUnit = unit === 'kg' ? CALORIES_PER_KG : CALORIES_PER_LB;
-        const tdee = round(avgCalories - (slope * calPerUnit), 0);
+        return round(avgCalories - (slope * calPerUnit), 0);
+    }
 
-        // Calculate CV for weight volatility detection
-        const weights = processed.filter(e => e.ewmaWeight !== null).map(e => e.ewmaWeight);
-        const cv = calculateCV(weights);
-        const isWeightVolatile = isVolatile(cv);
-
-        // Calculate R² for trend fit quality
-        const rSquared = calculateRSquared(ewmaData);
-        const fitQuality = getFitQuality(rSquared);
-
-        // Calculate multi-factor confidence score
-        const stableEntriesForConfidence = entries; // Pass original entries for logging consistency calc
-        const confidenceResult = calculateMultiFactorConfidence({
+    /**
+     * Build the final Stable TDEE result object with all metrics
+     * @param {Object} params - Result parameters
+     * @returns {Object} Complete TDEE result
+     */
+    function buildStableTDEEResult(params) {
+        const {
+            tdee,
+            confidence,
             trackedDays,
+            slope,
+            hasLargeGap,
+            maxGap,
             cv,
+            isWeightVolatile,
             rSquared,
-            entries: stableEntriesForConfidence
-        });
+            fitQuality,
+            confidenceResult,
+            calResult
+        } = params;
 
         return {
             tdee,
@@ -631,6 +649,100 @@ const TDEE = (function () {
             rSquared,
             fitQuality
         };
+    }
+
+    /**
+     * Calculate "Stable" TDEE - uses linear regression on EWMA weights over longer window
+     * Much more stable than single-week calculations, resistant to water/glycogen fluctuations
+     * @param {Object[]} entries - Array of daily entries (should be 14+ days)
+     * @param {string} unit - 'kg' or 'lb'
+     * @param {number} windowDays - Window size for regression (default: 14)
+     * @param {number} minDays - Minimum calorie-tracked days required
+     * @returns {Object} { tdee, confidence, trackedDays, slope, hasLargeGap }
+     */
+    function calculateStableTDEE(entries, unit = 'kg', windowDays = 14, minDays = MIN_TRACKED_DAYS) {
+        // Validate minimum data requirements
+        if (!entries || entries.length < 7) {
+            return { tdee: null, confidence: 'none', trackedDays: 0 };
+        }
+
+        // Process entries to get EWMA weights
+        const processed = processEntriesWithGaps(entries);
+
+        // Step 1: Detect large gaps in weight data
+        const { hasLargeGap, maxGap } = detectWeightGaps(entries);
+
+        // Step 2: Get calorie entries and count tracked days
+        const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
+        const trackedDays = calorieEntries.length;
+
+        // Step 3: Determine confidence level
+        const { confidence, accuracy } = determineConfidenceLevel(trackedDays, hasLargeGap, windowDays);
+
+        // Step 4: Check if we need fallback (insufficient tracked days)
+        if (trackedDays < minDays) {
+            const fallbackResult = calculateCalorieAverageFallback(calorieEntries, minDays, hasLargeGap);
+            if (fallbackResult) {
+                return fallbackResult;
+            }
+            return { tdee: null, confidence, trackedDays, neededDays: minDays - trackedDays, hasLargeGap };
+        }
+
+        // Step 5: Build regression data from EWMA weights
+        const ewmaData = buildRegressionData(processed);
+        if (ewmaData.length < 2) {
+            return { tdee: null, confidence, trackedDays, hasLargeGap };
+        }
+
+        // Step 6: Perform linear regression to get slope
+        const regressionResult = performLinearRegression(ewmaData);
+        if (!regressionResult) {
+            return { tdee: null, confidence, trackedDays, hasLargeGap };
+        }
+        const { slope } = regressionResult;
+
+        // Step 7: Calculate average calories (with outlier exclusion)
+        const calories = calorieEntries.map(e => e.calories);
+        const calResult = excludeCalorieOutliers(calories);
+        const avgCalories = calResult.filteredAvg;
+
+        if (avgCalories === null) {
+            return { tdee: null, confidence, trackedDays, hasLargeGap };
+        }
+
+        // Step 8: Calculate TDEE from slope
+        const tdee = calculateTDEEFromSlope(avgCalories, slope, unit);
+
+        // Step 9: Calculate additional metrics (CV, R², fit quality)
+        const weights = processed.filter(e => e.ewmaWeight !== null).map(e => e.ewmaWeight);
+        const cv = calculateCV(weights);
+        const isWeightVolatile = isVolatile(cv);
+        const rSquared = calculateRSquared(ewmaData);
+        const fitQuality = getFitQuality(rSquared);
+
+        // Step 10: Calculate multi-factor confidence score
+        const confidenceResult = calculateMultiFactorConfidence({
+            trackedDays,
+            cv,
+            rSquared,
+            entries
+        });
+
+        // Step 11: Build and return final result
+        return buildStableTDEEResult({
+            tdee,
+            confidence,
+            trackedDays,
+            slope,
+            hasLargeGap,
+            maxGap,
+            cv,
+            isWeightVolatile,
+            rSquared,
+            fitQuality,
+            confidenceResult,
+            calResult
+        });
     }
 
     /**
@@ -959,6 +1071,15 @@ const TDEE = (function () {
         excludeCalorieOutliers,
         calculateSmoothTDEEArray,
         calculateEWMAWeightDelta,
+
+        // Stable TDEE helpers (exported for testing)
+        detectWeightGaps,
+        determineConfidenceLevel,
+        calculateCalorieAverageFallback,
+        buildRegressionData,
+        performLinearRegression,
+        calculateTDEEFromSlope,
+        buildStableTDEEResult,
 
         // Utilities (exported for use by other modules)
         calculateStats,

@@ -13,9 +13,9 @@ permissions:
   pull-requests: write
 
 jobs:
-  # Job 1: Run tests (blocks deployment if fails)
-  test:
-    name: Run Tests
+  # Job 1: Lint code (blocks deployment if fails)
+  lint:
+    name: ESLint Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
     
@@ -28,6 +28,34 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+        env:
+          CI: true
+
+  # Job 2: Run tests (blocks deployment if fails)
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: lint  # Waits for lint job to complete
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Run test suite
         run: node tests/node-test.js
@@ -42,12 +70,12 @@ jobs:
           path: tests/results/
           retention-days: 7
 
-  # Job 2: Deploy to Cloudflare Pages (only if tests pass)
+  # Job 3: Deploy to Cloudflare Pages (only if lint and tests pass)
   deploy:
     name: Deploy to Cloudflare Pages
     runs-on: ubuntu-latest
-    needs: test  # Waits for test job to complete
-    if: success()  # Only runs if tests passed
+    needs: [lint, test]  # Waits for both lint and test jobs to complete
+    if: success()  # Only runs if all previous jobs passed
     
     steps:
       - name: Checkout code

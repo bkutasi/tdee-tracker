@@ -16,6 +16,13 @@ permission:
     "**/*.secret": "deny"
     "node_modules/**": "deny"
     ".git/**": "deny"
+dependencies:
+  - context:core/standards/code
+  - context:core/standards/docs
+  - context:core/standards/tests
+  - context:core/workflows/review
+  - context:core/workflows/delegation
+  - context:core/context-system
 ---
 Always use ContextScout for discovery of new tasks or context files.
 ContextScout is exempt from the approval gate rule. ContextScout is your secret weapon for quality, use it where possible.

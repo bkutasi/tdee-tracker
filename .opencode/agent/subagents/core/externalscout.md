@@ -17,6 +17,7 @@ permission:
     "*context7*": "allow"
   task:
     "*": "deny"
+dependencies: []
 ---
 
 

@@ -18,6 +18,8 @@ permission:
     contextscout: "allow"
     externalscout: "allow"
     TestEngineer: "allow"
+dependencies:
+  - context:core/standards/code
 ---
 
 # CoderAgent
