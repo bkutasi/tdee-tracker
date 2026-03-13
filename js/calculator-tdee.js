@@ -526,16 +526,22 @@ const TDEE = (function () {
             // CALORIE-AVERAGE FALLBACK:
             // If we have at least 4 days of calorie data, use average as estimate
             // This provides a TDEE estimate even without sufficient weight trend data
-            if (calorieEntries.length >= 4 && calResult.filteredAvg > 0) {
-                return {
-                    tdee: calResult.filteredAvg,  // Use calorie average as TDEE estimate
-                    confidence: 'low',
-                    trackedDays: calorieEntries.length,
-                    neededDays: minDays - trackedDays,
-                    hasLargeGap,
-                    fallback: 'calorie-average',
-                    note: 'Calorie-average estimate (insufficient weight data for energy balance calculation)'
-                };
+            if (calorieEntries.length >= 4) {
+                // Calculate calorie average with outlier exclusion
+                const fallbackCalories = calorieEntries.map(e => e.calories);
+                const calResultFallback = excludeCalorieOutliers(fallbackCalories);
+                
+                if (calResultFallback.filteredAvg > 0) {
+                    return {
+                        tdee: calResultFallback.filteredAvg,  // Use calorie average as TDEE estimate
+                        confidence: 'low',
+                        trackedDays: calorieEntries.length,
+                        neededDays: minDays - trackedDays,
+                        hasLargeGap,
+                        fallback: 'calorie-average',
+                        note: 'Calorie-average estimate (insufficient weight data for energy balance calculation)'
+                    };
+                }
             }
             
             // No fallback available
