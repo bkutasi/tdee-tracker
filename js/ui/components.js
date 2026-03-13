@@ -237,8 +237,14 @@ const Components = (function () {
             wrapper.style.alignItems = 'center';
             
             // Insert wrapper before element and move element inside
-            element.parentNode.insertBefore(wrapper, element);
-            wrapper.appendChild(element);
+            // Only if element is already in DOM
+            if (element.parentNode) {
+                element.parentNode.insertBefore(wrapper, element);
+                wrapper.appendChild(element);
+            } else {
+                // Element not in DOM yet, just wrap it
+                wrapper.appendChild(element);
+            }
         }
 
         wrapper.appendChild(tooltip);

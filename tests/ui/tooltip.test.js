@@ -308,6 +308,100 @@
     });
 
     /**
+     * Test: createTooltip handles detached element (not in DOM)
+     * This is critical for createInfoIcon which creates icons before appending to DOM
+     */
+    tooltipTests.push({
+        name: 'createTooltip handles detached element (not in DOM)',
+        test: () => {
+            cleanup();
+            
+            // Create element but DON'T append to DOM
+            const detachedEl = document.createElement('span');
+            detachedEl.textContent = 'Detached';
+            
+            // Should NOT throw "Cannot read properties of null (reading 'insertBefore')"
+            let errorThrown = false;
+            try {
+                Components.createTooltip(detachedEl, 'Tooltip for detached element');
+            } catch (error) {
+                if (error.message.includes('insertBefore')) {
+                    throw new Error('Failed to handle detached element: ' + error.message);
+                }
+                errorThrown = true;
+            }
+            
+            if (errorThrown) {
+                throw new Error('Unexpected error when creating tooltip for detached element');
+            }
+            
+            // Verify tooltip was created
+            const wrapper = detachedEl.parentElement;
+            if (!wrapper || !wrapper.classList.contains('tooltip-trigger')) {
+                throw new Error('Detached element not wrapped with tooltip-trigger');
+            }
+            
+            const tooltip = wrapper.querySelector('.tooltip');
+            if (!tooltip) {
+                throw new Error('Tooltip not created for detached element');
+            }
+            
+            const tooltipText = tooltip.querySelector('.tooltip-text');
+            if (!tooltipText || tooltipText.textContent !== 'Tooltip for detached element') {
+                throw new Error('Tooltip text not set correctly for detached element');
+            }
+        }
+    });
+
+    /**
+     * Test: createInfoIcon works with detached icon
+     */
+    tooltipTests.push({
+        name: 'createInfoIcon works with detached icon',
+        test: () => {
+            cleanup();
+            
+            // Create info icon but DON'T append to DOM
+            let errorThrown = false;
+            let icon;
+            try {
+                icon = Components.createInfoIcon('Info content for detached icon', { position: 'top' });
+            } catch (error) {
+                if (error.message.includes('insertBefore')) {
+                    throw new Error('Failed to create detached info icon: ' + error.message);
+                }
+                errorThrown = true;
+            }
+            
+            if (errorThrown) {
+                throw new Error('Unexpected error when creating detached info icon');
+            }
+            
+            // Verify icon was created
+            if (!icon || !icon.classList.contains('tooltip-info-icon')) {
+                throw new Error('Info icon not created correctly');
+            }
+            
+            // Verify tooltip is attached
+            const wrapper = icon.parentElement;
+            if (!wrapper || !wrapper.classList.contains('tooltip-trigger')) {
+                throw new Error('Detached icon not wrapped with tooltip-trigger');
+            }
+            
+            const tooltipText = wrapper.querySelector('.tooltip-text');
+            if (!tooltipText || tooltipText.textContent !== 'Info content for detached icon') {
+                throw new Error('Tooltip text not set correctly for detached icon');
+            }
+            
+            // Verify position class
+            const tooltip = wrapper.querySelector('.tooltip');
+            if (!tooltip || !tooltip.classList.contains('tooltip-top')) {
+                throw new Error('Position class not applied correctly');
+            }
+        }
+    });
+
+    /**
      * Test: tooltip positions
      */
     tooltipTests.push({
