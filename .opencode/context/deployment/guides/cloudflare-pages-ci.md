@@ -128,6 +128,69 @@ npx wrangler pages deploy . --commit-hash=abc123 --commit-message="Fix bug"
 
 ---
 
+## Cache Versioning Workflow
+
+### ⚠️ CRITICAL: Before Each Deployment
+
+**You MUST increment the cache version before deploying, or users will not receive updates.**
+
+**Why:** The service worker uses versioned cache names (`tdee-tracker-v{VERSION}`). Without incrementing, browsers serve stale cached assets.
+
+### Pre-Deployment Checklist
+
+1. **Increment version in BOTH files:**
+   - `sw.js`: Line 6 - `const CACHE_VERSION = '1.0.0';` → `'1.0.1';`
+   - `js/version.js`: Line 10 - `const APP_VERSION = '1.0.0';` → `'1.0.1';`
+
+2. **Verify versions match:**
+   ```bash
+   grep CACHE_VERSION sw.js
+   grep APP_VERSION js/version.js
+   # Both should show same version
+   ```
+
+3. **Commit version change:**
+   ```bash
+   git add sw.js js/version.js
+   git commit -m "chore: bump version to 1.0.1"
+   ```
+
+4. **Then deploy:**
+   ```bash
+   wrangler pages deploy . --project-name=tdee-tracker
+   ```
+
+### Version Numbering
+
+Use semantic versioning:
+- `MAJOR.MINOR.PATCH` (e.g., `1.0.0`)
+- **MAJOR**: Breaking changes
+- **MINOR**: New features (backward compatible)
+- **PATCH**: Bug fixes
+
+### What Happens on Version Update
+
+1. **Service worker installs with new cache name**
+2. **Old cache automatically deleted** on activation
+3. **Users see "Update available" notification**
+4. **Footer version badge shows current version**
+5. **Users can refresh immediately or defer**
+
+### Troubleshooting
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Users on old version | Version not incremented | Increment CACHE_VERSION before deploy |
+| Version mismatch | sw.js ≠ js/version.js | Update both files to same version |
+| SW not activating | skipWaiting not called | Check sw.js install event |
+
+### Related Documentation
+- `VERSIONING.md` - Complete versioning guide
+- `js/version.js` - VersionManager module
+- `sw.js` - Service worker cache configuration
+
+---
+
 ## Troubleshooting
 
 ### Authentication Failed

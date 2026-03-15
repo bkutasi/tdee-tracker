@@ -381,6 +381,31 @@ wrangler login
 wrangler pages deploy . --project-name=tdee-tracker --branch=master
 ```
 
+### Cache Versioning (IMPORTANT)
+
+**Before each deployment**, you MUST increment the cache version to force browser updates:
+
+**Files to update:**
+1. `sw.js` - Line 6: `const CACHE_VERSION = '1.0.0';`
+2. `js/version.js` - Line 10: `const APP_VERSION = '1.0.0';`
+
+**Process:**
+```bash
+# Before deploying, increment version (e.g., 1.0.0 → 1.0.1)
+# Edit sw.js: const CACHE_VERSION = '1.0.1';
+# Edit js/version.js: const APP_VERSION = '1.0.1';
+# Then deploy
+wrangler pages deploy . --project-name=tdee-tracker
+```
+
+**Why:** The service worker uses versioned cache names (`tdee-tracker-v1.0.1`). Without incrementing, users stay on old cached versions and need hard refresh.
+
+**Automatic Update Detection:**
+- New version shows "Update available" notification to users
+- Version badge in footer displays current version
+- Users can refresh immediately or defer
+- See `VERSIONING.md` for complete documentation
+
 ### CI/CD Setup
 
 **GitHub Secrets Required:**
@@ -641,6 +666,8 @@ These run only in `test-runner.html`, not in Node.js.
 | UI components | `js/ui/*.js` | Dashboard, chart, entries, settings |
 | **Supabase sync** | `js/sync.js` | Offline-first, queue, merge, debug |
 | **Authentication** | `js/auth.js` | Magic link, OAuth, session |
+| **Cache versioning** | `sw.js`, `js/version.js` | Version increment before deploy |
+| **VERSIONING.md** | Root directory | Complete versioning guide |
 | Test suite | `tests/` | Run: `node tests/node-test.js` |
 | Algorithms doc | `.opencode/context/project/tdee-algorithms.md` | Detailed specs |
 | Sync challenges | `.opencode/context/project/sync-challenges.md` | Bug documentation |
@@ -696,6 +723,8 @@ These run only in `test-runner.html`, not in Node.js.
 - ❌ **DO NOT** call `Storage.saveEntry()` directly — use `Sync.saveWeightEntry()`
 - ❌ **DO NOT** bypass sync queue — breaks offline support
 - ❌ **DO NOT** sync without checking auth — RLS will reject
+- ❌ **DO NOT** deploy without incrementing `CACHE_VERSION` in `sw.js` and `js/version.js`
+- ❌ **DO NOT** forget to update both files — version mismatch causes issues
 
 ---
 
@@ -723,6 +752,10 @@ open tests/test-runner.html
 
 # Deploy to Cloudflare Pages
 wrangler pages deploy . --project-name=tdee-tracker
+
+# Check current version
+cat sw.js | grep CACHE_VERSION
+cat js/version.js | grep APP_VERSION
 
 # Generate Supabase config
 node scripts/generate-config.js

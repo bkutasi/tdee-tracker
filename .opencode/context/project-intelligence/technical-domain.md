@@ -35,6 +35,106 @@ Entry: js/app.js → initializes UI modules and calculator
 - **Instant setup**: Clone repo, open index.html in browser
 - **Zero costs**: No server, no database, no hosting fees
 
+---
+
+## PWA Architecture
+
+### Service Worker Strategy
+
+**Cache-First with Versioned Caches**
+
+The TDEE Tracker uses a **versioned cache-first strategy** for offline support and automatic updates.
+
+**Cache Naming:**
+```javascript
+// sw.js
+const CACHE_VERSION = '1.0.0';  // Manual increment before deploy
+const CACHE_NAME = `tdee-tracker-v${CACHE_VERSION}`;
+// Example: 'tdee-tracker-v1.0.0'
+```
+
+**Caching Strategy:**
+- **Static assets** (HTML, CSS, JS): Cache-first
+- **External requests** (Supabase API): Network-first
+- **Offline fallback**: Serve cached HTML for navigation requests
+
+**Update Flow:**
+```
+Deploy with new version (1.0.0 → 1.0.1)
+    ↓
+New SW installs with new cache name
+    ↓
+Old cache deleted on activation
+    ↓
+Users see "Update available" notification
+    ↓
+User refreshes → New assets loaded
+```
+
+### Version Management
+
+**Manual Version Increment:**
+- Developer updates `CACHE_VERSION` in `sw.js` before each deploy
+- Developer updates `APP_VERSION` in `js/version.js` to match
+- Version displayed in footer badge
+- Automatic update detection via `VersionManager` module
+
+**Automatic Update Detection:**
+```javascript
+// js/version.js - VersionManager module
+- Checks for SW updates on page load
+- Listens for 'updatefound' event
+- Shows toast notification when update available
+- Manages version badge in footer
+- Handles refresh/defer user actions
+```
+
+### Offline Support
+
+**Cached Assets:**
+- `index.html` - Main app
+- `css/styles.css` - All styles
+- `js/*.js` - All modules
+- `manifest.json` - PWA manifest
+- `/` - Root route
+
+**Sync Queue:**
+- Weight entries queued when offline
+- Syncs when connection restored
+- Stored in LocalStorage (`sync-queue`)
+- Retries on failure (max 3 attempts)
+
+### PWA Features
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Offline support | ✅ | Cache-first strategy |
+| Add to home screen | ✅ | manifest.json configured |
+| Background sync | ⚠️ | Queue-based, not Background Sync API |
+| Push notifications | ❌ | Not implemented |
+| Auto-update | ✅ | Versioned caches + notification |
+
+### Cache Management
+
+**Automatic Cleanup:**
+- Old caches deleted on SW activation
+- Only current `CACHE_NAME` persists
+- No manual cache clearing needed
+
+**Debug Commands:**
+```javascript
+// Browser console:
+caches.keys().then(console.log);  // List all caches
+caches.delete('tdee-tracker-v1.0.0');  // Delete specific cache
+caches.keys().then(names => names.forEach(n => caches.delete(n)));  // Clear all
+```
+
+### Related Files
+- `sw.js` - Service worker (105 lines)
+- `js/version.js` - VersionManager (258 lines)
+- `manifest.json` - PWA manifest
+- `VERSIONING.md` - Versioning documentation
+
 ## Project Structure
 
 ```
