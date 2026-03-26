@@ -168,6 +168,170 @@ Custom domain status: Certificate provisioning
 
 ---
 
+## Cache Versioning Errors
+
+### Error: Users Stuck on Old Version After Deploy
+
+**Symptoms:**
+- Users report app not updating after deployment
+- Need hard refresh (Ctrl+Shift+R) to see changes
+- Mobile users especially affected (aggressive caching)
+- Service worker not invalidating old cache
+
+**Cause:**
+`CACHE_VERSION` not incremented before deployment.
+
+**Service Worker Behavior:**
+```javascript
+// If version stays same:
+const CACHE_VERSION = '1.0.0';  // ← Not changed
+const CACHE_NAME = `tdee-tracker-v${CACHE_VERSION}`;
+// Cache name: 'tdee-tracker-v1.0.0' (same as before)
+// → Browser uses existing cache, no update
+```
+
+**Solution:**
+1. **Increment version in BOTH files:**
+   ```bash
+   # sw.js - Line 6
+   const CACHE_VERSION = '1.0.0';  // Before
+   const CACHE_VERSION = '1.0.1';  // After
+   
+   # js/version.js - Line 10
+   const APP_VERSION = '1.0.0';  // Before
+   const APP_VERSION = '1.0.1';  // After
+   ```
+
+2. **Deploy updated version:**
+   ```bash
+   git add sw.js js/version.js
+   git commit -m "chore: bump version to 1.0.1"
+   wrangler pages deploy . --project-name=tdee-tracker
+   ```
+
+3. **Verify deployment:**
+   - Check footer shows new version (e.g., "Version 1.0.1")
+   - Open DevTools → Application → Service Workers
+   - Verify new SW status = "activated"
+
+**Prevention:**
+- Add to deployment checklist: "Increment CACHE_VERSION"
+- Use pre-deploy script to verify version changed
+- Set up CI/CD to check version bump
+
+---
+
+### Error: Version Mismatch Between Files
+
+**Symptoms:**
+- Footer shows different version than service worker
+- Update notification appears incorrectly
+- Confusing user experience
+
+**Cause:**
+`sw.js` and `js/version.js` have different version numbers.
+
+**Example:**
+```javascript
+// sw.js
+const CACHE_VERSION = '1.0.1';  // ← Updated
+
+// js/version.js
+const APP_VERSION = '1.0.0';  // ← Not updated (mismatch!)
+```
+
+**Solution:**
+1. **Ensure both files match:**
+   ```bash
+   grep "CACHE_VERSION\|APP_VERSION" sw.js js/version.js
+   # Should show same version in both
+   ```
+
+2. **Update both files to same version:**
+   ```bash
+   # Use sed or manual edit
+   # sw.js: const CACHE_VERSION = '1.0.1';
+   # js/version.js: const APP_VERSION = '1.0.1';
+   ```
+
+3. **Redeploy:**
+   ```bash
+   git add sw.js js/version.js
+   git commit -m "fix: sync version numbers"
+   wrangler pages deploy . --project-name=tdee-tracker
+   ```
+
+**Prevention:**
+- Update both files in same commit
+- Add verification step to deployment process
+- Consider automated version sync script
+
+---
+
+### Error: Service Worker Not Activating
+
+**Symptoms:**
+- New version deployed but SW still shows "waiting"
+- Users don't see update notification
+- Old cache persists
+
+**Cause:**
+`skipWaiting()` or `clients.claim()` not working correctly.
+
+**Check sw.js:**
+```javascript
+// Install event should have:
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then((cache) => cache.addAll(STATIC_ASSETS))
+            .then(() => {
+                console.log('Service worker installed, skipping waiting');
+                self.skipWaiting();  // ← Must be present
+            })
+    );
+});
+
+// Activate event should have:
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys()
+            .then((cacheNames) => {
+                return Promise.all(
+                    cacheNames
+                        .filter((name) => name !== CACHE_NAME)
+                        .map((name) => caches.delete(name))
+                );
+            })
+            .then(() => {
+                console.log('Service worker activated, claiming clients');
+                return self.clients.claim();  // ← Must be present
+            })
+    );
+});
+```
+
+**Solution:**
+1. Verify `skipWaiting()` in install event
+2. Verify `clients.claim()` in activate event
+3. Check browser console for SW logs
+4. Verify no JavaScript errors blocking activation
+
+**Debug:**
+```javascript
+// In browser console:
+navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => {
+        console.log('SW registration:', reg.scope);
+        console.log('Active:', reg.active?.scriptURL);
+        console.log('Waiting:', reg.waiting?.scriptURL);
+        console.log('Installing:', reg.installing?.scriptURL);
+    });
+});
+```
+
+---
+
 ## Quick Reference
 
 | Error | Fix Priority | Time to Fix |
@@ -184,5 +348,8 @@ Custom domain status: Certificate provisioning
 
 - `deployment/guides/cloudflare-pages-ci.md` - CI/CD setup guide
 - `deployment/guides/cloudflare-custom-domains.md` - Domain configuration
+- `VERSIONING.md` - Complete versioning guide
+- `js/version.js` - VersionManager implementation
+- `sw.js` - Service worker configuration
 
 **Reference**: https://developers.cloudflare.com/pages/troubleshooting/

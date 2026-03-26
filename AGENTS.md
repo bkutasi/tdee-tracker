@@ -1,4 +1,4 @@
-<!-- Context: agent/guidelines | Priority: critical | Version: 3.0 | Updated: 2026-03-13 -->
+<!-- Context: agent/guidelines | Priority: critical | Version: 3.0.1 | Updated: 2026-03-16 -->
 
 # TDEE Tracker — Agent Knowledge Base
 
@@ -219,6 +219,10 @@ node scripts/generate-config.js
 - ❌ **DO NOT** ignore sync errors — check `SyncDebug.errors()`
 - ❌ **DO NOT** clear queue manually unless debugging — use `Sync.clearQueue()`
 - ❌ **DO NOT** queue entries with `weight: null` — violates DB constraint
+- ❌ **DO NOT** save entries without weight validation — Phase 1 Fix #1 (2026-03-16)
+- ❌ **DO NOT** delete entries without ID validation — Phase 1 Fix #2 (2026-03-16)
+- ❌ **DO NOT** clear data without clearing sync queue — Phase 1 Fix #4 (2026-03-16)
+- ❌ **DO NOT** import data without queuing for sync — Phase 1 Fix #5 (2026-03-16)
 
 ### Common Sync Issues
 
@@ -230,6 +234,10 @@ node scripts/generate-config.js
 | Merge conflicts | `SyncDebug.info()` | Review conflict resolution (newest wins) |
 | Errors | `SyncDebug.errors()` | Review error history, check Supabase RLS policies |
 | Null weight errors | `SyncDebug.filterQueue()` | Remove invalid operations, entries without weight saved locally only |
+| Null weight queued | `SyncDebug.queue()` | Check saveWeightEntry validation (Fix #1) |
+| Invalid ID in queue | `SyncDebug.queue()` | Check deleteWeightEntry validation (Fix #2) |
+| Queue not cleared | `SyncDebug.queue()` after clear | Check clearData clears queue first (Fix #4) |
+| Import not syncing | `SyncDebug.status()` | Check importData queues for sync (Fix #5) |
 
 ---
 
@@ -380,6 +388,31 @@ wrangler login
 # Deploy to Cloudflare Pages
 wrangler pages deploy . --project-name=tdee-tracker --branch=master
 ```
+
+### Cache Versioning (IMPORTANT)
+
+**Before each deployment**, you MUST increment the cache version to force browser updates:
+
+**Files to update:**
+1. `sw.js` - Line 6: `const CACHE_VERSION = '1.0.0';`
+2. `js/version.js` - Line 10: `const APP_VERSION = '1.0.0';`
+
+**Process:**
+```bash
+# Before deploying, increment version (e.g., 1.0.0 → 1.0.1)
+# Edit sw.js: const CACHE_VERSION = '1.0.1';
+# Edit js/version.js: const APP_VERSION = '1.0.1';
+# Then deploy
+wrangler pages deploy . --project-name=tdee-tracker
+```
+
+**Why:** The service worker uses versioned cache names (`tdee-tracker-v1.0.1`). Without incrementing, users stay on old cached versions and need hard refresh.
+
+**Automatic Update Detection:**
+- New version shows "Update available" notification to users
+- Version badge in footer displays current version
+- Users can refresh immediately or defer
+- See `VERSIONING.md` for complete documentation
 
 ### CI/CD Setup
 
@@ -641,6 +674,8 @@ These run only in `test-runner.html`, not in Node.js.
 | UI components | `js/ui/*.js` | Dashboard, chart, entries, settings |
 | **Supabase sync** | `js/sync.js` | Offline-first, queue, merge, debug |
 | **Authentication** | `js/auth.js` | Magic link, OAuth, session |
+| **Cache versioning** | `sw.js`, `js/version.js` | Version increment before deploy |
+| **VERSIONING.md** | Root directory | Complete versioning guide |
 | Test suite | `tests/` | Run: `node tests/node-test.js` |
 | Algorithms doc | `.opencode/context/project/tdee-algorithms.md` | Detailed specs |
 | Sync challenges | `.opencode/context/project/sync-challenges.md` | Bug documentation |
@@ -696,6 +731,13 @@ These run only in `test-runner.html`, not in Node.js.
 - ❌ **DO NOT** call `Storage.saveEntry()` directly — use `Sync.saveWeightEntry()`
 - ❌ **DO NOT** bypass sync queue — breaks offline support
 - ❌ **DO NOT** sync without checking auth — RLS will reject
+- ❌ **DO NOT** deploy without incrementing `CACHE_VERSION` in `sw.js` and `js/version.js`
+- ❌ **DO NOT** forget to update both files — version mismatch causes issues
+- ❌ **DO NOT** save entries without weight validation — violates DB constraint (Fix #1)
+- ❌ **DO NOT** delete entries without ID validation — queues invalid operations (Fix #2)
+- ❌ **DO NOT** check auth with getCurrentUser() — use getSession() instead (Fix #3)
+- ❌ **DO NOT** clear data without clearing queue — orphaned operations (Fix #4)
+- ❌ **DO NOT** import data without sync trigger — data never synced (Fix #5)
 
 ---
 
@@ -723,6 +765,10 @@ open tests/test-runner.html
 
 # Deploy to Cloudflare Pages
 wrangler pages deploy . --project-name=tdee-tracker
+
+# Check current version
+cat sw.js | grep CACHE_VERSION
+cat js/version.js | grep APP_VERSION
 
 # Generate Supabase config
 node scripts/generate-config.js
@@ -779,6 +825,42 @@ SyncDebug.filterQueue()  // Remove invalid operations
 // Entries without weight saved locally only (not synced)
 ```
 
+### Phase 1 Fixes (2026-03-16)
+
+**Weight validation failing:**
+```javascript
+// Check entry has valid weight
+await Sync.saveWeightEntry({ date: '2026-03-16', weight: 80.5 })
+// If fails, check weight is numeric and not null/undefined
+```
+
+**ID validation failing:**
+```javascript
+// Check ID is valid string
+await Sync.deleteWeightEntry('valid-id-123')
+// If fails, check ID is not null/empty/whitespace
+```
+
+**Auth race condition:**
+```javascript
+// Use getSession() instead of getCurrentUser()
+const { session } = await Auth.getSession()
+if (session && session.user) { /* authenticated */ }
+```
+
+**Queue not clearing:**
+```javascript
+// Clear queue before clearing storage
+if (window.Sync) Sync.clearQueue()
+Storage.clearAll()
+```
+
+**Import not syncing:**
+```javascript
+// Trigger sync after import
+if (Auth.isAuthenticated()) Sync.syncAll()
+```
+
 ### Auth Issues
 
 **Login not working:**
@@ -812,6 +894,7 @@ node tests/node-test.js
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **v3.0.1** | 2026-03-16 | Phase 1 critical fixes: validation, race conditions, sync queue |
 | **v3.0** | 2026-03-13 | Supabase sync, Auth, CI/CD, 155+ tests, Context System |
 | **v2.0** | 2026-02-26 | 80+ tests, Cloudflare Pages deployment, PWA |
 | **v1.0** | 2026-01-15 | Initial release, LocalStorage only |
@@ -829,7 +912,7 @@ node tests/node-test.js
 
 ---
 
-**Last Updated**: 2026-03-13  
-**Version**: 3.0  
+**Last Updated**: 2026-03-16  
+**Version**: 3.0.1  
 **Tests**: 155+ passing  
 **Dependencies**: 0

@@ -128,30 +128,39 @@ const DailyEntry = (function () {
         const weightInput = document.getElementById('weight-input');
         const caloriesInput = document.getElementById('calories-input');
         const notesInput = document.getElementById('notes-input');
+        const saveBtn = document.getElementById('save-entry-btn');
         const settings = Storage.getSettings();
 
         const weightVal = weightInput.value ? parseFloat(weightInput.value) : null;
         const caloriesVal = caloriesInput.value ? parseInt(caloriesInput.value, 10) : null;
 
+        // Clear previous validation states
+        clearValidationStates();
+
         // Validate weight
         if (weightVal !== null) {
             const validation = Utils.validateWeight(weightVal, settings.weightUnit || 'kg');
             if (!validation.valid) {
-                Components.showToast(validation.error, 'error');
+                showValidationError(weightInput, validation.error);
                 weightInput.focus();
                 return;
             }
+            showValidationSuccess(weightInput);
         }
 
         // Validate calories
         if (caloriesVal !== null) {
             const validation = Utils.validateCalories(caloriesVal);
             if (!validation.valid) {
-                Components.showToast(validation.error, 'error');
+                showValidationError(caloriesInput, validation.error);
                 caloriesInput.focus();
                 return;
             }
+            showValidationSuccess(caloriesInput);
         }
+
+        // Show loading state on button
+        setLoadingState(saveBtn, true);
 
         // Show sync pending indicator
         setSyncPending(true);
@@ -198,8 +207,83 @@ const DailyEntry = (function () {
             console.error('[DailyEntry] Save error:', error);
             Components.showToast('Failed to save entry', 'error');
         } finally {
+            // Hide loading state
+            setLoadingState(saveBtn, false);
             // Hide sync pending indicator
             setSyncPending(false);
+        }
+    }
+
+    /**
+     * Clear all validation states from inputs
+     */
+    function clearValidationStates() {
+        const inputs = ['weight-input', 'calories-input', 'notes-input'];
+        inputs.forEach(id => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.classList.remove('is-valid', 'valid', 'is-invalid', 'invalid');
+                const messageEl = input.parentElement?.querySelector('.validation-message');
+                if (messageEl) {
+                    messageEl.className = 'validation-message';
+                    messageEl.textContent = '';
+                }
+            }
+        });
+    }
+
+    /**
+     * Show validation error on input
+     * @param {HTMLInputElement} input - The input element
+     * @param {string} message - Error message
+     */
+    function showValidationError(input, message) {
+        input.classList.add('is-invalid', 'invalid');
+        input.classList.remove('is-valid', 'valid');
+        showValidationMessage(input, message, 'error');
+    }
+
+    /**
+     * Show validation success on input
+     * @param {HTMLInputElement} input - The input element
+     */
+    function showValidationSuccess(input) {
+        input.classList.add('is-valid', 'valid');
+        input.classList.remove('is-invalid', 'invalid');
+        showValidationMessage(input, 'Valid', 'success');
+    }
+
+    /**
+     * Show validation message
+     * @param {HTMLInputElement} input - The input element
+     * @param {string} message - Message to display
+     * @param {'error'|'success'} type - Message type
+     */
+    function showValidationMessage(input, message, type) {
+        let messageEl = input.parentElement?.querySelector('.validation-message');
+        if (!messageEl) {
+            messageEl = document.createElement('div');
+            messageEl.className = 'validation-message';
+            input.parentElement?.appendChild(messageEl);
+        }
+        messageEl.className = `validation-message ${type}`;
+        messageEl.textContent = message;
+    }
+
+    /**
+     * Set loading state on button
+     * @param {HTMLButtonElement} btn - The button element
+     * @param {boolean} loading - Whether to show loading state
+     */
+    function setLoadingState(btn, loading) {
+        if (!btn) return;
+        
+        if (loading) {
+            btn.classList.add('btn-loading');
+            btn.disabled = true;
+        } else {
+            btn.classList.remove('btn-loading');
+            btn.disabled = false;
         }
     }
 

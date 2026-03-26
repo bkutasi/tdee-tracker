@@ -117,6 +117,13 @@ const Settings = (function () {
 
     function clearData() {
         if (confirm('Are you sure you want to delete ALL data? This cannot be undone.')) {
+            // Clear sync queue first (if available)
+            if (window.Sync && typeof Sync.clearQueue === 'function') {
+                Sync.clearQueue();
+                console.log('[Settings.clearData] Sync queue cleared');
+            }
+            
+            // Clear LocalStorage
             Storage.clearAll();
             loadSettings();
             DailyEntry.refresh();
@@ -225,6 +232,15 @@ const Settings = (function () {
                 WeeklyView.refresh();
                 Dashboard.refresh();
                 Chart.refresh();
+                
+                // Queue imported entries for sync if authenticated
+                if (window.Sync && window.Auth && Auth.isAuthenticated()) {
+                    console.log('[Settings.importData] Queuing imported entries for sync');
+                    // Trigger sync to process queued operations
+                    Sync.syncAll().catch(err => {
+                        console.error('[Settings.importData] Sync after import failed:', err);
+                    });
+                }
             } else {
                 Components.showToast(`Import failed: ${result.error}`, 'error');
             }

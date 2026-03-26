@@ -32,10 +32,12 @@ const App = (function () {
                 console.log('[App] Initializing auth...');
                 await Auth.init();
                 
-                // Check if user is already authenticated (existing session)
-                const user = Auth.getCurrentUser();
-                if (user) {
-                    console.log('[App] User already authenticated, fetching data...');
+                // Wait for auth session to stabilize (prevents race condition)
+                const { session } = await Auth.getSession();
+                if (session && session.user) {
+                    console.log('[App] User authenticated, fetching data...');
+                    // Small delay to ensure auth state is fully initialized
+                    await new Promise(resolve => setTimeout(resolve, 100));
                     // Fetch and merge data from Supabase
                     await Sync.fetchAndMergeData();
                 }

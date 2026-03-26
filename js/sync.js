@@ -866,6 +866,12 @@ const Sync = (function() {
             return { success: false, error: 'Entry must include date field' };
         }
 
+        // Validate weight is present and numeric (required for Supabase sync)
+        if (entry.weight === null || entry.weight === undefined || isNaN(entry.weight)) {
+            console.error('[Sync.saveWeightEntry] Invalid weight value:', entry.weight);
+            return { success: false, error: 'Entry must include valid weight value' };
+        }
+
         // Save to LocalStorage immediately (optimistic UI)
         const localResult = Storage.saveEntry(entry.date, {
             weight: entry.weight,
@@ -972,6 +978,12 @@ const Sync = (function() {
      */
     async function deleteWeightEntry(id) {
         const Storage = window.Storage;
+
+        // Validate ID is present and valid
+        if (!id || typeof id !== 'string' || id.trim() === '') {
+            console.error('[Sync.deleteWeightEntry] Invalid entry ID:', id);
+            return { success: false, error: 'Invalid entry ID' };
+        }
 
         // Delete from LocalStorage
         const localResult = Storage.deleteEntry(id);
