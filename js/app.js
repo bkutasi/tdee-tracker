@@ -7,11 +7,9 @@ const App = (function () {
     'use strict';
 
     async function init() {
-        console.log('TDEE Tracker initializing...');
-
         // Initialize configuration (if not already loaded)
         if (!window.SUPABASE_CONFIG) {
-            console.warn('[App] Supabase config not found. Auth features disabled.');
+            // Auth features will be disabled - no logging needed
         }
 
         // Initialize version manager (check for SW updates)
@@ -29,25 +27,21 @@ const App = (function () {
         // Initialize auth & sync (if configured)
         if (window.SUPABASE_CONFIG) {
             try {
-                console.log('[App] Initializing auth...');
                 await Auth.init();
                 
                 // Wait for auth session to stabilize (prevents race condition)
                 const { session } = await Auth.getSession();
                 if (session && session.user) {
-                    console.log('[App] User authenticated, fetching data...');
                     // Small delay to ensure auth state is fully initialized
                     await new Promise(resolve => setTimeout(resolve, 100));
                     // Fetch and merge data from Supabase
                     await Sync.fetchAndMergeData();
                 }
                 
-                console.log('[App] Auth ready, initializing sync...');
                 await Sync.init();
                 AuthModal.init();
-                console.log('[App] Auth & sync initialized');
             } catch (error) {
-                console.error('[App] Auth initialization failed:', error);
+                // Auth initialization failed - error is handled internally
             }
         }
 
@@ -63,8 +57,6 @@ const App = (function () {
 
         // Register global keyboard shortcuts
         registerKeyboardShortcuts();
-
-        console.log('TDEE Tracker ready!');
     }
 
     function setupAuthModal() {

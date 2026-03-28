@@ -53,13 +53,22 @@ const Sync = (function() {
     let syncQueue = [];
     let isSyncing = false;
     let lastSyncTime = null;
-    const SYNC_INTERVAL = 30000; // 30 seconds
+    // Time constants
+    const SYNC_INTERVAL = 30000;           // 30 seconds - background sync interval
+    const AUTH_TIMEOUT = 5000;             // 5 seconds - timeout for auth ready check
+    const AUTH_POLL_INTERVAL = 100;        // 100ms - polling interval for auth ready
+    const TOAST_AUTO_HIDE_DELAY = 5000;    // 5 seconds - auto-hide toast notifications
+    
+    // Retry and error constants
+    const MAX_RETRIES = 3;                 // Maximum retry attempts for sync operations
+    const MAX_ERROR_HISTORY = 50;          // Maximum error history entries to keep
+    
+    // Storage keys
     const QUEUE_KEY = 'tdee_sync_queue';
     const SYNC_HISTORY_KEY = 'tdee_sync_history';
     
-    // Sync error history (last 50 errors)
+    // Sync error history
     let syncErrorHistory = [];
-    const MAX_ERROR_HISTORY = 50;
 
     /**
      * Initialize sync module
@@ -84,7 +93,7 @@ const Sync = (function() {
         const Auth = window.Auth;
         if (Auth) {
             _SyncDebug.info('Waiting for auth session...');
-            const authReady = await waitForAuthReady(Auth, 5000);
+            const authReady = await waitForAuthReady(Auth, AUTH_TIMEOUT);
             if (authReady) {
                 _SyncDebug.info('Auth session ready');
             } else {
@@ -105,7 +114,7 @@ const Sync = (function() {
      * @param {number} timeout - Timeout in milliseconds
      * @returns {Promise<boolean>} True if auth ready, false if timeout
      */
-    async function waitForAuthReady(Auth, timeout = 5000) {
+    async function waitForAuthReady(Auth, timeout = AUTH_TIMEOUT) {
         const start = Date.now();
         
         while (Date.now() - start < timeout) {
@@ -119,7 +128,7 @@ const Sync = (function() {
                 _SyncDebug.debug(`Auth check pending: ${error.message}`);
             }
             
-            await sleep(100);
+            await sleep(AUTH_POLL_INTERVAL);
         }
         
         return false;
@@ -266,70 +275,191 @@ const Sync = (function() {
     }
 
     /**
+     * Fetch remote data from Supabase
+     * @returns {Promise<{success: boolean, entries?: array, error?: string}>}
+     */
+    async function _fetchRemoteData() {
+        const remoteResult = await fetchWeightEntries();
+        
+        if (!remoteResult.success) {
+            _SyncDebug.error('Failed to fetch remote data:', remoteResult.error);
+            showToast('Failed to fetch remote data. Using local data only.', 'error');
+            return null;
+        }
+        
+        const remoteEntries = remoteResult.entries || [];
+        _SyncDebug.info(`Fetched ${remoteEntries.length} remote entries`);
+        return remoteEntries;
+    }
+
+    /**
+     * Merge remote entries with local storage
+     * @param {array} remoteEntries - Entries from Supabase
+     */
+    function _mergeAndSave(remoteEntries) {
+        const Storage = window.Storage;
+        
+        // Merge with local data
+        const mergedEntries = mergeEntries(remoteEntries);
+        _SyncDebug.info(`Merged to ${mergedEntries.length} total entries`);
+
+        // Save merged data to LocalStorage
+        const allEntries = Storage.getAllEntries();
+        
+        mergedEntries.forEach(entry => {
+            if (entry.date) {
+                allEntries[entry.date] = {
+                    weight: entry.weight,
+                    calories: entry.calories,
+                    notes: entry.notes || '',
+                    updatedAt: entry.updated_at || new Date().toISOString()
+                };
+            }
+        });
+        
+        localStorage.setItem('tdee_entries', JSON.stringify(allEntries));
+        _SyncDebug.info('Merged data saved to LocalStorage');
+        
+        return mergedEntries;
+    }
+
+    /**
+     * Show sync result notification and dispatch event
+     * @param {number} remoteCount - Number of remote entries fetched
+     * @param {number} mergedCount - Total merged entries
+     */
+    function _showSyncResult(remoteCount, mergedCount) {
+        // Refresh UI components
+        refreshUI();
+
+        // Show success message
+        if (remoteCount > 0) {
+            showToast(`Synced ${remoteCount} entr${remoteCount === 1 ? 'y' : 'ies'} from cloud`, 'success');
+        } else {
+            showToast('Sync complete - no new data', 'success');
+        }
+
+        // Dispatch sync complete event
+        window.dispatchEvent(new CustomEvent('sync:data-merged', {
+            detail: { count: mergedCount, remoteCount }
+        }));
+    }
+
+    /**
      * Fetch remote data and merge with local storage
      * Called automatically on sign-in
      */
     async function fetchAndMergeData() {
-        const Storage = window.Storage;
-
         try {
             _SyncDebug.info('Fetching remote data...');
 
             // Fetch from Supabase
-            const remoteResult = await fetchWeightEntries();
+            const remoteEntries = await _fetchRemoteData();
+            if (!remoteEntries) return;
 
-            if (!remoteResult.success) {
-                _SyncDebug.error('Failed to fetch remote data:', remoteResult.error);
-                showToast('Failed to fetch remote data. Using local data only.', 'error');
-                return;
-            }
+            // Merge with local data and save
+            const mergedEntries = _mergeAndSave(remoteEntries);
 
-            const remoteEntries = remoteResult.entries || [];
-            _SyncDebug.info(`Fetched ${remoteEntries.length} remote entries`);
-
-            // Merge with local data
-            const mergedEntries = mergeEntries(remoteEntries);
-            _SyncDebug.info(`Merged to ${mergedEntries.length} total entries`);
-
-            // Save merged data to LocalStorage
-            // Storage expects entries as object keyed by date, not array
-            const allEntries = Storage.getAllEntries();
-            
-            // Merge remote entries into existing entries
-            mergedEntries.forEach(entry => {
-                if (entry.date) {
-                    allEntries[entry.date] = {
-                        weight: entry.weight,
-                        calories: entry.calories,
-                        notes: entry.notes || '',
-                        updatedAt: entry.updated_at || new Date().toISOString()
-                    };
-                }
-            });
-            
-            // Save all entries back to LocalStorage
-            localStorage.setItem('tdee_entries', JSON.stringify(allEntries));
-            _SyncDebug.info('Merged data saved to LocalStorage');
-
-            // Refresh UI components
-            refreshUI();
-
-            // Show success message
-            const newCount = remoteEntries.length > 0 ? remoteEntries.length : 0;
-            if (newCount > 0) {
-                showToast(`Synced ${newCount} entr${newCount === 1 ? 'y' : 'ies'} from cloud`, 'success');
-            } else {
-                showToast('Sync complete - no new data', 'success');
-            }
-
-            // Dispatch sync complete event
-            window.dispatchEvent(new CustomEvent('sync:data-merged', {
-                detail: { count: mergedEntries.length, remoteCount: remoteEntries.length }
-            }));
+            // Show result and dispatch event
+            _showSyncResult(remoteEntries.length, mergedEntries.length);
 
         } catch (error) {
             _SyncDebug.error('Fetch and merge failed:', error);
             showToast('Sync failed. Your local data is safe.', 'error');
+        }
+    }
+
+    /**
+     * Get set of remote entry dates to avoid duplicates
+     * @returns {Promise<Set<string>>} Set of dates that exist remotely
+     */
+    async function _getRemoteDates() {
+        const remoteDates = new Set();
+        const remoteResult = await fetchWeightEntries();
+        
+        if (remoteResult.success && remoteResult.entries) {
+            remoteResult.entries.forEach(entry => {
+                if (entry.date) {
+                    remoteDates.add(entry.date);
+                }
+            });
+            _SyncDebug.info(`Found ${remoteDates.size} remote entries`);
+        }
+        
+        return remoteDates;
+    }
+
+    /**
+     * Validate entry has required data for sync
+     * @param {object} entry - Entry to validate
+     * @returns {boolean} True if valid for sync
+     */
+    function _isValidEntryForSync(entry) {
+        // Entry must have at least weight or calories
+        const hasWeight = entry.weight !== null && entry.weight !== undefined && entry.weight !== '';
+        const hasCalories = entry.calories !== null && entry.calories !== undefined && entry.calories !== '';
+        return hasWeight || hasCalories;
+    }
+
+    /**
+     * Queue a single entry for sync
+     * @param {object} entry - Entry data
+     * @param {string} userId - User ID
+     */
+    function _queueEntryForSync(entry, userId) {
+        queueOperation('create', 'weight_entries', {
+            user_id: userId,
+            date: entry.date,
+            weight: entry.weight || null,
+            calories: entry.calories || null,
+            notes: entry.notes || null
+        }, entry.date);
+    }
+
+    /**
+     * Process and queue local entries
+     * @param {array} localEntries - Local entries to process
+     * @param {Set} remoteDates - Set of remote dates
+     * @param {string} userId - User ID
+     * @returns {Object} Counts object
+     */
+    function _processEntriesForQueue(localEntries, remoteDates, userId) {
+        let queuedCount = 0;
+        let skippedCount = 0;
+        let invalidCount = 0;
+        
+        localEntries.forEach(entry => {
+            if (remoteDates.has(entry.date)) {
+                _SyncDebug.debug(`Skipping ${entry.date} (already exists remotely)`);
+                skippedCount++;
+                return;
+            }
+            
+            if (!_isValidEntryForSync(entry)) {
+                _SyncDebug.warn(`Skipping ${entry.date} (entry must have at least weight or calories)`);
+                invalidCount++;
+                return;
+            }
+            
+            _queueEntryForSync(entry, userId);
+            queuedCount++;
+        });
+
+        return { queuedCount, skippedCount, invalidCount };
+    }
+
+    /**
+     * Show queue processing notifications
+     * @param {number} invalidCount - Number of invalid entries
+     * @param {number} skippedCount - Number of skipped entries
+     */
+    function _showQueueNotifications(invalidCount, skippedCount) {
+        if (invalidCount > 0) {
+            _SyncDebug.warn(`Skipped ${invalidCount} entries with no data`);
+            showToast(`Skipped ${invalidCount} incomplete entries (must have weight or calories)`, 'info');
+        }
+        if (skippedCount > 0) {
+            _SyncDebug.debug(`Skipped ${skippedCount} entries already synced`);
         }
     }
 
@@ -368,59 +498,12 @@ const Sync = (function() {
 
         _SyncDebug.info(`Queuing ${localEntries.length} local entries for sync...`);
 
-        // Fetch remote entries to avoid duplicates
-        const remoteResult = await fetchWeightEntries();
-        const remoteDates = new Set();
-        
-        if (remoteResult.success && remoteResult.entries) {
-            remoteResult.entries.forEach(entry => {
-                if (entry.date) {
-                    remoteDates.add(entry.date);
-                }
-            });
-            _SyncDebug.info(`Found ${remoteDates.size} remote entries`);
-        }
-
-        // Queue only entries that don't exist remotely AND have valid weight
-        let queuedCount = 0;
-        let skippedCount = 0;
-        let invalidCount = 0;
-        
-        localEntries.forEach(entry => {
-            // Skip if already exists remotely
-            if (remoteDates.has(entry.date)) {
-                _SyncDebug.debug(`Skipping ${entry.date} (already exists remotely)`);
-                skippedCount++;
-                return;
-            }
-            
-            // Validate entry has at least weight or calories
-            if ((entry.weight === null || entry.weight === undefined || entry.weight === '') &&
-                (entry.calories === null || entry.calories === undefined || entry.calories === '')) {
-                _SyncDebug.warn(`Skipping ${entry.date} (entry must have at least weight or calories)`);
-                invalidCount++;
-                return;
-            }
-            
-            // Entry is valid - queue for sync
-            queueOperation('create', 'weight_entries', {
-                user_id: user.id,
-                date: entry.date,
-                weight: entry.weight || null,
-                calories: entry.calories || null,
-                notes: entry.notes || null
-            }, entry.date);
-            queuedCount++;
-        });
+        // Get remote dates and process entries
+        const remoteDates = await _getRemoteDates();
+        const { queuedCount, skippedCount, invalidCount } = _processEntriesForQueue(localEntries, remoteDates, user.id);
 
         _SyncDebug.info(`Queued ${queuedCount} entries for upload`);
-        if (invalidCount > 0) {
-            _SyncDebug.warn(`Skipped ${invalidCount} entries with no data`);
-            showToast(`Skipped ${invalidCount} incomplete entries (must have weight or calories)`, 'info');
-        }
-        if (skippedCount > 0) {
-            _SyncDebug.debug(`Skipped ${skippedCount} entries already synced`);
-        }
+        _showQueueNotifications(invalidCount, skippedCount);
         
         // Trigger immediate sync if online
         if (navigator.onLine) {
@@ -496,11 +579,11 @@ const Sync = (function() {
 
         toastContainer.appendChild(toast);
 
-        // Auto-remove after 5 seconds
+        // Auto-remove after configured delay
         setTimeout(() => {
             toast.style.animation = 'slideOut 0.3s ease';
             setTimeout(() => toast.remove(), 300);
-        }, 5000);
+        }, TOAST_AUTO_HIDE_DELAY);
     }
 
     /**
@@ -665,7 +748,7 @@ const Sync = (function() {
         const { type, table, data, retries, id } = operation;
 
         // Retry limit
-        if (retries > 3) {
+        if (retries > MAX_RETRIES) {
             _SyncDebug.log(`Operation exceeded retry limit [ID: ${id}]`, 'error', { operation });
             recordError(`${type} (retry limit)`, new Error('Max retries exceeded'), { operation });
             return false;
@@ -862,13 +945,11 @@ const Sync = (function() {
 
         // Validate entry has required date field
         if (!entry || !entry.date) {
-            console.error('[Sync.saveWeightEntry] Missing date field');
             return { success: false, error: 'Entry must include date field' };
         }
 
         // Validate weight is present and numeric (required for Supabase sync)
         if (entry.weight === null || entry.weight === undefined || isNaN(entry.weight)) {
-            console.error('[Sync.saveWeightEntry] Invalid weight value:', entry.weight);
             return { success: false, error: 'Entry must include valid weight value' };
         }
 
@@ -880,7 +961,6 @@ const Sync = (function() {
         });
         
         if (localResult !== true) {
-            console.error('[Sync.saveWeightEntry] LocalStorage save failed');
             return localResult;
         }
 
@@ -957,7 +1037,6 @@ const Sync = (function() {
         if (isAuthenticated && user) {
             // Validate entry has required weight field before queueing
             if (entry.weight === null || entry.weight === undefined || entry.weight === '') {
-                console.warn('[Sync.updateWeightEntry] Skipping queue - entry missing weight value');
                 _SyncDebug.log('Entry updated locally but not queued - missing weight value', 'warn');
                 return localResult;
             }
@@ -981,7 +1060,6 @@ const Sync = (function() {
 
         // Validate ID is present and valid
         if (!id || typeof id !== 'string' || id.trim() === '') {
-            console.error('[Sync.deleteWeightEntry] Invalid entry ID:', id);
             return { success: false, error: 'Invalid entry ID' };
         }
 
@@ -1187,8 +1265,8 @@ const Sync = (function() {
      */
     function removeStuckOperations() {
         const initialCount = syncQueue.length;
-        const stuckOps = syncQueue.filter(op => op.retries > 3);
-        const keptOps = syncQueue.filter(op => op.retries <= 3);
+        const stuckOps = syncQueue.filter(op => op.retries > MAX_RETRIES);
+        const keptOps = syncQueue.filter(op => op.retries <= MAX_RETRIES);
         
         if (stuckOps.length > 0) {
             syncQueue = keptOps;
@@ -1218,7 +1296,7 @@ const Sync = (function() {
                 const hasCalories = op.data.calories !== null && op.data.calories !== undefined && op.data.calories !== '';
                 
                 if (!hasWeight && !hasCalories) {
-                    console.log(`[Sync.filterInvalidOperations] Removing invalid operation [ID: ${op.id}] - missing both weight and calories`);
+                    _SyncDebug.log(`Removing invalid operation [ID: ${op.id}] - missing both weight and calories`, 'warn');
                     removedCount++;
                     return false; // Remove from queue
                 }
