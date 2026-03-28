@@ -6,15 +6,23 @@
 const Dashboard = (function () {
     'use strict';
 
+    /**
+     * Initialize the dashboard component
+     * @description Loads and displays key statistics including current TDEE, confidence level,
+     * target intake, current weight, and weekly change. Called once on app startup.
+     */
     function init() {
         refresh();
     }
 
-    function refresh() {
+    /**
+     * Fetch and prepare entry data for dashboard
+     * @returns {Object} Prepared data with entries, processed data, and current weight
+     */
+    function _fetchDashboardData() {
         const settings = Storage.getSettings();
         const weightUnit = settings.weightUnit || 'kg';
 
-        // Single fetch for all data needed (56 days = 8 weeks)
         const today = new Date();
         const eightWeeksAgo = new Date(today);
         eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
@@ -24,21 +32,27 @@ const Dashboard = (function () {
             Utils.formatDate(today)
         );
 
-        // Slice for 14-day stable TDEE (no extra fetch!)
         const recentEntries = allRecentEntries.slice(-14);
-
         const processed = Calculator.processEntriesWithGaps(allRecentEntries);
 
-        // Latest weight
         const latestWithWeight = [...processed].reverse().find(e => e.ewmaWeight !== null);
         const currentWeight = latestWithWeight?.ewmaWeight ?? null;
 
-        // Calculate TDEE Hierarchy
+        return { settings, weightUnit, recentEntries, processed, currentWeight };
+    }
+
+    /**
+     * Calculate TDEE with fallback chain
+     * @param {Object} data - Prepared dashboard data
+     * @returns {Object} TDEE result with tdee, confidence, isTheoretical, and calculation results
+     */
+    function _calculateTDEE(data) {
+        const { recentEntries, weightUnit, currentWeight, settings } = data;
+
         // 1. Stable (14-day regression)
         const stableResult = Calculator.calculateStableTDEE(recentEntries, weightUnit, 14);
 
         // 2. Fast (7-day EWMA delta) for fallback
-        // We need last 7 days of entries
         const fastEntries = recentEntries.slice(-7);
         const fastResult = Calculator.calculateFastTDEE(fastEntries, weightUnit);
 
@@ -62,137 +76,133 @@ const Dashboard = (function () {
                     settings.age,
                     settings.gender
                 );
-                // Handle new return format {valid, bmr, error}
                 if (bmrResult.valid) {
                     const theoretical = Calculator.calculateTheoreticalTDEE(bmrResult, settings.activityLevel);
                     if (theoretical) {
                         tdee = theoretical;
-                        confidence = 'theoretical'; // Custom confidence level for display
+                        confidence = 'theoretical';
                         isTheoretical = true;
                     }
                 }
             }
         }
 
-        // Update DOM
+        return { tdee, confidence, isTheoretical, stableResult, fastResult };
+    }
+
+    /**
+     * Render confidence badge with tier information
+     * @param {HTMLElement} confidenceEl - Confidence badge element
+     * @param {string} confidence - Confidence level
+     * @param {Object} stableResult - Stable TDEE result
+     * @param {Object} fastResult - Fast TDEE result
+     */
+    function _renderConfidenceBadge(confidenceEl, confidence, stableResult, fastResult) {
+        const confidenceTier = stableResult.confidenceTier || fastResult.confidenceTier;
+        const accuracy = stableResult.accuracy || fastResult.accuracy;
+        
+        const tierClass = confidenceTier ? confidenceTier.toLowerCase() : confidence;
+        confidenceEl.className = `confidence-badge confidence-${tierClass}`;
+
+        if (confidenceTier) {
+            const tierLabel = confidenceTier.charAt(0) + confidenceTier.slice(1).toLowerCase();
+            const symbol = confidenceTier === 'HIGH' ? '●' : confidenceTier === 'MEDIUM' ? '◐' : '○';
+            const confidenceScore = stableResult.confidenceScore || fastResult.confidenceScore;
+            
+            if (confidenceScore !== undefined) {
+                confidenceEl.textContent = `${symbol} ${tierLabel} (Score: ${confidenceScore}/100)`;
+            } else {
+                confidenceEl.textContent = `${symbol} ${tierLabel} (${accuracy})`;
+            }
+        } else if (confidence === 'high') {
+            confidenceEl.textContent = `● High (${accuracy})`;
+        } else if (confidence === 'medium') {
+            confidenceEl.textContent = `◐ Medium (${accuracy})`;
+        } else if (confidence === 'low') {
+            confidenceEl.textContent = `○ Low (${accuracy})`;
+        } else {
+            confidenceEl.textContent = '○ Low';
+        }
+    }
+
+    /**
+     * Render TDEE display card
+     * @param {Object} tdeeData - TDEE calculation result
+     */
+    function _renderTDEEDisplay(tdeeData) {
+        const { tdee, confidence, isTheoretical, stableResult } = tdeeData;
         const tdeeEl = document.getElementById('current-tdee');
         const confidenceEl = document.getElementById('tdee-confidence');
 
-        if (tdee) {
-            // Validate TDEE is within reasonable range before display
-            if (tdee < 800 || tdee > 5000) {
-                // Should not happen due to validation in calculateTDEE, but safety check
-                console.warn('[Dashboard] Invalid TDEE value for display:', tdee);
-                Components.setText('current-tdee', '—');
-                tdeeEl?.classList.add('low-confidence');
-                confidenceEl.className = 'confidence-badge';
-                confidenceEl.textContent = 'INVALID VALUE';
-            } else {
-                tdee = Calculator.mround(tdee, 10);
-                Components.setText('current-tdee', Components.formatValue(tdee, 0));
-                tdeeEl?.classList.remove('low-confidence');
-
-                if (isTheoretical) {
-                    confidenceEl.className = 'confidence-badge confidence-low';
-                    confidenceEl.textContent = 'ESTIMATED (PROFILE)';
-                } else {
-                    // Use multi-factor confidence tier if available
-                    const confidenceTier = stableResult.confidenceTier || fastResult.confidenceTier;
-                    const confidenceScore = stableResult.confidenceScore || fastResult.confidenceScore;
-                    const breakdown = stableResult.confidenceBreakdown || fastResult.confidenceBreakdown;
-                    
-                    // Map tier to lowercase for CSS class
-                    const tierClass = confidenceTier ? confidenceTier.toLowerCase() : confidence;
-                    confidenceEl.className = `confidence-badge confidence-${tierClass}`;
-                    
-                    
-                    // Display multi-factor confidence info
-                    const accuracy = stableResult.accuracy || fastResult.accuracy;
-                    if (confidenceTier) {
-                        const tierLabel = confidenceTier.charAt(0) + confidenceTier.slice(1).toLowerCase();
-                        const symbol = confidenceTier === 'HIGH' ? '●' : confidenceTier === 'MEDIUM' ? '◐' : '○';
-                        if (confidenceScore !== undefined) {
-                            confidenceEl.textContent = `${symbol} ${tierLabel} (Score: ${confidenceScore}/100)`;
-                        } else {
-                            confidenceEl.textContent = `${symbol} ${tierLabel} (${accuracy})`;
-                        }
-                    } else if (confidence === 'high') {
-                        confidenceEl.textContent = `● High (${accuracy})`;
-                    } else if (confidence === 'medium') {
-                        confidenceEl.textContent = `◐ Medium (${accuracy})`;
-                    } else if (confidence === 'low') {
-                        confidenceEl.textContent = `○ Low (${accuracy})`;
-                    } else {
-                        confidenceEl.textContent = '○ Low';
-                    }
-                }
-            }
-        } else {
-            if (stableResult.neededDays) {
-                Components.setText('current-tdee', `Need ${stableResult.neededDays} more days`);
-            } else {
-                Components.setText('current-tdee', '—');
-            }
+        if (!tdee) {
+            Components.setText('current-tdee', stableResult.neededDays ? `Need ${stableResult.neededDays} more days` : '—');
             tdeeEl?.classList.add('low-confidence');
             confidenceEl.className = 'confidence-badge';
             confidenceEl.textContent = 'NEEDS DATA';
+            return;
         }
 
-        // Target Intake
+        if (tdee < 800 || tdee > 5000) {
+            Components.setText('current-tdee', '—');
+            tdeeEl?.classList.add('low-confidence');
+            confidenceEl.className = 'confidence-badge';
+            confidenceEl.textContent = 'INVALID VALUE';
+            return;
+        }
+
+        const roundedTdee = Calculator.mround(tdee, 10);
+        Components.setText('current-tdee', Components.formatValue(roundedTdee, 0));
+        tdeeEl?.classList.remove('low-confidence');
+
+        if (isTheoretical) {
+            confidenceEl.className = 'confidence-badge confidence-low';
+            confidenceEl.textContent = 'ESTIMATED (PROFILE)';
+        } else {
+            _renderConfidenceBadge(confidenceEl, confidence, stableResult, tdeeData.fastResult);
+        }
+    }
+
+    /**
+     * Render target intake card with deficit/surplus context
+     * @param {number} tdee - Current TDEE
+     * @param {Object} settings - User settings
+     */
+    function _renderTargetIntake(tdee, settings) {
         const targetDeficit = settings.targetDeficit || -0.2;
         const targetIntake = tdee ? Calculator.calculateDailyTarget(tdee, targetDeficit) : null;
-        
-        // P1-5: Add target intake context (deficit/surplus info)
-        const targetIntakeEl = document.getElementById('target-intake');
         const targetContextEl = document.getElementById('target-intake-context');
         
-        if (targetIntake && tdee) {
-            Components.setText('target-intake', Components.formatValue(targetIntake, 0));
-            
-            // Show deficit/surplus context if element exists
-            if (targetContextEl) {
+        Components.setText('target-intake', targetIntake ? Components.formatValue(targetIntake, 0) : '—');
+        
+        if (targetContextEl) {
+            if (targetIntake && tdee) {
                 const deficitPercent = Math.round(targetDeficit * 100);
                 const deficitCalories = Math.round(tdee - targetIntake);
-                const isDeficit = targetDeficit < 0;
-                const isSurplus = targetDeficit > 0;
                 
-                if (isDeficit) {
+                if (targetDeficit < 0) {
                     targetContextEl.textContent = `-${Math.abs(deficitCalories)} kcal/day (${deficitPercent}% deficit)`;
                     targetContextEl.className = 'target-context deficit';
-                } else if (isSurplus) {
+                } else if (targetDeficit > 0) {
                     targetContextEl.textContent = `+${deficitCalories} kcal/day (${deficitPercent}% surplus)`;
                     targetContextEl.className = 'target-context surplus';
                 } else {
                     targetContextEl.textContent = 'Maintenance (no deficit/surplus)';
                     targetContextEl.className = 'target-context maintenance';
                 }
-                targetContextEl.style.display = 'block';
-            }
-        } else {
-            Components.setText('target-intake', '—');
-            
-            if (targetContextEl) {
-                if (!settings.targetDeficit) {
-                    targetContextEl.textContent = 'Set goal in settings';
-                } else if (!tdee) {
-                    targetContextEl.textContent = 'Calculate TDEE first';
-                } else {
-                    targetContextEl.textContent = '—';
-                }
+            } else {
+                targetContextEl.textContent = !settings.targetDeficit ? 'Set goal in settings' : !tdee ? 'Calculate TDEE first' : '—';
                 targetContextEl.className = 'target-context';
-                targetContextEl.style.display = 'block';
             }
+            targetContextEl.style.display = 'block';
         }
+    }
 
-        // Current Weight
-        Components.setText('current-weight', currentWeight ? Components.formatValue(currentWeight, 1) : '—');
-        
-
-
-        // Weekly Change
-        const weeklyData = calculateWeeklySummaries(processed, weightUnit);
+    /**
+     * Render weekly change card
+     * @param {Object} weeklyData - Weekly summary data
+     */
+    function _renderWeeklyChange(weeklyData) {
         const weeklyChange = calculateWeeklyChange(weeklyData);
-
         const weeklyChangeEl = document.getElementById('weekly-change');
         
         if (weeklyChange !== null) {
@@ -201,8 +211,13 @@ const Dashboard = (function () {
         } else {
             Components.setText('weekly-change', '—');
         }
+    }
 
-        // Outlier Warning
+    /**
+     * Render outlier warning if applicable
+     * @param {Object} stableResult - Stable TDEE result
+     */
+    function _renderOutlierWarning(stableResult) {
         const outlierEl = document.getElementById('tdee-outlier-warning');
         if (outlierEl) {
             if (stableResult.hasOutliers && stableResult.outliers && stableResult.outliers.length > 0) {
@@ -212,10 +227,56 @@ const Dashboard = (function () {
                 outlierEl.style.display = 'none';
             }
         }
-
-        renderTrends(processed, weightUnit);
     }
 
+    /**
+     * Refresh all dashboard statistics
+     * @description Fetches recent entries from storage, calculates TDEE using the hierarchy
+     * (Stable → Fast → Theoretical), and updates all DOM elements.
+     * 
+     * TDEE Hierarchy:
+     * 1. Stable TDEE (14-day regression) - preferred method
+     * 2. Fast TDEE (7-day EWMA delta) - fallback for insufficient data
+     * 3. Theoretical TDEE (BMR × Activity) - last resort using profile data
+     */
+    function refresh() {
+        // Fetch and prepare data
+        const data = _fetchDashboardData();
+
+        // Calculate TDEE with fallback chain
+        const tdeeData = _calculateTDEE(data);
+
+        // Render all UI sections
+        _renderTDEEDisplay(tdeeData);
+        _renderTargetIntake(tdeeData.tdee, data.settings);
+        Components.setText('current-weight', data.currentWeight ? Components.formatValue(data.currentWeight, 1) : '—');
+
+        // Calculate and render weekly summaries
+        const weeklyData = calculateWeeklySummaries(data.processed, data.weightUnit);
+        _renderWeeklyChange(weeklyData);
+        _renderOutlierWarning(tdeeData.stableResult);
+
+        // Render trends
+        renderTrends(data.processed, data.weightUnit);
+    }
+
+    /**
+     * Render TDEE trend statistics for multiple time periods
+     * @description Displays 7-day and 14-day TDEE trends to show short-term and medium-term
+     * patterns. Uses Calculator.calculatePeriodTDEE() for each period. Trends help users
+     * understand if their TDEE is increasing, decreasing, or stable over time.
+     * 
+     * @param {Array} allEntries - Processed weight entries with EWMA weights and gaps filled
+     * @param {string} weightUnit - User's weight unit preference ('kg' or 'lb')
+     * 
+     * @description Creates trend items showing:
+     * - 7-Day Trend: Reactive, shows recent changes quickly
+     * - 14-Day Trend: Stable, smoother estimate less affected by daily fluctuations
+     * 
+     * @example
+     * // Called internally by refresh()
+     * renderTrends(processedEntries, 'kg');
+     */
     function renderTrends(allEntries, weightUnit) {
         // Simplified trends: Only show 7-day and 14-day periods
         // Removed 3-day (too volatile) and 21-day (redundant with 14-day)
@@ -264,6 +325,31 @@ const Dashboard = (function () {
         });
     }
 
+    /**
+     * Calculate weekly summary statistics for all entries
+     * @description Groups entries by week and calculates comprehensive summaries including
+     * average weight, average calories, tracked days, and TDEE for each week. Applies
+     * exponential smoothing to TDEE values across weeks for stability.
+     * 
+     * @param {Array} entries - Processed weight entries (gaps filled with null values)
+     * @param {string} weightUnit - User's weight unit preference ('kg' or 'lb')
+     * @returns {Array} Array of weekly summary objects, each containing:
+     *   - avgWeight: Average weight for the week (or null)
+     *   - avgCalories: Average calories for the week (or null)
+     *   - trackedDays: Number of days with data
+     *   - tdee: Linear regression TDEE for the week (or null)
+     *   - smoothedTdee: Exponentially smoothed TDEE (or null)
+     * 
+     * @description TDEE Calculation:
+     * - Uses Calculator.calculateWeeklySummary() for basic stats
+     * - Uses Calculator.calculatePeriodTDEE() for linear regression TDEE
+     * - Applies Calculator.calculateSmoothedTDEE() to smooth across weeks
+     * 
+     * @example
+     * // Get weekly summaries for dashboard display
+     * const weeklyData = calculateWeeklySummaries(processedEntries, 'kg');
+     * // Returns: [{avgWeight: 82.5, avgCalories: 2200, trackedDays: 5, tdee: 2450, smoothedTdee: 2430}, ...]
+     */
     function calculateWeeklySummaries(entries, weightUnit) {
         // Group entries by week
         const weeks = {};
@@ -314,6 +400,24 @@ const Dashboard = (function () {
         return summaries;
     }
 
+    /**
+     * Extract current TDEE from weekly data
+     * @description Finds the most recent week with a valid smoothed TDEE value and returns
+     * it rounded to the nearest 10 calories. Used as a fallback for displaying current TDEE.
+     * 
+     * @param {Array} weeklyData - Array of weekly summary objects with smoothedTdee property
+     * @returns {number|null} Current TDEE rounded to nearest 10, or null if no valid data
+     * 
+     * @description Search Strategy:
+     * - Iterates backwards from most recent week
+     * - Returns first week with non-null smoothedTdee
+     * - Rounds result using Calculator.mround(value, 10)
+     * 
+     * @example
+     * // Get current TDEE from weekly summaries
+     * const currentTdee = calculateCurrentTDEE(weeklyData);
+     * // Returns: 2450 (rounded to nearest 10)
+     */
     function calculateCurrentTDEE(weeklyData) {
         // Get the last smoothed TDEE
         for (let i = weeklyData.length - 1; i >= 0; i--) {
@@ -324,6 +428,26 @@ const Dashboard = (function () {
         return null;
     }
 
+    /**
+     * Calculate average weekly weight change
+     * @description Computes the average week-over-week weight change across the last 5 weeks
+     * (approximately 4 changes). This metric shows the user their rate of weight loss or gain.
+     * 
+     * @param {Array} weeklyData - Array of weekly summary objects with avgWeight property
+     * @returns {number|null} Average weekly weight change in kg (or lb), rounded to 2 decimals,
+     *   or null if insufficient data for calculation
+     * 
+     * @description Calculation Method:
+     * - Takes last 5 weeks of data
+     * - Calculates week-to-week differences (week[i] - week[i-1])
+     * - Averages all valid changes (skips weeks with null avgWeight)
+     * - Negative value = weight loss, Positive value = weight gain
+     * 
+     * @example
+     * // Calculate weekly change for dashboard display
+     * const weeklyChange = calculateWeeklyChange(weeklyData);
+     * // Returns: -0.35 (losing 0.35 kg per week on average)
+     */
     function calculateWeeklyChange(weeklyData) {
         // Calculate average weekly weight change over last 4 weeks
         const recentWeeks = weeklyData.slice(-5);

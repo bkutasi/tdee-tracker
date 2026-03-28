@@ -6,8 +6,10 @@
 const VersionManager = (function () {
     'use strict';
 
-    // Current app version - must match sw.js CACHE_VERSION
-    const APP_VERSION = '1.0.0';
+    // Version constants
+    const APP_VERSION = '1.0.1';             // Current app version - must match sw.js CACHE_VERSION
+    const UPDATE_CHECK_INTERVAL = 10000;     // 10 seconds - auto-hide delay for update notification
+    const UPDATE_ANIMATION_DURATION = 500;   // 500ms - animation duration for hide
 
     // DOM elements
     let versionBadge = null;
@@ -19,15 +21,11 @@ const VersionManager = (function () {
      * Sets up version badge and SW update detection
      */
     async function init() {
-        console.log('[Version] Initializing...');
-
         // Create version badge in footer
         createVersionBadge();
 
         // Register service worker update listener
         await registerSWListener();
-
-        console.log(`[Version] Ready - v${APP_VERSION}`);
     }
 
     /**
@@ -59,7 +57,6 @@ const VersionManager = (function () {
      */
     async function registerSWListener() {
         if (!('serviceWorker' in navigator)) {
-            console.warn('[Version] Service workers not supported');
             return;
         }
 
@@ -68,7 +65,6 @@ const VersionManager = (function () {
             registration = registrations.find(r => r.scope === window.location.origin + '/');
 
             if (!registration) {
-                console.warn('[Version] No service worker registration found');
                 return;
             }
 
@@ -78,7 +74,6 @@ const VersionManager = (function () {
             // Listen for update events
             registration.addEventListener('updatefound', () => {
                 const newWorker = registration.installing;
-                console.log('[Version] New service worker installing...');
 
                 newWorker.addEventListener('statechange', () => {
                     if (newWorker.state === 'installed') {
@@ -86,21 +81,13 @@ const VersionManager = (function () {
                         if (navigator.serviceWorker.controller) {
                             // Controller exists = old SW active, new one waiting
                             showUpdateNotification();
-                        } else {
-                            // First install = no controller yet
-                            console.log('[Version] Service worker installed for first time');
                         }
-                    }
-
-                    if (newWorker.state === 'activating') {
-                        console.log('[Version] Service worker activating...');
                     }
                 });
             });
 
             // Listen for controller change (after user accepts update)
             navigator.serviceWorker.addEventListener('controllerchange', () => {
-                console.log('[Version] Service worker activated, reloading...');
                 // SW activated successfully
                 if (updateNotification) {
                     updateNotification.remove();
@@ -109,7 +96,7 @@ const VersionManager = (function () {
             });
 
         } catch (error) {
-            console.error('[Version] SW registration error:', error);
+            // SW registration error - silently fail as SW is optional
         }
     }
 
@@ -121,9 +108,8 @@ const VersionManager = (function () {
 
         try {
             await registration.update();
-            console.log('[Version] Checked for SW updates');
         } catch (error) {
-            console.error('[Version] Update check failed:', error);
+            // Update check failed - silently fail
         }
     }
 
@@ -131,8 +117,6 @@ const VersionManager = (function () {
      * Show update available notification
      */
     function showUpdateNotification() {
-        console.log('[Version] Update available - showing notification');
-
         // Update version badge indicator
         const indicator = versionBadge?.querySelector('.version-badge__indicator');
         if (indicator) {
@@ -167,7 +151,6 @@ const VersionManager = (function () {
         const closeBtn = updateNotification.querySelector('.update-notification__close');
 
         refreshNowBtn.addEventListener('click', () => {
-            console.log('[Version] User accepted update - reloading');
             if (registration && registration.waiting) {
                 registration.waiting.postMessage({ type: 'SKIP_WAITING' });
             }
@@ -176,12 +159,10 @@ const VersionManager = (function () {
         });
 
         refreshLaterBtn.addEventListener('click', () => {
-            console.log('[Version] User deferred update');
             hideUpdateNotification();
         });
 
         closeBtn.addEventListener('click', () => {
-            console.log('[Version] User dismissed update notification');
             hideUpdateNotification();
         });
 
@@ -190,18 +171,18 @@ const VersionManager = (function () {
         if (toastContainer) {
             toastContainer.appendChild(updateNotification);
 
-            // Auto-hide after 10 seconds
+            // Auto-hide after configured interval
             setTimeout(() => {
                 if (updateNotification && updateNotification.parentNode) {
-                    updateNotification.style.animation = 'toastOut 0.5s ease forwards';
+                    updateNotification.style.animation = `toastOut ${UPDATE_ANIMATION_DURATION / 1000}s ease forwards`;
                     setTimeout(() => {
                         if (updateNotification) {
                             updateNotification.remove();
                             updateNotification = null;
                         }
-                    }, 500);
+                    }, UPDATE_ANIMATION_DURATION);
                 }
-            }, 10000);
+            }, UPDATE_CHECK_INTERVAL);
         }
     }
 
@@ -210,13 +191,13 @@ const VersionManager = (function () {
      */
     function hideUpdateNotification() {
         if (updateNotification) {
-            updateNotification.style.animation = 'toastOut 0.5s ease forwards';
+            updateNotification.style.animation = `toastOut ${UPDATE_ANIMATION_DURATION / 1000}s ease forwards`;
             setTimeout(() => {
                 if (updateNotification && updateNotification.parentNode) {
                     updateNotification.remove();
                 }
                 updateNotification = null;
-            }, 500);
+            }, UPDATE_ANIMATION_DURATION);
         }
     }
 

@@ -26,13 +26,11 @@ const Auth = (function() {
      */
     async function init() {
         if (isInitialized) {
-            console.log('[Auth] Already initialized');
             return;
         }
 
         // Check for config
         if (!window.SUPABASE_CONFIG) {
-            console.error('[Auth] Missing Supabase config. Run: node scripts/generate-config.js');
             throw new Error('Supabase configuration not found');
         }
 
@@ -40,7 +38,6 @@ const Auth = (function() {
 
         // Load Supabase client from CDN
         if (!window.supabase) {
-            console.log('[Auth] Loading Supabase client...');
             await loadSupabaseClient();
         }
 
@@ -63,7 +60,6 @@ const Auth = (function() {
         await refreshSession();
 
         isInitialized = true;
-        console.log('[Auth] Initialized successfully');
     }
 
     /**
@@ -81,7 +77,6 @@ const Auth = (function() {
             script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.47.0/dist/umd/supabase.min.js';
             script.crossOrigin = 'anonymous';
             script.onload = () => {
-                console.log('[Auth] Supabase client loaded');
                 resolve();
             };
             script.onerror = () => {
@@ -96,8 +91,6 @@ const Auth = (function() {
      */
     function setupAuthStateObserver() {
         supabase.auth.onAuthStateChange((event, session) => {
-            console.log('[Auth] State change:', event);
-            
             currentUser = session?.user || null;
             
             // Also expose last user for modules that check before initialization completes
@@ -110,15 +103,12 @@ const Auth = (function() {
                 try {
                     listener(event, currentUser);
                 } catch (error) {
-                    console.error('[Auth] Listener error:', error);
+                    // Listener error - silently continue to not break other listeners
                 }
             });
 
             // Persist auth state to UI
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                console.log('[Auth] User signed in:', currentUser?.email);
-            } else if (event === 'SIGNED_OUT') {
-                console.log('[Auth] User signed out');
+            if (event === 'SIGNED_OUT') {
                 currentUser = null;
                 if (authAPI && authAPI._lastUser !== undefined) {
                     authAPI._lastUser = null;
@@ -135,7 +125,6 @@ const Auth = (function() {
             const { data: { session }, error } = await supabase.auth.getSession();
             
             if (error) {
-                console.error('[Auth] Session refresh error:', error);
                 currentUser = null;
                 return { success: false, error };
             }
@@ -143,7 +132,6 @@ const Auth = (function() {
             currentUser = session?.user || null;
             return { success: true, user: currentUser, session };
         } catch (error) {
-            console.error('[Auth] Session refresh failed:', error);
             currentUser = null;
             return { success: false, error };
         }
@@ -172,14 +160,11 @@ const Auth = (function() {
             });
 
             if (error) {
-                console.error('[Auth] Magic link error:', error);
                 return { success: false, error: error.message };
             }
 
-            console.log('[Auth] Magic link sent to:', email);
             return { success: true, message: 'Magic link sent! Check your email.' };
         } catch (error) {
-            console.error('[Auth] Magic link failed:', error);
             return { success: false, error: error.message };
         }
     }
@@ -207,7 +192,6 @@ const Auth = (function() {
             });
 
             if (error) {
-                console.error('[Auth] OAuth error:', error);
                 return { success: false, error: error.message };
             }
 
@@ -218,7 +202,6 @@ const Auth = (function() {
 
             return { success: true, url: data.url };
         } catch (error) {
-            console.error('[Auth] OAuth failed:', error);
             return { success: false, error: error.message };
         }
     }
@@ -236,15 +219,12 @@ const Auth = (function() {
             const { error } = await supabase.auth.signOut();
             
             if (error) {
-                console.error('[Auth] Sign out error:', error);
                 return { success: false, error: error.message };
             }
 
             currentUser = null;
-            console.log('[Auth] User signed out');
             return { success: true };
         } catch (error) {
-            console.error('[Auth] Sign out failed:', error);
             return { success: false, error: error.message };
         }
     }
@@ -314,13 +294,11 @@ const Auth = (function() {
                 .single();
 
             if (error) {
-                console.error('[Auth] Profile fetch error:', error);
                 return { success: false, error: error.message };
             }
 
             return { success: true, profile: data };
         } catch (error) {
-            console.error('[Auth] Profile fetch failed:', error);
             return { success: false, error: error.message };
         }
     }
@@ -347,13 +325,11 @@ const Auth = (function() {
                 .single();
 
             if (error) {
-                console.error('[Auth] Profile update error:', error);
                 return { success: false, error: error.message };
             }
 
             return { success: true, profile: data };
         } catch (error) {
-            console.error('[Auth] Profile update failed:', error);
             return { success: false, error: error.message };
         }
     }

@@ -11,6 +11,148 @@
 
 ---
 
+## Phase 1 Critical Fixes (2026-03-16)
+
+### Overview
+**Date**: 2026-03-16  
+**Priority**: Critical (data loss prevention)  
+**Files Modified**: js/sync.js, js/app.js, js/ui/settings.js  
+**Issues Fixed**: 5 validation and race condition bugs  
+**Version**: v3.0.1  
+**Tests**: 109/109 passing  
+
+### Fix #1: Weight Validation in saveWeightEntry()
+**Severity**: 🔴 CRITICAL  
+**Symptom**: Entries with weight=null queued for sync, violating DB NOT NULL constraint  
+**Root Cause**: saveWeightEntry() didn't validate weight before queueing  
+**Location**: js/sync.js:869-873  
+**Fix**: Added weight validation after date validation  
+
+**Code**:
+```javascript
+// Validate weight is present and numeric (required for Supabase sync)
+if (entry.weight === null || entry.weight === undefined || isNaN(entry.weight)) {
+    console.error('[Sync.saveWeightEntry] Invalid weight value:', entry.weight);
+    return { success: false, error: 'Entry must include valid weight value' };
+}
+```
+
+**Test**: 
+```javascript
+await Sync.saveWeightEntry({ date: '2026-03-16', weight: null, calories: 2000 })
+// Expected: { success: false, error: 'Entry must include valid weight value' }
+```
+
+**Status**: ✅ RESOLVED
+
+### Fix #2: ID Validation in deleteWeightEntry()
+**Severity**: 🔴 CRITICAL  
+**Symptom**: Delete operations queued with null/undefined/empty IDs  
+**Root Cause**: deleteWeightEntry() didn't validate ID parameter  
+**Location**: js/sync.js:982-986  
+**Fix**: Added ID validation at function start  
+
+**Code**:
+```javascript
+// Validate ID is present and valid
+if (!id || typeof id !== 'string' || id.trim() === '') {
+    console.error('[Sync.deleteWeightEntry] Invalid entry ID:', id);
+    return { success: false, error: 'Invalid entry ID' };
+}
+```
+
+**Test**:
+```javascript
+await Sync.deleteWeightEntry(null)
+// Expected: { success: false, error: 'Invalid entry ID' }
+```
+
+**Status**: ✅ RESOLVED
+
+### Fix #3: Auth Race Condition on App Load
+**Severity**: 🟡 HIGH  
+**Symptom**: Data doesn't load on first page load for authenticated users  
+**Root Cause**: getCurrentUser() returns null before session refresh completes  
+**Location**: js/app.js:35-43  
+**Fix**: Use getSession() with 100ms delay  
+
+**Code**:
+```javascript
+// Wait for auth session to stabilize (prevents race condition)
+const { session } = await Auth.getSession();
+if (session && session.user) {
+    console.log('[App] User authenticated, fetching data...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await Sync.fetchAndMergeData();
+}
+```
+
+**Test**: Hard refresh while authenticated → Data loads on first load  
+**Status**: ✅ RESOLVED
+
+### Fix #4: Clear Data Bypasses Sync Queue
+**Severity**: 🔴 CRITICAL  
+**Symptom**: Queue contains operations for deleted entries after clear data  
+**Root Cause**: Storage.clearAll() called without clearing sync queue first  
+**Location**: js/ui/settings.js:120-127  
+**Fix**: Clear queue before clearing storage  
+
+**Code**:
+```javascript
+// Clear sync queue first (if available)
+if (window.Sync && typeof Sync.clearQueue === 'function') {
+    Sync.clearQueue();
+    console.log('[Settings.clearData] Sync queue cleared');
+}
+Storage.clearAll();
+```
+
+**Test**: Create entries → Clear data → SyncDebug.queue() → Empty array  
+**Status**: ✅ RESOLVED
+
+### Fix #5: Import Data Bypasses Sync Queue
+**Severity**: 🔴 CRITICAL  
+**Symptom**: Imported entries saved locally but never synced to Supabase  
+**Root Cause**: Storage.importData() doesn't queue entries for sync  
+**Location**: js/ui/settings.js:236-243  
+**Fix**: Trigger sync after import  
+
+**Code**:
+```javascript
+// Queue imported entries for sync if authenticated
+if (window.Sync && window.Auth && Auth.isAuthenticated()) {
+    console.log('[Settings.importData] Queuing imported entries for sync');
+    Sync.syncAll().catch(err => {
+        console.error('[Settings.importData] Sync after import failed:', err);
+    });
+}
+```
+
+**Test**: Import data while authenticated → SyncDebug.status() shows pending operations  
+**Status**: ✅ RESOLVED
+
+### Lessons Learned
+1. **Validate at queue time, not sync time** — Prevents bad data entering queue
+2. **Auth state needs stabilization delay** — Session refresh is async, use getSession()
+3. **Clear operations must clear queue first** — Prevents orphaned operations
+4. **Import/export must integrate with sync** — Data integrity across devices
+
+### Testing Checklist
+- [x] Weight validation rejects null/undefined/NaN
+- [x] ID validation rejects null/empty/whitespace
+- [x] Auth race condition fixed (data loads on first load)
+- [x] Clear data clears queue first
+- [x] Import data queues for sync
+- [x] Node.js tests: 109/109 passing
+- [ ] Browser tests: Manual verification required
+
+### References
+- Implementation: `.tmp/tasks/phase1-critical-fixes/INSTRUCTIONS.md`
+- Task Plan: `.tmp/tasks/phase1-critical-fixes/task.json`
+- Related: AGENTS.md Section 11 (Anti-Patterns), Section 16 (Troubleshooting)
+
+---
+
 ## Challenge #1: Null Weight Constraint Violation
 
 ### Problem

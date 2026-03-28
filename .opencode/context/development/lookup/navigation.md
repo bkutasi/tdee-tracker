@@ -14,6 +14,7 @@
 |------|---------|
 | [auth-configuration.md](auth-configuration.md) | Supabase Auth settings, environment variables, RLS policies |
 | [deployment-config.md](deployment-config.md) | Cloudflare Pages, GitHub Actions, Wrangler configuration |
+| [code-quality-grep.md](code-quality-grep.md) | Grep patterns for magic numbers, duplicates, console statements |
 
 ---
 

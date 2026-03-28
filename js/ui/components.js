@@ -15,7 +15,6 @@ const Components = (function () {
     function showToast(message, type = 'info', duration = 3000) {
         // Prevent empty toast notifications
         if (!message || message.trim() === '') {
-            console.warn('[Components.showToast] Ignored empty toast message');
             return;
         }
 
@@ -23,7 +22,6 @@ const Components = (function () {
         
         // Safety check: container might not exist yet
         if (!container) {
-            console.warn('[Components.showToast] Toast container not found');
             return;
         }
 

@@ -90,9 +90,13 @@ function test(name, fn) {
 
 // Load modules
 // Note: Storage expects Utils as global (browser pattern), so attach to global first
-const Calculator = require('../js/calculator.js');
 const Utils = require('../js/utils.js');
 global.Utils = Utils;  // Make Utils available as global for storage.js
+const EWMA = require('../js/calculator-ewma.js');
+global.EWMA = EWMA;  // Make EWMA available as global for calculator-tdee.js
+const TDEE = require('../js/calculator-tdee.js');
+global.TDEE = TDEE;  // Make TDEE available as global
+const Calculator = require('../js/calculator.js');
 const Storage = require('../js/storage.js');
 
 console.log('\n=== Calculator Tests ===\n');
@@ -1404,9 +1408,25 @@ test('Sync handles multiple entry operations', async () => {
     expect(types).toEqual(['create', 'create', 'update']);
 });
 
+console.log('\n=== Auth Module Tests ===\n');
+
+// Auth tests require browser environment (DOM, Supabase CDN)
+// These tests are skipped in Node.js - run in browser instead
+console.log('Note: Auth module tests require browser environment');
+console.log('Run: open tests/test-runner.html\n');
+
+console.log('\n=== Phase 1 Validation Tests ===\n');
+
+// Make test/expect global for phase1 tests
+global.test = test;
+global.expect = expect;
+
+// Load Phase 1 tests (they will use global test/expect)
+require('./phase1-node.test.js');
+
 // Summary
 console.log(`\n${'='.repeat(40)}`);
-console.log(`Results: ${passed} passed, ${failed} failed`);
+console.log(`Total Results: ${passed} passed, ${failed} failed`);
 console.log(`${'='.repeat(40)}\n`);
 
 process.exit(failed > 0 ? 1 : 0);

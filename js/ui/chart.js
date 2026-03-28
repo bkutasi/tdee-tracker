@@ -138,7 +138,26 @@ const Chart = (function () {
     }
 
     /**
-     * Handle mouse move for tooltip interactions
+     * Handle mouse move events for tooltip interactions
+     * @description Detects hover over chart data points (weight) and bars (TDEE) using hit
+     * area detection. Shows tooltips with value details on hover. Uses cached chart rendering
+     * for fast tooltip updates without full redraw.
+     * 
+     * @param {MouseEvent} e - Mouse event with client coordinates
+     * 
+     * @description Hit Detection:
+     * - Points (weight): Circular hit area with 10px radius (generous for easy targeting)
+     * - Bars (TDEE): Rectangular hit area covering the full bar
+     * - Priority: Points over bars if overlapping (reverse iteration)
+     * 
+     * @description Performance Optimization:
+     * - Uses chartImageCache to restore clean chart instantly
+     * - Falls back to refresh(false) if cache unavailable
+     * - Changes cursor to 'pointer' when hovering over data
+     * 
+     * @example
+     * // Called automatically by canvas mousemove listener
+     * handleMouseMove(event);
      */
     function handleMouseMove(e) {
         if (!canvas || hitAreas.length === 0) return;
@@ -189,7 +208,18 @@ const Chart = (function () {
     }
 
     /**
-     * Handle mouse leave - clear tooltip
+     * Handle mouse leave event - clear tooltip
+     * @description Resets cursor to default and restores the cached chart rendering to
+     * clear any visible tooltip. Called when mouse exits the canvas area.
+     * 
+     * @description Cleanup Actions:
+     * - Reset cursor style to 'default'
+     * - Restore chartImageCache (removes tooltip overlay)
+     * - Falls back to refresh(false) if cache unavailable
+     * 
+     * @example
+     * // Called automatically by canvas mouseleave listener
+     * handleMouseLeave();
      */
     function handleMouseLeave() {
         if (!canvas) return;
@@ -203,7 +233,27 @@ const Chart = (function () {
     }
 
     /**
-     * Update chart accessibility attributes
+     * Update chart accessibility attributes for screen readers
+     * @description Sets ARIA attributes on the canvas element to provide meaningful
+     * descriptions for users with visual impairments. Includes data point count, current
+     * weight, trend direction, and chart element descriptions.
+     * 
+     * @param {number|null} currentWeight - Current weight value for display
+     * @param {string} trendDirection - Trend description (e.g., "increasing", "decreasing", "stable")
+     * @param {number} dataPoints - Number of data points in the chart
+     * 
+     * @description ARIA Attributes Set:
+     * - role="img": Identifies canvas as an image
+     * - aria-label: Descriptive text with chart summary
+     * 
+     * @description Description Variants:
+     * - No data: "Weight trend chart. No data available yet. Add weight entries to see your progress."
+     * - Has data: "Weight trend chart showing X data points. Current weight: Y.Ykg. Trend: [direction].
+     *              Green bars show TDEE estimates. Purple line shows weight trend."
+     * 
+     * @example
+     * // Called internally after chart rendering
+     * updateChartAccessibility(82.5, 'decreasing', 42);
      */
     function updateChartAccessibility(currentWeight, trendDirection, dataPoints) {
         if (!canvas) return;

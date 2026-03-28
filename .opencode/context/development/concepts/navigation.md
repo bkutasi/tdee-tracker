@@ -17,6 +17,13 @@
 | [sync-debugging.md](sync-debugging.md) | Systematic sync debugging: LocalStorage → Queue → Network → Auth → Supabase | 109 |
 | [model-context-protocol.md](model-context-protocol.md) | MCP protocol for AI agents: tools, resources, prompts via JSON-RPC | 86 |
 
+## Code Quality & Process
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| [batch-execution.md](batch-execution.md) | Sequential vs parallel task organization based on dependencies | ~35 |
+| [technical-debt-categorization.md](technical-debt-categorization.md) | Categorize debt by type, priority, impact for prioritized cleanup | ~40 |
+
 ---
 
 ## Quick Reference

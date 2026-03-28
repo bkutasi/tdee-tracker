@@ -17,6 +17,14 @@
 | [pre-commit-setup.md](pre-commit-setup.md) | Automate code quality checks: syntax, tests, file sizes | 148 |
 | [creating-skills.md](creating-skills.md) | Create agent skills: structure, workflows, resources | 154 |
 
+## Code Quality
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| [technical-debt-reduction.md](technical-debt-reduction.md) | 3-batch workflow: foundation → code quality → testing | ~70 |
+| [constants-extraction.md](constants-extraction.md) | Identify magic numbers → create constants → replace → group | ~55 |
+| [duplicate-consolidation.md](duplicate-consolidation.md) | Find duplicates → choose canonical → update refs → remove | ~55 |
+
 ---
 
 ## Quick Reference

@@ -22,7 +22,9 @@ development/
 │   ├── jwt-session.md
 │   ├── row-level-security.md
 │   ├── sync-debugging.md
-│   └── model-context-protocol.md
+│   ├── model-context-protocol.md
+│   ├── batch-execution.md
+│   └── technical-debt-categorization.md
 │
 ├── examples/                  # Code examples & schemas
 │   ├── navigation.md
@@ -36,7 +38,10 @@ development/
 │   ├── running-migrations.md
 │   ├── cloudflare-pages-deployment.md
 │   ├── pre-commit-setup.md
-│   └── creating-skills.md
+│   ├── creating-skills.md
+│   ├── technical-debt-reduction.md
+│   ├── constants-extraction.md
+│   └── duplicate-consolidation.md
 │
 ├── errors/                    # Troubleshooting & common issues
 │   ├── navigation.md
@@ -48,7 +53,8 @@ development/
 ├── lookup/                    # Configuration reference
 │   ├── navigation.md
 │   ├── auth-configuration.md
-│   └── deployment-config.md
+│   ├── deployment-config.md
+│   └── code-quality-grep.md
 │
 ├── principles/                # Universal (language-agnostic)
 │   ├── navigation.md
@@ -123,6 +129,11 @@ development/
 | **Full-stack** | `fullstack-navigation.md` |
 | **Clean code** | `principles/clean-code.md` |
 | **API design** | `principles/api-design.md` |
+| **Technical debt reduction** | `guides/technical-debt-reduction.md` |
+| **Constants extraction** | `guides/constants-extraction.md` |
+| **Duplicate consolidation** | `guides/duplicate-consolidation.md` |
+| **Batch execution** | `concepts/batch-execution.md` |
+| **Code quality grep** | `lookup/code-quality-grep.md` |
 
 ---
 

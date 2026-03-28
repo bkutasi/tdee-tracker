@@ -47,118 +47,70 @@ const TDEE = (function () {
         NONE: 0      // Score < 40
     };
 
-    /**
-     * Round to specified decimal places (handles floating-point precision)
-     * @param {number} value - Value to round
-     * @param {number} decimals - Decimal places
-     * @returns {number} Rounded value
-     */
-    function round(value, decimals = 2) {
-        if (value === null || value === undefined || isNaN(value)) return null;
-        const factor = Math.pow(10, decimals);
-        return Math.round((value + Number.EPSILON) * factor) / factor;
-    }
-
-    /**
-     * Calculate basic statistics (single pass for mean/min/max)
-     * @param {number[]} data - Array of numbers
-     * @returns {Object} { mean, stdDev, min, max }
-     */
-    function calculateStats(data) {
-        if (data.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0 };
-
-        // Single pass for sum, min, max
-        let sum = 0, min = Infinity, max = -Infinity;
-        for (const value of data) {
-            sum += value;
-            if (value < min) min = value;
-            if (value > max) max = value;
-        }
-        const mean = sum / data.length;
-
-        // Second pass for variance (necessary)
-        let sumSqDiff = 0;
-        for (const value of data) {
-            sumSqDiff += (value - mean) ** 2;
-        }
-        const variance = sumSqDiff / data.length;
-
-        return {
-            mean: round(mean, 4),
-            stdDev: round(Math.sqrt(variance), 4),
-            min: round(min, 4),
-            max: round(max, 4)
+    // Use consolidated utilities from Utils module (with fallback for Node.js testing)
+    function getRoundFn() {
+        if (typeof Utils !== 'undefined' && Utils.round) return Utils.round;
+        return function(v, d = 2) {
+            if (v === null || v === undefined || isNaN(v)) return null;
+            const f = Math.pow(10, d);
+            return Math.round((v + Number.EPSILON) * f) / f;
         };
     }
+    
+    function getCalculateStatsFn() {
+        if (typeof Utils !== 'undefined' && Utils.calculateStats) return Utils.calculateStats;
+        const roundFn = getRoundFn();
+        return function(data) {
+            if (data.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0 };
+            let sum = 0, min = Infinity, max = -Infinity;
+            for (const value of data) {
+                sum += value;
+                if (value < min) min = value;
+                if (value > max) max = value;
+            }
+            const mean = sum / data.length;
+            let sumSqDiff = 0;
+            for (const value of data) {
+                sumSqDiff += (value - mean) ** 2;
+            }
+            const variance = sumSqDiff / data.length;
+            return {
+                mean: roundFn(mean, 4),
+                stdDev: roundFn(Math.sqrt(variance), 4),
+                min: roundFn(min, 4),
+                max: roundFn(max, 4)
+            };
+        };
+    }
+    
+    // Cache the functions
+    const round = getRoundFn();
+    const calculateStats = getCalculateStatsFn();
 
-    /**
-     * Calculate Coefficient of Variation (CV) for weight volatility detection
-     * CV = (stdDev / mean) * 100 (percentage)
-     * Higher CV indicates more volatile/fluctuating weights
-     * @param {number[]} weights - Array of weight values
-     * @returns {number|null} CV as percentage, or null if cannot calculate (empty array or zero mean)
-     */
-    function calculateCV(weights) {
-        // Handle empty array
-        if (!weights || weights.length === 0) {
-            return null;
-        }
-
-        // Calculate statistics
+    // Delegate CV, volatility, and adaptive alpha to EWMA module for consistency
+    // Use EWMA module if available, otherwise use inline implementations
+    const calculateCV = (typeof EWMA !== 'undefined' && EWMA.calculateCV) ? EWMA.calculateCV : function(weights) {
+        if (!weights || weights.length === 0) return null;
         const stats = calculateStats(weights);
+        if (stats.mean === 0) return null;
+        return round((stats.stdDev / stats.mean) * 100, 2);
+    };
 
-        // Handle zero mean (would cause division by zero)
-        if (stats.mean === 0) {
-            return null;
-        }
-
-        // CV = (stdDev / mean) * 100
-        const cv = (stats.stdDev / stats.mean) * 100;
-        return round(cv, 2);
-    }
-
-    /**
-     * Determine if weight data is volatile based on CV threshold
-     * @param {number} cv - Coefficient of Variation percentage
-     * @param {number} threshold - CV threshold for volatility (default: 2%)
-     * @returns {boolean} True if volatile (CV > threshold)
-     */
-    function isVolatile(cv, threshold = 2) {
-        if (cv === null || cv === undefined) {
-            return false;
-        }
+    const isVolatile = (typeof EWMA !== 'undefined' && EWMA.isVolatile) ? EWMA.isVolatile : function(cv, threshold = 2) {
+        if (cv === null || cv === undefined) return false;
         return cv > threshold;
-    }
+    };
 
-    /**
-     * Get adaptive alpha based on weight volatility (CV)
-     * Lower alpha for volatile periods (more smoothing), higher for stable
-     * @param {number} cv - Coefficient of Variation percentage
-     * @returns {number} Adaptive alpha smoothing factor
-     */
-    function getAdaptiveAlpha(cv) {
-        // If CV is null or not volatile, use default alpha
-        if (cv === null || !isVolatile(cv)) {
-            return DEFAULT_ALPHA;
-        }
-        // Volatile periods: use lower alpha for more smoothing
+    const getAdaptiveAlpha = (typeof EWMA !== 'undefined' && EWMA.getAdaptiveAlpha) ? EWMA.getAdaptiveAlpha : function(cv) {
+        if (cv === null || !isVolatile(cv)) return DEFAULT_ALPHA;
         return VOLATILE_ALPHA;
-    }
+    };
 
-    /**
-     * Calculate Exponentially Weighted Moving Average
-     * @param {number} current - Current value
-     * @param {number|null} previous - Previous EWMA value (null for first entry)
-     * @param {number} alpha - Smoothing factor (0-1, higher = more weight to current)
-     * @returns {number} Smoothed value
-     */
-    function calculateEWMA(current, previous, alpha = DEFAULT_ALPHA) {
-        if (previous === null || previous === undefined) {
-            return round(current, 2);
-        }
+    const calculateEWMA = (typeof EWMA !== 'undefined' && EWMA.calculateEWMA) ? EWMA.calculateEWMA : function(current, previous, alpha = DEFAULT_ALPHA) {
+        if (previous === null || previous === undefined) return round(current, 2);
         const result = (current * alpha) + (previous * (1 - alpha));
         return round(result, 2);
-    }
+    };
 
     /**
      * Get dynamic energy density based on body fat
@@ -204,13 +156,6 @@ const TDEE = (function () {
         // P0-2: Physiological range validation (800-5000 kcal)
         // Human BMR alone is ~1200-1800 kcal/day. TDEE below 800 or above 5000 is impossible.
         if (roundedTdee < 800 || roundedTdee > 5000) {
-            console.warn('[TDEE Validation] Impossible TDEE value detected:', {
-                tdee: roundedTdee,
-                avgCalories,
-                weightDelta,
-                trackedDays,
-                unit
-            });
             return null;
         }
 
@@ -652,6 +597,118 @@ const TDEE = (function () {
     }
 
     /**
+     * Validate minimum data requirements for stable TDEE
+     * @param {Object[]} entries - Array of daily entries
+     * @returns {boolean} True if valid
+     */
+    function _validateStableTDEEData(entries) {
+        return entries && entries.length >= 7;
+    }
+
+    /**
+     * Prepare data for stable TDEE calculation
+     * @param {Object[]} entries - Array of daily entries
+     * @returns {Object} Processed data
+     */
+    function _prepareStableTDEEData(entries) {
+        const processed = processEntriesWithGaps(entries);
+        const { hasLargeGap, maxGap } = detectWeightGaps(entries);
+        const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
+        const trackedDays = calorieEntries.length;
+        
+        return { processed, hasLargeGap, maxGap, calorieEntries, trackedDays };
+    }
+
+    /**
+     * Calculate regression-based TDEE from slope and calories
+     * @param {Object} data - Prepared data
+     * @param {string} unit - 'kg' or 'lb'
+     * @returns {Object|null} TDEE result or null
+     */
+    function _calculateRegressionTDEE(data, unit) {
+        // Build regression data
+        const ewmaData = buildRegressionData(data.processed);
+        if (ewmaData.length < 2) return null;
+
+        // Perform linear regression
+        const regressionResult = performLinearRegression(ewmaData);
+        if (!regressionResult) return null;
+
+        // Calculate average calories
+        const calories = data.calorieEntries.map(e => e.calories);
+        const calResult = excludeCalorieOutliers(calories);
+        if (calResult.filteredAvg === null) return null;
+
+        // Calculate TDEE
+        const tdee = calculateTDEEFromSlope(calResult.filteredAvg, regressionResult.slope, unit);
+        
+        return { tdee, slope: regressionResult.slope, calResult, ewmaData, entries: data.calorieEntries };
+    }
+
+    /**
+     * Calculate metrics for stable TDEE result
+     * @param {Object} data - Prepared data
+     * @param {Object} tdeeData - TDEE calculation data
+     * @returns {Object} Metrics object
+     */
+    function _calculateStableTDEEMetrics(data, tdeeData) {
+        const weights = data.processed.filter(e => e.ewmaWeight !== null).map(e => e.ewmaWeight);
+        const cv = calculateCV(weights);
+        const isWeightVolatile = isVolatile(cv);
+        const rSquared = calculateRSquared(tdeeData.ewmaData);
+        const fitQuality = getFitQuality(rSquared);
+        
+        return { cv, isWeightVolatile, rSquared, fitQuality };
+    }
+
+    /**
+     * Handle fallback for insufficient tracked days
+     * @param {Object} data - Prepared data
+     * @param {number} minDays - Minimum days required
+     * @param {string} confidence - Confidence level
+     * @returns {Object|null} Fallback result or null
+     */
+    function _handleStableTDEEFallback(data, minDays, confidence) {
+        const fallbackResult = calculateCalorieAverageFallback(data.calorieEntries, minDays, data.hasLargeGap);
+        if (fallbackResult) {
+            return fallbackResult;
+        }
+        return { tdee: null, confidence, trackedDays: data.trackedDays, neededDays: minDays - data.trackedDays, hasLargeGap: data.hasLargeGap };
+    }
+
+    /**
+     * Build final stable TDEE result
+     * @param {Object} data - Prepared data
+     * @param {Object} tdeeResult - TDEE calculation result
+     * @param {Object} metrics - Calculated metrics
+     * @param {string} confidence - Confidence level
+     * @returns {Object} Final result
+     */
+    function _buildFinalStableTDEE(data, tdeeResult, metrics, confidence) {
+        const confidenceResult = calculateMultiFactorConfidence({
+            trackedDays: data.trackedDays,
+            cv: metrics.cv,
+            rSquared: metrics.rSquared,
+            entries: tdeeResult.entries
+        });
+
+        return buildStableTDEEResult({
+            tdee: tdeeResult.tdee,
+            confidence,
+            trackedDays: data.trackedDays,
+            slope: tdeeResult.slope,
+            hasLargeGap: data.hasLargeGap,
+            maxGap: data.maxGap,
+            cv: metrics.cv,
+            isWeightVolatile: metrics.isWeightVolatile,
+            rSquared: metrics.rSquared,
+            fitQuality: metrics.fitQuality,
+            confidenceResult,
+            calResult: tdeeResult.calResult
+        });
+    }
+
+    /**
      * Calculate "Stable" TDEE - uses linear regression on EWMA weights over longer window
      * Much more stable than single-week calculations, resistant to water/glycogen fluctuations
      * @param {Object[]} entries - Array of daily entries (should be 14+ days)
@@ -662,87 +719,30 @@ const TDEE = (function () {
      */
     function calculateStableTDEE(entries, unit = 'kg', windowDays = 14, minDays = MIN_TRACKED_DAYS) {
         // Validate minimum data requirements
-        if (!entries || entries.length < 7) {
+        if (!_validateStableTDEEData(entries)) {
             return { tdee: null, confidence: 'none', trackedDays: 0 };
         }
 
-        // Process entries to get EWMA weights
-        const processed = processEntriesWithGaps(entries);
+        // Prepare data
+        const data = _prepareStableTDEEData(entries);
+        
+        // Determine confidence level
+        const { confidence } = determineConfidenceLevel(data.trackedDays, data.hasLargeGap, windowDays);
 
-        // Step 1: Detect large gaps in weight data
-        const { hasLargeGap, maxGap } = detectWeightGaps(entries);
-
-        // Step 2: Get calorie entries and count tracked days
-        const calorieEntries = entries.filter(e => e.calories !== null && !isNaN(e.calories));
-        const trackedDays = calorieEntries.length;
-
-        // Step 3: Determine confidence level
-        const { confidence, accuracy } = determineConfidenceLevel(trackedDays, hasLargeGap, windowDays);
-
-        // Step 4: Check if we need fallback (insufficient tracked days)
-        if (trackedDays < minDays) {
-            const fallbackResult = calculateCalorieAverageFallback(calorieEntries, minDays, hasLargeGap);
-            if (fallbackResult) {
-                return fallbackResult;
-            }
-            return { tdee: null, confidence, trackedDays, neededDays: minDays - trackedDays, hasLargeGap };
+        // Check if we need fallback
+        if (data.trackedDays < minDays) {
+            return _handleStableTDEEFallback(data, minDays, confidence);
         }
 
-        // Step 5: Build regression data from EWMA weights
-        const ewmaData = buildRegressionData(processed);
-        if (ewmaData.length < 2) {
-            return { tdee: null, confidence, trackedDays, hasLargeGap };
+        // Calculate regression-based TDEE
+        const tdeeResult = _calculateRegressionTDEE(data, unit);
+        if (!tdeeResult || !tdeeResult.tdee) {
+            return { tdee: null, confidence, trackedDays: data.trackedDays, hasLargeGap: data.hasLargeGap };
         }
 
-        // Step 6: Perform linear regression to get slope
-        const regressionResult = performLinearRegression(ewmaData);
-        if (!regressionResult) {
-            return { tdee: null, confidence, trackedDays, hasLargeGap };
-        }
-        const { slope } = regressionResult;
-
-        // Step 7: Calculate average calories (with outlier exclusion)
-        const calories = calorieEntries.map(e => e.calories);
-        const calResult = excludeCalorieOutliers(calories);
-        const avgCalories = calResult.filteredAvg;
-
-        if (avgCalories === null) {
-            return { tdee: null, confidence, trackedDays, hasLargeGap };
-        }
-
-        // Step 8: Calculate TDEE from slope
-        const tdee = calculateTDEEFromSlope(avgCalories, slope, unit);
-
-        // Step 9: Calculate additional metrics (CV, R², fit quality)
-        const weights = processed.filter(e => e.ewmaWeight !== null).map(e => e.ewmaWeight);
-        const cv = calculateCV(weights);
-        const isWeightVolatile = isVolatile(cv);
-        const rSquared = calculateRSquared(ewmaData);
-        const fitQuality = getFitQuality(rSquared);
-
-        // Step 10: Calculate multi-factor confidence score
-        const confidenceResult = calculateMultiFactorConfidence({
-            trackedDays,
-            cv,
-            rSquared,
-            entries
-        });
-
-        // Step 11: Build and return final result
-        return buildStableTDEEResult({
-            tdee,
-            confidence,
-            trackedDays,
-            slope,
-            hasLargeGap,
-            maxGap,
-            cv,
-            isWeightVolatile,
-            rSquared,
-            fitQuality,
-            confidenceResult,
-            calResult
-        });
+        // Calculate metrics and build result
+        const metrics = _calculateStableTDEEMetrics(data, tdeeResult);
+        return _buildFinalStableTDEE(data, tdeeResult, metrics, confidence);
     }
 
     /**
@@ -1081,10 +1081,13 @@ const TDEE = (function () {
         calculateTDEEFromSlope,
         buildStableTDEEResult,
 
-        // Utilities (exported for use by other modules)
-        calculateStats,
-        calculateEWMA,
-        round,
+        // Utilities (re-export from Utils/EWMA for convenience)
+        calculateStats: Utils?.calculateStats || calculateStats,
+        calculateEWMA: EWMA?.calculateEWMA || calculateEWMA,
+        getAdaptiveAlpha: EWMA?.getAdaptiveAlpha || getAdaptiveAlpha,
+        calculateCV: EWMA?.calculateCV || calculateCV,
+        isVolatile: EWMA?.isVolatile || isVolatile,
+        round: Utils?.round || round,
         getEnergyDensity,
 
         // CV calculation (weight volatility)

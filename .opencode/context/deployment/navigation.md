@@ -12,6 +12,7 @@
 | File | Description | Priority |
 |------|-------------|----------|
 | guides/cloudflare-pages-ci.md | CI/CD setup with GitHub Actions | critical |
+| guides/pre-deployment.md | Pre-deploy checklist, version bump workflow | critical |
 | guides/cloudflare-custom-domains.md | Custom domain configuration | high |
 
 ### Errors

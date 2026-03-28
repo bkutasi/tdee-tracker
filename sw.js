@@ -4,7 +4,7 @@
  */
 
 // Version must be manually incremented before each deployment
-const CACHE_VERSION = '1.0.0';
+const CACHE_VERSION = '1.0.1';
 const CACHE_NAME = `tdee-tracker-v${CACHE_VERSION}`;
 const STATIC_ASSETS = [
     '/',

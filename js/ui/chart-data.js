@@ -44,8 +44,6 @@ const ChartData = (function () {
             tdees.push(week.tdee);         // Can be null (no bar drawn)
             labels.push(week.label);
         }
-        
-        console.log('[ChartData.getChartData] Extracted', weights.length, 'data points for chart');
 
         return { weights, tdees, labels };
     }

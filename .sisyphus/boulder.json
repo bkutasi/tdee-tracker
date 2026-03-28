@@ -1,0 +1,14 @@
+{
+  "active_plan": "/media/nvme/projects/tdee-tracker/.sisyphus/plans/ship-v3.0.1-patch.md",
+  "started_at": "2026-03-28T17:49:27Z",
+  "session_ids": [
+    "ses_2ca976e2affebRQ0NOOO1EgMAF",
+    "ses_2ca6dd6e8ffeG6RPcOs8u3TG5e",
+    "ses_2ca6bfab3ffeeLNPuHodSsUtP2",
+    "ses_2ca6a82c3ffeJpSiUILI0REDrg",
+    "ses_2ca6a565dffevj4KJqB31Dni4F"
+  ],
+  "plan_name": "ship-v3.0.1-patch",
+  "worktree_path": null,
+  "task_sessions": {}
+}

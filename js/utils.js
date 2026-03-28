@@ -282,6 +282,50 @@ const Utils = (function () {
     }
 
     /**
+     * Round to specified decimal places (handles floating-point precision)
+     * @param {number} value - Value to round
+     * @param {number} decimals - Decimal places
+     * @returns {number} Rounded value
+     */
+    function round(value, decimals = 2) {
+        if (value === null || value === undefined || isNaN(value)) return null;
+        const factor = Math.pow(10, decimals);
+        return Math.round((value + Number.EPSILON) * factor) / factor;
+    }
+
+    /**
+     * Calculate basic statistics (single pass for mean/min/max)
+     * @param {number[]} data - Array of numbers
+     * @returns {Object} { mean, stdDev, min, max }
+     */
+    function calculateStats(data) {
+        if (data.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0 };
+
+        // Single pass for sum, min, max
+        let sum = 0, min = Infinity, max = -Infinity;
+        for (const value of data) {
+            sum += value;
+            if (value < min) min = value;
+            if (value > max) max = value;
+        }
+        const mean = sum / data.length;
+
+        // Second pass for variance (necessary)
+        let sumSqDiff = 0;
+        for (const value of data) {
+            sumSqDiff += (value - mean) ** 2;
+        }
+        const variance = sumSqDiff / data.length;
+
+        return {
+            mean: round(mean, 4),
+            stdDev: round(Math.sqrt(variance), 4),
+            min: round(min, 4),
+            max: round(max, 4)
+        };
+    }
+
+    /**
      * Validate date format (YYYY-MM-DD)
      * @param {string} dateStr - Date string to validate
      * @returns {Result} Validation result with parsed date if valid
@@ -375,7 +419,10 @@ const Utils = (function () {
         // Data utilities
         generateId,
         deepClone,
-        formatNumber
+        formatNumber,
+        // Math utilities (consolidated from calculator modules)
+        round,
+        calculateStats
     };
 })();
 

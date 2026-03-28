@@ -96,8 +96,6 @@ const Storage = (function () {
      * @param {number} toVersion - Target version
      */
     function migrateSchema(fromVersion, toVersion) {
-        console.log(`Migrating storage schema from v${fromVersion} to v${toVersion}`);
-
         // Initial setup (v0 -> v1)
         if (fromVersion < 1) {
             // Ensure default settings exist
@@ -147,7 +145,6 @@ const Storage = (function () {
         // Validate date format
         const dateValidation = Utils.validateDateFormat(date);
         if (!dateValidation.success) {
-            console.error('saveEntry:', dateValidation.error);
             return dateValidation;
         }
 
@@ -167,10 +164,8 @@ const Storage = (function () {
             return true;
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
-                console.error('Storage limit reached');
                 return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
             }
-            console.error('Failed to save entry:', err);
             return error(err.message);
         }
     }
@@ -184,7 +179,6 @@ const Storage = (function () {
         // Validate date format
         const dateValidation = Utils.validateDateFormat(date);
         if (!dateValidation.success) {
-            console.error('getEntry:', dateValidation.error);
             return null;
         }
 
@@ -207,7 +201,6 @@ const Storage = (function () {
             entriesCache = data ? JSON.parse(data) : {};
             return entriesCache;
         } catch (error) {
-            console.error('Failed to load entries:', error);
             return {};
         }
     }
@@ -263,7 +256,6 @@ const Storage = (function () {
         // Validate date format
         const dateValidation = Utils.validateDateFormat(date);
         if (!dateValidation.success) {
-            console.error('deleteEntry:', dateValidation.error);
             return dateValidation;
         }
 
@@ -279,10 +271,8 @@ const Storage = (function () {
             return true;
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
-                console.error('Storage limit reached during delete');
                 return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
             }
-            console.error('Failed to delete entry:', err);
             return error(err.message);
         }
     }
@@ -296,7 +286,6 @@ const Storage = (function () {
             const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
             return data ? { ...getDefaultSettings(), ...JSON.parse(data) } : getDefaultSettings();
         } catch (error) {
-            console.error('Failed to load settings:', error);
             return getDefaultSettings();
         }
     }
@@ -318,10 +307,8 @@ const Storage = (function () {
             return true;
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
-                console.error('Storage limit reached');
                 return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
             }
-            console.error('Failed to save settings:', err);
             return error(err.message);
         }
     }
@@ -366,20 +353,17 @@ const Storage = (function () {
             }
 
             if (!data || typeof data !== 'object') {
-                console.error('[Storage.importData] Invalid data format: expected object, got', typeof data);
                 return error('Invalid data format. Expected a JSON object with "entries" and/or "settings".', 'INVALID_FORMAT');
             }
 
             // Import settings if present
             if (data.settings) {
-                console.log('[Storage.importData] Importing settings...');
                 saveSettings(data.settings);
             }
 
             // Import entries
             let entriesImported = 0;
             let entriesSkipped = 0;
-            const skippedDates = [];
             
             if (data.entries && typeof data.entries === 'object') {
                 const existingEntries = getAllEntries();
@@ -392,10 +376,7 @@ const Storage = (function () {
                         mergedEntries[date] = sanitizeEntry(entry);
                         entriesImported++;
                     } else {
-                        // Log skipped dates for debugging
-                        console.warn('[Storage.importData] Skipped invalid date format:', date, '- Expected YYYY-MM-DD');
                         entriesSkipped++;
-                        skippedDates.push(date);
                     }
                 }
 
@@ -403,21 +384,13 @@ const Storage = (function () {
                 
                 // Invalidate cache after import
                 entriesCache = null;
-                
-                // Log summary
-                if (entriesSkipped > 0) {
-                    console.error(`[Storage.importData] WARNING: ${entriesSkipped} entries were skipped due to invalid date format. Skipped dates:`, skippedDates);
-                }
-                console.log(`[Storage.importData] Successfully imported ${entriesImported} entries`);
             }
 
             return success({ entriesImported, entriesSkipped });
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
-                console.error('[Storage.importData] Storage limit reached during import');
                 return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
             }
-            console.error('[Storage.importData] Import failed:', err.message, '\nFull error:', err);
             return error(err.message);
         }
     }
@@ -429,12 +402,14 @@ const Storage = (function () {
      */
     function clearAll() {
         try {
+            if (window.Sync && typeof Sync.clearQueue === 'function') {
+                Sync.clearQueue();
+            }
             localStorage.removeItem(STORAGE_KEYS.ENTRIES);
             localStorage.removeItem(STORAGE_KEYS.SETTINGS);
             localStorage.removeItem(STORAGE_KEYS.SCHEMA_VERSION);
             return true;
         } catch (error) {
-            console.error('Failed to clear data:', error);
             return false;
         }
     }

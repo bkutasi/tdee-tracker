@@ -39,6 +39,24 @@ const Calculator = (function () {
     const MIN_TRACKED_DAYS = 14;               // Minimum for stable TDEE (dashboard, research-backed)
     const MIN_WEEKLY_TRACKED_DAYS = 7;         // Minimum for weekly chart TDEE (practical minimum)
     const CV_THRESHOLD = 0.02;                 // Coefficient of variation threshold for volatility detection (2%)
+    const WEIGHT_CV_HIGH_THRESHOLD = 0.03;     // Coefficient of variation threshold for high weight variance warning (3%)
+    const PLATEAU_THRESHOLD = 0.2;             // Weight change threshold for plateau detection (kg)
+    const PLATEAU_MIN_DAYS = 10;               // Minimum recent weights for plateau detection
+    const BMR_HEIGHT_COEFFICIENT = 6.25;       // Mifflin-St Jeor height coefficient
+    const BMR_AGE_COEFFICIENT = 5;             // Mifflin-St Jeor age coefficient
+    const BMR_MALE_OFFSET = 5;                 // Mifflin-St Jeor male gender offset
+    const BMR_FEMALE_OFFSET = -161;            // Mifflin-St Jeor female gender offset
+    const BMR_OTHER_OFFSET = -78;              // Mifflin-St Jeor other gender offset (average of male/female)
+    const MIN_WEIGHT = 20;                     // Minimum valid weight (kg)
+    const MAX_WEIGHT = 500;                    // Maximum valid weight (kg)
+    const MIN_HEIGHT = 50;                     // Minimum valid height (cm)
+    const MAX_HEIGHT = 250;                    // Maximum valid height (cm)
+    const MIN_AGE = 1;                         // Minimum valid age (years)
+    const MAX_AGE = 120;                       // Maximum valid age (years)
+    const CALORIE_DATA_THRESHOLD = 0.7;        // Threshold for calorie data completeness warning (70%)
+    const BMR_WEIGHT_COEFFICIENT = 10;         // Mifflin-St Jeor weight coefficient
+    const KG_TO_LB_CONVERSION = 2.20462;       // Conversion factor: kg to lb
+    const LB_TO_KG_CONVERSION = 1 / 2.20462;   // Conversion factor: lb to kg
 
     // Scientific confidence tiers (research-backed standards)
     const CONFIDENCE_TIERS = {
@@ -86,22 +104,22 @@ const Calculator = (function () {
         if (weightCount >= 3) {
             const stats = calculateStats(entries.filter(e => e.weight !== null).map(e => e.weight));
             const cv = stats.stdDev / stats.mean;
-            if (cv > 0.03) {
+            if (cv > WEIGHT_CV_HIGH_THRESHOLD) {
                 warnings.push('High weight variance detected - may indicate water retention');
             }
         }
         
         // Check for gaps
-        if (calorieCount < entries.length * 0.7) {
+        if (calorieCount < entries.length * CALORIE_DATA_THRESHOLD) {
             warnings.push('Missing calorie data may affect accuracy');
         }
         
         // Check for plateau (only if we have enough recent weights)
-        if (recentWeights.length >= 10) {
+        if (recentWeights.length >= PLATEAU_MIN_DAYS) {
             const mid = Math.floor(recentWeights.length / 2);
             const firstAvg = recentWeights.slice(0, mid).reduce((a, b) => a + b, 0) / mid;
             const secondAvg = recentWeights.slice(mid).reduce((a, b) => a + b, 0) / (recentWeights.length - mid);
-            if (Math.abs(secondAvg - firstAvg) < 0.2) {
+            if (Math.abs(secondAvg - firstAvg) < PLATEAU_THRESHOLD) {
                 warnings.push('Weight plateau detected - consider metabolic adaptation');
             }
         }
@@ -205,7 +223,7 @@ const Calculator = (function () {
      */
     function calculateBMR(weight, height, age, gender) {
         // Validate age
-        if (!age || age < 1 || age > 120) {
+        if (!age || age < MIN_AGE || age > MAX_AGE) {
             return {
                 valid: false,
                 error: 'Age must be between 1 and 120 years',
@@ -215,7 +233,7 @@ const Calculator = (function () {
         }
 
         // Validate height
-        if (!height || height < 50 || height > 250) {
+        if (!height || height < MIN_HEIGHT || height > MAX_HEIGHT) {
             return {
                 valid: false,
                 error: 'Height must be between 50 and 250 cm',
@@ -225,7 +243,7 @@ const Calculator = (function () {
         }
 
         // Validate weight
-        if (!weight || weight < 20 || weight > 500) {
+        if (!weight || weight < MIN_WEIGHT || weight > MAX_WEIGHT) {
             return {
                 valid: false,
                 error: 'Weight must be between 20 and 500 kg',
@@ -251,15 +269,15 @@ const Calculator = (function () {
         // Women: (10 × weight in kg) + (6.25 × height in cm) - (5 × age in years) - 161
         // Other: Average of male and female formulas
 
-        let bmr = (10 * weight) + (6.25 * height) - (5 * age);
+        let bmr = (BMR_WEIGHT_COEFFICIENT * weight) + (BMR_HEIGHT_COEFFICIENT * height) - (BMR_AGE_COEFFICIENT * age);
 
         if (normalizedGender === 'male') {
-            bmr += 5;
+            bmr += BMR_MALE_OFFSET;
         } else if (normalizedGender === 'other') {
             // Average of male and female formulas: (5 - 161) / 2 = -78
-            bmr -= 78;
+            bmr += BMR_OTHER_OFFSET;
         } else {
-            bmr -= 161;
+            bmr += BMR_FEMALE_OFFSET;
         }
 
         return {
@@ -286,8 +304,8 @@ const Calculator = (function () {
      */
     function convertWeight(value, from, to) {
         if (from === to) return value;
-        if (from === 'kg' && to === 'lb') return round(value * 2.20462, 2);
-        if (from === 'lb' && to === 'kg') return round(value / 2.20462, 2);
+        if (from === 'kg' && to === 'lb') return round(value * KG_TO_LB_CONVERSION, 2);
+        if (from === 'lb' && to === 'kg') return round(value * LB_TO_KG_CONVERSION, 2);
         return value;
     }
 
@@ -303,11 +321,17 @@ const Calculator = (function () {
 
     /**
      * Round to specified decimal places (handles floating-point precision)
+     * Delegates to Utils module for consistency
      * @param {number} value - Value to round
      * @param {number} decimals - Decimal places
      * @returns {number} Rounded value
      */
     function round(value, decimals = 2) {
+        // Use Utils module if available, otherwise use inline implementation
+        if (typeof Utils !== 'undefined' && Utils.round) {
+            return Utils.round(value, decimals);
+        }
+        // Fallback inline implementation
         if (value === null || value === undefined || isNaN(value)) return null;
         const factor = Math.pow(10, decimals);
         return Math.round((value + Number.EPSILON) * factor) / factor;
@@ -326,14 +350,14 @@ const Calculator = (function () {
 
     /**
      * Calculate basic statistics (single pass for mean/min/max)
-     * Delegates to EWMA module for consistency
+     * Delegates to Utils module for consistency
      * @param {number[]} data - Array of numbers
      * @returns {Object} { mean, stdDev, min, max }
      */
     function calculateStats(data) {
-        // Use EWMA module if available, otherwise use inline implementation
-        if (typeof _EWMA !== 'undefined' && _EWMA.calculateStats) {
-            return _EWMA.calculateStats(data);
+        // Use Utils module if available, otherwise use inline implementation
+        if (typeof Utils !== 'undefined' && Utils.calculateStats) {
+            return Utils.calculateStats(data);
         }
         
         // Fallback inline implementation
@@ -353,11 +377,17 @@ const Calculator = (function () {
         }
         const variance = sumSqDiff / data.length;
 
+        const roundFn = Utils?.round || function(v, d = 2) {
+            if (v === null || v === undefined || isNaN(v)) return null;
+            const f = Math.pow(10, d);
+            return Math.round((v + Number.EPSILON) * f) / f;
+        };
+
         return {
-            mean: round(mean, 4),
-            stdDev: round(Math.sqrt(variance), 4),
-            min: round(min, 4),
-            max: round(max, 4)
+            mean: roundFn(mean, 4),
+            stdDev: roundFn(Math.sqrt(variance), 4),
+            min: roundFn(min, 4),
+            max: roundFn(max, 4)
         };
     }
 
@@ -549,7 +579,25 @@ const Calculator = (function () {
         MIN_TRACKED_DAYS,
         MIN_WEEKLY_TRACKED_DAYS,
         CV_THRESHOLD,
-        CONFIDENCE_TIERS
+        CONFIDENCE_TIERS,
+        WEIGHT_CV_HIGH_THRESHOLD,
+        PLATEAU_THRESHOLD,
+        PLATEAU_MIN_DAYS,
+        BMR_WEIGHT_COEFFICIENT,
+        BMR_HEIGHT_COEFFICIENT,
+        BMR_AGE_COEFFICIENT,
+        BMR_MALE_OFFSET,
+        BMR_FEMALE_OFFSET,
+        BMR_OTHER_OFFSET,
+        MIN_WEIGHT,
+        MAX_WEIGHT,
+        MIN_HEIGHT,
+        MAX_HEIGHT,
+        MIN_AGE,
+        MAX_AGE,
+        CALORIE_DATA_THRESHOLD,
+        KG_TO_LB_CONVERSION,
+        LB_TO_KG_CONVERSION
     };
 })();
 
