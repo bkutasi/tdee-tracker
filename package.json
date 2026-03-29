@@ -1,0 +1,12 @@
+{
+  "name": "tdee-tracker",
+  "version": "3.0.1",
+  "description": "Total Daily Energy Expenditure Tracker — Vanilla JavaScript PWA",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node tests/node-test.js"
+  },
+  "keywords": ["tdee", "calorie-tracker", "pwa", "vanilla-js"],
+  "author": "",
+  "license": "MIT"
+}
