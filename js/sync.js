@@ -503,7 +503,7 @@ const Sync = (function() {
         // Check authentication
         if (!Auth || !Auth.isAuthenticated()) {
             _SyncDebug.info('Not authenticated - skipping');
-            return { success: false, error: 'Not authenticated' };
+            return { success: false, error: 'Not authenticated', code: AppErrors.SYNC.NOT_AUTHENTICATED };
         }
 
         const { session } = await Auth.getSession();
@@ -837,7 +837,7 @@ const Sync = (function() {
         const supabase = await getSupabase();
 
         if (!supabase) {
-            return { success: false, error: 'Not authenticated' };
+            return { success: false, error: 'Not authenticated', code: AppErrors.SYNC.NOT_AUTHENTICATED };
         }
 
         try {
@@ -886,7 +886,7 @@ const Sync = (function() {
         const supabase = await getSupabase();
 
         if (!supabase) {
-            return { success: false, error: 'Not authenticated' };
+            return { success: false, error: 'Not authenticated', code: AppErrors.SYNC.NOT_AUTHENTICATED };
         }
 
         try {
@@ -915,7 +915,7 @@ const Sync = (function() {
         const supabase = await getSupabase();
 
         if (!supabase) {
-            return { success: false, error: 'Not authenticated' };
+            return { success: false, error: 'Not authenticated', code: AppErrors.SYNC.NOT_AUTHENTICATED };
         }
 
         try {
@@ -1132,13 +1132,13 @@ const Sync = (function() {
      */
     async function fetchWeightEntries() {
         if (!canSync()) {
-            return { success: false, error: 'Not authenticated or offline' };
+            return { success: false, error: 'Not authenticated or offline', code: AppErrors.SYNC.NOT_AUTHENTICATED };
         }
 
         const supabase = await getSupabase();
 
         if (!supabase) {
-            return { success: false, error: 'Supabase not available' };
+            return { success: false, error: 'Supabase not available', code: AppErrors.SYNC.SUPABASE_NOT_AVAILABLE };
         }
 
         try {

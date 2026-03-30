@@ -164,7 +164,7 @@ const Storage = (function () {
             return true;
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
-                return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
+                return error('Storage limit reached. Please export and clear old data.', AppErrors.STORAGE.QUOTA_EXCEEDED);
             }
             return error(err.message);
         }
@@ -272,7 +272,7 @@ const Storage = (function () {
             return success({ deleted: false, reason: 'not_found' });
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
-                return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
+                return error('Storage limit reached. Please export and clear old data.', AppErrors.STORAGE.QUOTA_EXCEEDED);
             }
             return error(err.message);
         }
@@ -286,7 +286,7 @@ const Storage = (function () {
     function updateEntry(entry) {
         // Validate entry has date property
         if (!entry || !entry.date) {
-            return error('Entry must have a date property', 'INVALID_INPUT');
+            return error('Entry must have a date property', AppErrors.STORAGE.INVALID_INPUT);
         }
 
         // Validate date format
@@ -300,7 +300,7 @@ const Storage = (function () {
             
             // Check if entry exists
             if (!entries[entry.date]) {
-                return error('Entry not found for date: ' + entry.date, 'NOT_FOUND');
+                return error('Entry not found for date: ' + entry.date, AppErrors.STORAGE.NOT_FOUND);
             }
 
             // Merge existing entry with new data, preserving updatedAt timestamp
@@ -318,7 +318,7 @@ const Storage = (function () {
             return success({ updated: true });
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
-                return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
+                return error('Storage limit reached. Please export and clear old data.', AppErrors.STORAGE.QUOTA_EXCEEDED);
             }
             return error(err.message);
         }
@@ -354,7 +354,7 @@ const Storage = (function () {
             return true;
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
-                return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
+                return error('Storage limit reached. Please export and clear old data.', AppErrors.STORAGE.QUOTA_EXCEEDED);
             }
             return error(err.message);
         }
@@ -415,13 +415,13 @@ const Storage = (function () {
             }
 
             if (!data || typeof data !== 'object') {
-                return error('Invalid data format. Expected a JSON object with "entries" and/or "settings".', 'INVALID_FORMAT');
+                return error('Invalid data format. Expected a JSON object with "entries" and/or "settings".', AppErrors.STORAGE.INVALID_FORMAT);
             }
 
             const importVersion = data.schemaVersion || 0;
             
             if (importVersion > CURRENT_SCHEMA_VERSION) {
-                return error(`Import requires newer app version (schema ${importVersion} > ${CURRENT_SCHEMA_VERSION})`, 'VERSION_MISMATCH');
+                return error(`Import requires newer app version (schema ${importVersion} > ${CURRENT_SCHEMA_VERSION})`, AppErrors.STORAGE.VERSION_MISMATCH);
             }
             
             const migratedData = importVersion < CURRENT_SCHEMA_VERSION 
@@ -461,7 +461,7 @@ const Storage = (function () {
             return success({ entriesImported, entriesSkipped });
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
-                return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
+                return error('Storage limit reached. Please export and clear old data.', AppErrors.STORAGE.QUOTA_EXCEEDED);
             }
             return error(err.message);
         }

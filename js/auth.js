@@ -31,7 +31,7 @@ const Auth = (function() {
 
         // Check for config
         if (!window.SUPABASE_CONFIG) {
-            throw new Error('Supabase configuration not found');
+            throw new Error(AppErrors.AUTH.SUPABASE_CONFIG_MISSING);
         }
 
         const { url, anonKey } = window.SUPABASE_CONFIG;
@@ -145,7 +145,7 @@ const Auth = (function() {
      */
     async function signInWithMagicLink(email, redirectTo) {
         if (!supabase) {
-            throw new Error('Auth not initialized. Call Auth.init() first');
+            throw new Error(AppErrors.AUTH.NOT_INITIALIZED);
         }
 
         // Use configured siteUrl if redirectTo not provided
@@ -177,7 +177,7 @@ const Auth = (function() {
      */
     async function signInWithOAuth(provider, redirectTo) {
         if (!supabase) {
-            throw new Error('Auth not initialized. Call Auth.init() first');
+            throw new Error(AppErrors.AUTH.NOT_INITIALIZED);
         }
 
         // Use configured siteUrl if redirectTo not provided
@@ -212,7 +212,7 @@ const Auth = (function() {
      */
     async function signOut() {
         if (!supabase) {
-            throw new Error('Auth not initialized');
+            throw new Error(AppErrors.AUTH.NOT_INITIALIZED);
         }
 
         try {
@@ -251,7 +251,7 @@ const Auth = (function() {
      */
     async function getSession() {
         if (!supabase) {
-            throw new Error('Auth not initialized');
+            throw new Error(AppErrors.AUTH.NOT_INITIALIZED);
         }
 
         const { data: { session }, error } = await supabase.auth.getSession();
