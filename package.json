@@ -4,9 +4,18 @@
   "description": "Total Daily Energy Expenditure Tracker — Vanilla JavaScript PWA",
   "type": "commonjs",
   "scripts": {
-    "test": "node tests/node-test.js"
+    "test": "node tests/node-test.js",
+    "coverage": "c8 node tests/node-test.js"
   },
-  "keywords": ["tdee", "calorie-tracker", "pwa", "vanilla-js"],
+  "keywords": [
+    "tdee",
+    "calorie-tracker",
+    "pwa",
+    "vanilla-js"
+  ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "c8": "^11.0.0"
+  }
 }
