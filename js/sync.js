@@ -19,7 +19,8 @@
 'use strict';
 
 // Define AppConstants for Node.js environment (not available in global scope)
-if (typeof window === 'undefined' && typeof AppConstants === 'undefined') {
+// eslint-disable-next-line no-undef
+if (typeof window === 'undefined' && (typeof global === 'undefined' || typeof global.AppConstants === 'undefined')) {
     var AppConstants = {
         MS_PER_SECOND: 1000,
         MS_PER_MINUTE: 60000,
