@@ -1432,3 +1432,38 @@ describe('TDEE.calculateStableTDEE - Regression Edge Cases (Regression Preventio
         expect(result.confidence).toBe('high');  // 14 days with good data
     });
 });
+
+describe('edge cases', () => {
+    it('handles empty entries array', () => {
+        const result = Calculator.calculateTDEE([]);
+        expect(result).toEqual({
+            tdee: null,
+            confidence: 'LOW',
+            reason: 'No entries'
+        });
+    });
+    
+    it('handles single entry', () => {
+        const entries = [{ date: '2026-03-30', weight: 80.5, calories: 2000 }];
+        const result = Calculator.calculateTDEE(entries);
+        expect(result.confidence).toBe('LOW');
+    });
+    
+    it('handles all gap days', () => {
+        const entries = [
+            { date: '2026-03-01', weight: 80.5, calories: 2000 },
+            { date: '2026-03-15', weight: 80.0, calories: 2000 }
+        ];
+        const result = Calculator.calculateTDEE(entries);
+        expect(result.tdee).toBeNull();
+    });
+    
+    it('handles NaN calories', () => {
+        const entries = [
+            { date: '2026-03-30', weight: 80.5, calories: NaN },
+            { date: '2026-03-31', weight: 80.3, calories: 2000 }
+        ];
+        const result = Calculator.calculateTDEE(entries);
+        expect(result.tdee).toBeNull();
+    });
+});
