@@ -1,0 +1,70 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications alt+T"
+  - generic [ref=e4]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - link "llama.cpp" [ref=e11] [cursor=pointer]:
+          - /url: "#/"
+          - heading "llama.cpp" [level=1] [ref=e12]
+        - generic [ref=e13]:
+          - link "New chat ⌘ O" [ref=e14] [cursor=pointer]:
+            - /url: "?new_chat=true#/"
+            - generic [ref=e15]:
+              - img
+              - text: New chat
+            - generic:
+              - img
+              - generic: ⌘
+              - text: O
+          - button "Search conversations ⌘ K" [ref=e16] [cursor=pointer]:
+            - generic [ref=e17]:
+              - img
+              - text: Search conversations
+            - generic:
+              - generic: ⌘
+              - text: K
+      - generic [ref=e18]:
+        - generic [ref=e19]: Conversations
+        - list [ref=e21]:
+          - paragraph [ref=e23]: No conversations yet
+    - button "Toggle Sidebar" [ref=e24] [cursor=pointer]:
+      - img
+      - generic [ref=e25]: Toggle Sidebar
+    - main [ref=e26]:
+      - button [ref=e28] [cursor=pointer]:
+        - img
+      - main "Welcome screen with file drop zone" [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - heading "llama.cpp" [level=1] [ref=e32]
+            - paragraph [ref=e33]: Type a message or upload files to get started
+          - generic [ref=e34]:
+            - generic [ref=e36]:
+              - button "Open prompt picker":
+                - generic: Open prompt picker
+              - button "Open resource picker":
+                - generic: Open resource picker
+              - generic [ref=e38]:
+                - textbox "Type a message..." [active] [ref=e40]
+                - generic [ref=e41]:
+                  - button "Add files, system prompt or MCP Servers" [ref=e44]:
+                    - button "Add files, system prompt or MCP Servers" [ref=e45]:
+                      - button "Add files, system prompt or MCP Servers" [ref=e46] [cursor=pointer]:
+                        - generic [ref=e47]: Add files, system prompt or MCP Servers
+                        - img
+                  - button "Qwen3.5 35B-A3B" [ref=e50]:
+                    - button "Qwen3.5 35B-A3B" [ref=e51] [cursor=pointer]:
+                      - img [ref=e52]
+                      - button "Qwen3.5 35B-A3B" [ref=e53]:
+                        - generic [ref=e54]:
+                          - generic [ref=e55]: Qwen3.5
+                          - generic [ref=e56]: 35B-A3B
+                      - img [ref=e57]
+                  - button "Send" [disabled]:
+                    - generic: Send
+                    - img
+            - paragraph [ref=e59]: Press Enter to send, Shift + Enter for new line
+```
