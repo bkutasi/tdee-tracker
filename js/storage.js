@@ -247,8 +247,6 @@ const Storage = (function () {
 
     /**
      * Delete entry for a specific date
-    /**
-     * Delete entry for a specific date
      * @param {string} date - Date in YYYY-MM-DD format
      * @returns {boolean|Object} true for success, or error object with {success: false, error, code}
      */
@@ -269,6 +267,52 @@ const Storage = (function () {
                 entriesCache = null;
             }
             return true;
+        } catch (err) {
+            if (err.name === 'QuotaExceededError') {
+                return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
+            }
+            return error(err.message);
+        }
+    }
+
+    /**
+     * Update entry for a specific date
+     * @param {Object} entry - Entry data with date property
+     * @returns {Object} {success: boolean, error?: string, code?: string}
+     */
+    function updateEntry(entry) {
+        // Validate entry has date property
+        if (!entry || !entry.date) {
+            return error('Entry must have a date property', 'INVALID_INPUT');
+        }
+
+        // Validate date format
+        const dateValidation = Utils.validateDateFormat(entry.date);
+        if (!dateValidation.success) {
+            return dateValidation;
+        }
+
+        try {
+            const entries = getAllEntries();
+            
+            // Check if entry exists
+            if (!entries[entry.date]) {
+                return error('Entry not found for date: ' + entry.date, 'NOT_FOUND');
+            }
+
+            // Merge existing entry with new data, preserving updatedAt timestamp
+            entries[entry.date] = sanitizeEntry({
+                ...entries[entry.date],
+                ...entry,
+                updatedAt: new Date().toISOString()
+            });
+            
+            localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(entries));
+            
+            // Invalidate cache after updating
+            entriesCache = null;
+            
+            return success({ updated: true });
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
                 return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');
@@ -475,6 +519,7 @@ const Storage = (function () {
         getAllEntries,
         getEntriesInRange,
         deleteEntry,
+        updateEntry,
         getSettings,
         saveSettings,
         exportData,
