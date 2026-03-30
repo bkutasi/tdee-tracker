@@ -47,14 +47,28 @@ function loadEnvFile() {
 
 /**
  * Generate js/config.js content
+ * 
+ * Produces hardcoded config from build-time environment variables.
+ * This is the correct approach for Cloudflare Pages static sites:
+ * - Environment variables are injected at BUILD TIME by CI/CD
+ * - Generated config.js contains actual values (not runtime checks)
+ * - No runtime environment detection (doesn't work for static sites)
  */
 function generateConfig(supabaseUrl, supabaseAnonKey, siteUrl) {
+    // Validate required parameters
+    if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Missing required Supabase credentials');
+    }
+
     // Default siteUrl to supabaseUrl if not provided
     const finalSiteUrl = siteUrl || supabaseUrl;
 
     return `// Auto-generated configuration - DO NOT EDIT
-// This file is generated from environment variables
-// Run: node scripts/generate-config.js
+// Generated from build-time environment variables
+// Script: scripts/generate-config.js
+// 
+// Cloudflare Pages: Environment variables injected by CI/CD at build time
+// Local dev: Run \`node scripts/generate-config.js\` with .env file
 
 'use strict';
 
