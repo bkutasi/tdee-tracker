@@ -260,8 +260,21 @@ const Utils = (function () {
 
     /**
      * Deep clone an object
+     * 
+     * LIMITATIONS:
+     * - Does NOT clone functions (copied by reference)
+     * - Does NOT clone prototype chains
+     * - Does NOT handle circular references (will throw)
+     * - Date objects become plain objects
+     * - undefined values become null in JSON
+     * 
      * @param {Object} obj - Object to clone
      * @returns {Object} Cloned object
+     * @throws {Error} If circular reference detected
+     * 
+     * @example
+     * const cloned = Utils.deepClone({ a: 1, b: { c: 2 } });
+     * // { a: 1, b: { c: 2 } }
      */
     function deepClone(obj) {
         return JSON.parse(JSON.stringify(obj));
