@@ -113,20 +113,30 @@ const DailyEntry = (function () {
     }
 
     function loadCurrentEntry() {
-        const entry = Storage.getEntry(currentDate);
-        const settings = Storage.getSettings();
+        try {
+            const entry = Storage.getEntry(currentDate);
+            const settings = Storage.getSettings();
 
-        const weightInput = document.getElementById('weight-input');
-        const caloriesInput = document.getElementById('calories-input');
-        const notesInput = document.getElementById('notes-input');
+            const weightInput = document.getElementById('weight-input');
+            const caloriesInput = document.getElementById('calories-input');
+            const notesInput = document.getElementById('notes-input');
 
-        weightInput.value = entry?.weight ?? '';
-        caloriesInput.value = entry?.calories ?? '';
-        notesInput.value = entry?.notes ?? '';
+            if (!weightInput || !caloriesInput || !notesInput) {
+                console.warn('DailyEntry.loadCurrentEntry: input elements not found');
+                return;
+            }
 
-        // Update unit labels
-        const unit = settings.weightUnit || 'kg';
-        Components.setText('weight-input-unit', unit);
+            weightInput.value = entry?.weight ?? '';
+            caloriesInput.value = entry?.calories ?? '';
+            notesInput.value = entry?.notes ?? '';
+
+            // Update unit labels
+            const unit = settings.weightUnit || 'kg';
+            Components.setText('weight-input-unit', unit);
+        } catch (error) {
+            console.error('DailyEntry.loadCurrentEntry:', error);
+            Components.showError('Failed to load entry form', 'DailyEntry');
+        }
     }
 
     async function saveEntry() {

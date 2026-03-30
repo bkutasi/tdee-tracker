@@ -1,14 +1,19 @@
 {
-  "active_plan": "/media/nvme/projects/tdee-tracker/.sisyphus/plans/ship-v3.0.1-patch.md",
-  "started_at": "2026-03-28T17:49:27Z",
+  "active_plan": "/media/nvme/projects/tdee-tracker/.sisyphus/plans/P0-critical-blockers.md",
+  "started_at": "2026-03-30T10:03:41.844Z",
   "session_ids": [
-    "ses_2ca976e2affebRQ0NOOO1EgMAF",
-    "ses_2ca6dd6e8ffeG6RPcOs8u3TG5e",
-    "ses_2ca6bfab3ffeeLNPuHodSsUtP2",
-    "ses_2ca6a82c3ffeJpSiUILI0REDrg",
-    "ses_2ca6a565dffevj4KJqB31Dni4F"
+    "ses_2c1ce303bffe3mcLif7RKJ9ype",
+    "ses_2c1c94f86ffeao8nnDeZbFw976",
+    "ses_2c1c8c236ffeQ7roESs6oxN2H3",
+    "ses_2c1c63ff6ffewak9ez8odXwkYI",
+    "ses_2c1c41747ffeqLe0VgYkywChNI",
+    "ses_2c1bf76f4ffe2mMZX64YfdPpez",
+    "ses_2c1bdafbdffeyTTSvaX2Wcmfwa",
+    "ses_2c1723082ffeD7As4xxoAVkRVm",
+    "ses_2c1718e1cffeUsvrTvah2ONw0J",
+    "ses_2c171adb7ffeVvS7VNGYJfKmQF"
   ],
-  "plan_name": "ship-v3.0.1-patch",
+  "plan_name": "P0-critical-blockers",
   "worktree_path": null,
   "task_sessions": {}
 }

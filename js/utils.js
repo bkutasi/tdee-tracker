@@ -341,8 +341,8 @@ const Utils = (function () {
             return error('Invalid date format. Use YYYY-MM-DD', 'INVALID_FORMAT');
         }
 
-        // Parse and validate the date
-        const parsed = new Date(dateStr);
+        // Parse and validate the date (use parseDate to avoid timezone shifts)
+        const parsed = parseDate(dateStr);
         if (isNaN(parsed.getTime())) {
             return error('Invalid date', 'INVALID_DATE');
         }

@@ -194,6 +194,17 @@ const Components = (function () {
         });
     }
 
+    /**
+     * Show error message to user
+     * @param {string} message - User-friendly error message
+     * @param {string} context - Optional context (component/function name)
+     */
+    function showError(message, context) {
+        const fullMessage = context ? `${context}: ${message}` : message;
+        console.error(fullMessage);
+        showToast(message, 'error', 5000);
+    }
+
     // Public API
     return {
         showToast,
@@ -203,7 +214,8 @@ const Components = (function () {
         setText,
         on,
         createElement,
-        applyTheme
+        applyTheme,
+        showError
     };
 })();
 

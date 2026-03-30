@@ -90,50 +90,56 @@ const Chart = (function () {
      * @param {boolean} recalcCallback - Whether to recalculate data (default: true)
      */
     function refresh(recalcCallback = true) {
-        if (!canvas || !ctx) {
-            return;
-        }
-
-        // Set canvas size (account for device pixel ratio)
-        const container = canvas.parentElement;
-        const dpr = window.devicePixelRatio || 1;
-        const width = container.clientWidth;
-        const height = container.clientHeight;
-
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
-        ctx.scale(dpr, dpr);
-
-        if (recalcCallback || !cachedData) {
-            const settings = Storage.getSettings();
-            cachedData = ChartData.getChartData(120, settings);  // 4 months for better trend visibility
-        } else {
-            const settings = Storage.getSettings();
-            cachedData = ChartData.getChartData(120, settings);
-        }
-        
-        if (!ChartData.isValidData(cachedData)) {
-            const styles = getChartStyles();
-            ChartRender.drawEmptyState(ctx, cachedData, width, height, styles);
-            updateChartAccessibility(null, null, 0);
-            chartImageCache = null;
-            return;
-        }
-
-        // Delegate rendering to ChartRender module
-        hitAreas = ChartRender.drawChart(ctx, cachedData, width, height);
-        
-        // Update accessibility attributes
-        const summary = ChartData.getChartSummary(cachedData);
-        updateChartAccessibility(summary.currentWeight, summary.trendDirection, summary.dataPoints);
-        
-        // Cache the chart rendering for fast tooltip updates
         try {
-            chartImageCache = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        } catch (e) {
-            chartImageCache = null;
+            if (!canvas || !ctx) {
+                console.warn('Chart.refresh: canvas or context not found');
+                return;
+            }
+
+            // Set canvas size (account for device pixel ratio)
+            const container = canvas.parentElement;
+            const dpr = window.devicePixelRatio || 1;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+            ctx.scale(dpr, dpr);
+
+            if (recalcCallback || !cachedData) {
+                const settings = Storage.getSettings();
+                cachedData = ChartData.getChartData(120, settings);  // 4 months for better trend visibility
+            } else {
+                const settings = Storage.getSettings();
+                cachedData = ChartData.getChartData(120, settings);
+            }
+            
+            if (!ChartData.isValidData(cachedData)) {
+                const styles = getChartStyles();
+                ChartRender.drawEmptyState(ctx, cachedData, width, height, styles);
+                updateChartAccessibility(null, null, 0);
+                chartImageCache = null;
+                return;
+            }
+
+            // Delegate rendering to ChartRender module
+            hitAreas = ChartRender.drawChart(ctx, cachedData, width, height);
+            
+            // Update accessibility attributes
+            const summary = ChartData.getChartSummary(cachedData);
+            updateChartAccessibility(summary.currentWeight, summary.trendDirection, summary.dataPoints);
+            
+            // Cache the chart rendering for fast tooltip updates
+            try {
+                chartImageCache = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            } catch (e) {
+                chartImageCache = null;
+            }
+        } catch (error) {
+            console.error('Chart.refresh:', error);
+            Components.showError('Failed to load chart. Please refresh.', 'Chart');
         }
     }
 

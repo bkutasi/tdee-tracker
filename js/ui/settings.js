@@ -23,9 +23,14 @@ const Settings = (function () {
      * Settings.init();
      */
     function init() {
-        setupEventListeners();
-        loadSettings();
-        updateStorageInfo();
+        try {
+            setupEventListeners();
+            loadSettings();
+            updateStorageInfo();
+        } catch (error) {
+            console.error('Settings.init:', error);
+            Components.showError('Failed to initialize settings', 'Settings');
+        }
     }
 
     /**
@@ -48,102 +53,107 @@ const Settings = (function () {
      * setupEventListeners();
      */
     function setupEventListeners() {
-        // Open/close modal - with null checks
-        const settingsBtn = document.getElementById('settings-btn');
-        const closeSettingsBtn = document.getElementById('close-settings-btn');
-        const settingsModal = document.getElementById('settings-modal');
-        
-        if (settingsBtn) {
-            settingsBtn.addEventListener('click', () => {
-                Components.openModal('settings-modal');
-                loadSettings();
-            });
-        }
+        try {
+            // Open/close modal - with null checks
+            const settingsBtn = document.getElementById('settings-btn');
+            const closeSettingsBtn = document.getElementById('close-settings-btn');
+            const settingsModal = document.getElementById('settings-modal');
+            
+            if (settingsBtn) {
+                settingsBtn.addEventListener('click', () => {
+                    Components.openModal('settings-modal');
+                    loadSettings();
+                });
+            }
 
-        if (closeSettingsBtn) {
-            closeSettingsBtn.addEventListener('click', () => {
-                Components.closeModal('settings-modal');
-            });
-        }
+            if (closeSettingsBtn) {
+                closeSettingsBtn.addEventListener('click', () => {
+                    Components.closeModal('settings-modal');
+                });
+            }
 
-        if (settingsModal) {
-            // Close on overlay click
-            settingsModal.addEventListener('click', (e) => {
-                if (e.target.classList.contains('modal-overlay')) {
+            if (settingsModal) {
+                // Close on overlay click
+                settingsModal.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('modal-overlay')) {
+                        Components.closeModal('settings-modal');
+                    }
+                });
+            }
+
+            // Close on Escape
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
                     Components.closeModal('settings-modal');
                 }
             });
-        }
 
-        // Close on Escape
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                Components.closeModal('settings-modal');
+            // Settings changes
+            // User Profile changes
+            document.getElementById('user-gender').addEventListener('change', saveSettings);
+            document.getElementById('user-age').addEventListener('change', saveSettings);
+            document.getElementById('user-height').addEventListener('change', saveSettings);
+            document.getElementById('activity-level').addEventListener('change', saveSettings);
+
+            document.getElementById('starting-weight').addEventListener('change', saveSettings);
+            document.getElementById('goal-weight').addEventListener('change', saveSettings);
+            document.getElementById('target-deficit').addEventListener('change', saveSettings);
+            document.getElementById('weight-unit').addEventListener('change', () => {
+                saveSettings();
+                DailyEntry.refresh();
+                WeeklyView.refresh();
+                Dashboard.refresh();
+            });
+            document.getElementById('calorie-unit').addEventListener('change', saveSettings);
+
+            // Theme toggle
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const theme = btn.dataset.theme;
+                    Storage.saveSettings({ theme });
+                    Components.applyTheme(theme);
+                });
+            });
+
+            // Export data (pretty-printed by default)
+            const exportBtn = document.getElementById('export-data-btn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', exportDataPretty);
             }
-        });
 
-        // Settings changes
-        // User Profile changes
-        document.getElementById('user-gender').addEventListener('change', saveSettings);
-        document.getElementById('user-age').addEventListener('change', saveSettings);
-        document.getElementById('user-height').addEventListener('change', saveSettings);
-        document.getElementById('activity-level').addEventListener('change', saveSettings);
+            // Export compact (advanced section)
+            const exportCompactBtn = document.getElementById('export-compact-btn');
+            if (exportCompactBtn) {
+                exportCompactBtn.addEventListener('click', () => {
+                    exportData('compact');
+                });
+            }
 
-        document.getElementById('starting-weight').addEventListener('change', saveSettings);
-        document.getElementById('goal-weight').addEventListener('change', saveSettings);
-        document.getElementById('target-deficit').addEventListener('change', saveSettings);
-        document.getElementById('weight-unit').addEventListener('change', () => {
-            saveSettings();
-            DailyEntry.refresh();
-            WeeklyView.refresh();
-            Dashboard.refresh();
-        });
-        document.getElementById('calorie-unit').addEventListener('change', saveSettings);
+            // Advanced settings toggle
+            const advancedToggle = document.getElementById('advanced-settings-toggle');
+            if (advancedToggle) {
+                advancedToggle.addEventListener('click', () => {
+                    const isExpanded = advancedToggle.getAttribute('aria-expanded') === 'true';
+                    const content = document.getElementById('advanced-settings-content');
+                    
+                    advancedToggle.setAttribute('aria-expanded', !isExpanded);
+                    content.classList.toggle('hidden', isExpanded);
+                });
+            }
 
-        // Theme toggle
-        document.querySelectorAll('.theme-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const theme = btn.dataset.theme;
-                Storage.saveSettings({ theme });
-                Components.applyTheme(theme);
+            // Import data
+            document.getElementById('import-data-btn').addEventListener('click', () => {
+                document.getElementById('import-file').click();
             });
-        });
 
-        // Export data (pretty-printed by default)
-        const exportBtn = document.getElementById('export-data-btn');
-        if (exportBtn) {
-            exportBtn.addEventListener('click', exportDataPretty);
+            document.getElementById('import-file').addEventListener('change', importData);
+
+            // Clear data
+            document.getElementById('clear-data-btn').addEventListener('click', clearData);
+        } catch (error) {
+            console.error('Settings.setupEventListeners:', error);
+            Components.showError('Failed to initialize settings controls', 'Settings');
         }
-
-        // Export compact (advanced section)
-        const exportCompactBtn = document.getElementById('export-compact-btn');
-        if (exportCompactBtn) {
-            exportCompactBtn.addEventListener('click', () => {
-                exportData('compact');
-            });
-        }
-
-        // Advanced settings toggle
-        const advancedToggle = document.getElementById('advanced-settings-toggle');
-        if (advancedToggle) {
-            advancedToggle.addEventListener('click', () => {
-                const isExpanded = advancedToggle.getAttribute('aria-expanded') === 'true';
-                const content = document.getElementById('advanced-settings-content');
-                
-                advancedToggle.setAttribute('aria-expanded', !isExpanded);
-                content.classList.toggle('hidden', isExpanded);
-            });
-        }
-
-        // Import data
-        document.getElementById('import-data-btn').addEventListener('click', () => {
-            document.getElementById('import-file').click();
-        });
-
-        document.getElementById('import-file').addEventListener('change', importData);
-
-        // Clear data
-        document.getElementById('clear-data-btn').addEventListener('click', clearData);
     }
 
     /**
@@ -199,23 +209,46 @@ const Settings = (function () {
      * loadSettings();
      */
     function loadSettings() {
-        const settings = Storage.getSettings();
+        try {
+            const settings = Storage.getSettings();
 
-        document.getElementById('user-gender').value = settings.gender ?? 'male';
-        document.getElementById('user-age').value = settings.age ?? '';
-        document.getElementById('user-height').value = settings.height ?? '';
-        document.getElementById('activity-level').value = settings.activityLevel ?? '1.2';
+            const genderEl = document.getElementById('user-gender');
+            const ageEl = document.getElementById('user-age');
+            const heightEl = document.getElementById('user-height');
+            const activityEl = document.getElementById('activity-level');
+            const startingWeightEl = document.getElementById('starting-weight');
+            const goalWeightEl = document.getElementById('goal-weight');
+            const targetDeficitEl = document.getElementById('target-deficit');
+            const weightUnitEl = document.getElementById('weight-unit');
+            const calorieUnitEl = document.getElementById('calorie-unit');
 
-        document.getElementById('starting-weight').value = settings.startingWeight ?? '';
-        document.getElementById('goal-weight').value = settings.goalWeight ?? '';
-        document.getElementById('target-deficit').value = settings.targetDeficit ?? -0.2;
-        document.getElementById('weight-unit').value = settings.weightUnit ?? 'kg';
-        document.getElementById('calorie-unit').value = settings.calorieUnit ?? 'cal';
+            // Null checks for graceful degradation
+            if (!genderEl || !ageEl || !heightEl || !activityEl || 
+                !startingWeightEl || !goalWeightEl || !targetDeficitEl || 
+                !weightUnitEl || !calorieUnitEl) {
+                console.warn('Settings.loadSettings: form elements not found');
+                return;
+            }
 
-        // Apply theme
-        Components.applyTheme(settings.theme || 'system');
+            genderEl.value = settings.gender ?? 'male';
+            ageEl.value = settings.age ?? '';
+            heightEl.value = settings.height ?? '';
+            activityEl.value = settings.activityLevel ?? '1.2';
 
-        updateStorageInfo();
+            startingWeightEl.value = settings.startingWeight ?? '';
+            goalWeightEl.value = settings.goalWeight ?? '';
+            targetDeficitEl.value = settings.targetDeficit ?? -0.2;
+            weightUnitEl.value = settings.weightUnit ?? 'kg';
+            calorieUnitEl.value = settings.calorieUnit ?? 'cal';
+
+            // Apply theme
+            Components.applyTheme(settings.theme || 'system');
+
+            updateStorageInfo();
+        } catch (error) {
+            console.error('Settings.loadSettings:', error);
+            Components.showError('Failed to load settings', 'Settings');
+        }
     }
 
     /**
@@ -266,11 +299,15 @@ const Settings = (function () {
      * @example
      * // Called internally by init() and loadSettings()
      * updateStorageInfo();
-     * // Updates DOM element: "42 entries • 128.5 KB used"
      */
     function updateStorageInfo() {
-        const info = Storage.getStorageInfo();
-        Components.setText('storage-info', `${info.entriesCount} entries • ${info.usedFormatted} used`);
+        try {
+            const info = Storage.getStorageInfo();
+            Components.setText('storage-info', `${info.entriesCount} entries • ${info.usedFormatted} used`);
+        } catch (error) {
+            console.error('Settings.updateStorageInfo:', error);
+            // Silently fail - storage info is non-critical
+        }
     }
 
     /**

@@ -240,24 +240,29 @@ const Dashboard = (function () {
      * 3. Theoretical TDEE (BMR × Activity) - last resort using profile data
      */
     function refresh() {
-        // Fetch and prepare data
-        const data = _fetchDashboardData();
+        try {
+            // Fetch and prepare data
+            const data = _fetchDashboardData();
 
-        // Calculate TDEE with fallback chain
-        const tdeeData = _calculateTDEE(data);
+            // Calculate TDEE with fallback chain
+            const tdeeData = _calculateTDEE(data);
 
-        // Render all UI sections
-        _renderTDEEDisplay(tdeeData);
-        _renderTargetIntake(tdeeData.tdee, data.settings);
-        Components.setText('current-weight', data.currentWeight ? Components.formatValue(data.currentWeight, 1) : '—');
+            // Render all UI sections
+            _renderTDEEDisplay(tdeeData);
+            _renderTargetIntake(tdeeData.tdee, data.settings);
+            Components.setText('current-weight', data.currentWeight ? Components.formatValue(data.currentWeight, 1) : '—');
 
-        // Calculate and render weekly summaries
-        const weeklyData = calculateWeeklySummaries(data.processed, data.weightUnit);
-        _renderWeeklyChange(weeklyData);
-        _renderOutlierWarning(tdeeData.stableResult);
+            // Calculate and render weekly summaries
+            const weeklyData = calculateWeeklySummaries(data.processed, data.weightUnit);
+            _renderWeeklyChange(weeklyData);
+            _renderOutlierWarning(tdeeData.stableResult);
 
-        // Render trends
-        renderTrends(data.processed, data.weightUnit);
+            // Render trends
+            renderTrends(data.processed, data.weightUnit);
+        } catch (error) {
+            console.error('Dashboard.refresh:', error);
+            Components.showError('Failed to load dashboard stats. Please refresh.', 'Dashboard');
+        }
     }
 
     /**
@@ -278,51 +283,59 @@ const Dashboard = (function () {
      * renderTrends(processedEntries, 'kg');
      */
     function renderTrends(allEntries, weightUnit) {
-        // Simplified trends: Only show 7-day and 14-day periods
-        // Removed 3-day (too volatile) and 21-day (redundant with 14-day)
+        try {
+            // Simplified trends: Only show 7-day and 14-day periods
+            // Removed 3-day (too volatile) and 21-day (redundant with 14-day)
 
-        const trendsContainer = document.getElementById('tdee-trends-container');
-        if (!trendsContainer) return;
-
-        const periods = [7, 14]; // Simplified from [3, 7, 14, 21]
-        const today = new Date();
-
-        // Clear container
-        trendsContainer.innerHTML = '';
-
-        periods.forEach(days => {
-            const startDate = new Date(today);
-            startDate.setDate(today.getDate() - days + 1); // +1 to include today
-            const startStr = Utils.formatDate(startDate);
-
-            // Get entries from startDate to today
-            const periodEntries = allEntries.filter(e => e.date >= startStr);
-
-            // We need at least 2 data points with weight to calculate slope
-            let tdee = null;
-            if (periodEntries.length >= 2) {
-                tdee = Calculator.calculatePeriodTDEE(periodEntries, weightUnit);
+            const trendsContainer = document.getElementById('tdee-trends-container');
+            if (!trendsContainer) {
+                console.warn('Dashboard.renderTrends: trends container not found');
+                return;
             }
 
-            // Create trend item element
-            const trendItem = document.createElement('div');
-            trendItem.className = 'trend-item';
+            const periods = [7, 14]; // Simplified from [3, 7, 14, 21]
+            const today = new Date();
 
-            // Create label with tooltip
-            const trendLabel = document.createElement('span');
-            trendLabel.className = 'trend-label';
-            
-            trendLabel.textContent = `${days}-Day Trend`;
+            // Clear container
+            trendsContainer.innerHTML = '';
 
-            // Create value element
-            const trendValue = document.createElement('span');
-            trendValue.className = 'trend-value';
-            trendValue.textContent = tdee ? Components.formatValue(tdee, 0) : '—';
+            periods.forEach(days => {
+                const startDate = new Date(today);
+                startDate.setDate(today.getDate() - days + 1); // +1 to include today
+                const startStr = Utils.formatDate(startDate);
 
-            trendItem.appendChild(trendLabel);
-            trendItem.appendChild(trendValue);
-            trendsContainer.appendChild(trendItem);
-        });
+                // Get entries from startDate to today
+                const periodEntries = allEntries.filter(e => e.date >= startStr);
+
+                // We need at least 2 data points with weight to calculate slope
+                let tdee = null;
+                if (periodEntries.length >= 2) {
+                    tdee = Calculator.calculatePeriodTDEE(periodEntries, weightUnit);
+                }
+
+                // Create trend item element
+                const trendItem = document.createElement('div');
+                trendItem.className = 'trend-item';
+
+                // Create label with tooltip
+                const trendLabel = document.createElement('span');
+                trendLabel.className = 'trend-label';
+                
+                trendLabel.textContent = `${days}-Day Trend`;
+
+                // Create value element
+                const trendValue = document.createElement('span');
+                trendValue.className = 'trend-value';
+                trendValue.textContent = tdee ? Components.formatValue(tdee, 0) : '—';
+
+                trendItem.appendChild(trendLabel);
+                trendItem.appendChild(trendValue);
+                trendsContainer.appendChild(trendItem);
+            });
+        } catch (error) {
+            console.error('Dashboard.renderTrends:', error);
+            Components.showError('Failed to load trends', 'Dashboard');
+        }
     }
 
     /**
