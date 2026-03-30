@@ -1,25 +1,27 @@
 {
-  "active_plan": "/media/nvme/projects/tdee-tracker/.sisyphus/plans/P0-critical-blockers.md",
-  "started_at": "2026-03-30T10:03:41.844Z",
+  "active_plan": "/media/nvme/projects/tdee-tracker/.sisyphus/plans/P2-medium-priority.md",
+  "started_at": "2026-03-30T13:42:47.958Z",
+  "completed_at": "2026-03-30T16:30:00.000Z",
   "session_ids": [
-    "ses_2c1ce303bffe3mcLif7RKJ9ype",
-    "ses_2c1c94f86ffeao8nnDeZbFw976",
-    "ses_2c1c8c236ffeQ7roESs6oxN2H3",
-    "ses_2c1c63ff6ffewak9ez8odXwkYI",
-    "ses_2c1c41747ffeqLe0VgYkywChNI",
-    "ses_2c1bf76f4ffe2mMZX64YfdPpez",
-    "ses_2c1bdafbdffeyTTSvaX2Wcmfwa",
-    "ses_2c1723082ffeD7As4xxoAVkRVm",
-    "ses_2c1718e1cffeUsvrTvah2ONw0J",
-    "ses_2c171adb7ffeVvS7VNGYJfKmQF",
-    "ses_2c16a14d4ffeFSy3JXGX4njhNV",
-    "ses_2c169e532ffeAhB1ACuw0Jyke2",
-    "ses_2c169b626ffeBGut9F7TCkOElv",
     "ses_2c104d0d1ffeD1ADfeJnuhOO71",
     "ses_2c0fcc41cffefodjeaRHCd4K9q",
     "ses_2c0f4a62cffe67VsVlhERBizei"
   ],
-  "plan_name": "P0-critical-blockers",
+  "plan_name": "P2-medium-priority",
   "worktree_path": null,
-  "task_sessions": {}
+  "task_sessions": {
+    "P2-1": "ses_2c103fedeffebolNiCWcYfz3x5",
+    "P2-2": "ses_2c103e42cffe0ct6TH5U9I4HjV",
+    "P2-4": "ses_2c103cc5fffed1ivfD4U1aO7w0",
+    "P2-6": "ses_2c103a7b4ffe9LH58z6j9NVq7l",
+    "P2-7": "ses_2c103740bffe6Xbnae73NLPox3",
+    "P2-3": "ses_2c0fcec61ffe3SLJNdPqLmECWT",
+    "P2-5": "ses_2c0fcc41cffefodjeaRHCd4K9q",
+    "P2-8": "ses_2c0fc93efffe2LLfkCgW5Eh5FN",
+    "P2-9": "ses_2c0f4a62cffe67VsVlhERBizei",
+    "P2-10": "ses_2c0f43568ffeSCAqd8vbOBwC2k"
+  },
+  "status": "completed",
+  "tasks_completed": 11,
+  "tasks_total": 11
 }
