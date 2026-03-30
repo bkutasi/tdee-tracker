@@ -4,23 +4,34 @@
  */
 
 // Version must be manually incremented before each deployment
-const CACHE_VERSION = '1.0.1';
+const CACHE_VERSION = '1.0.2';
 const CACHE_NAME = `tdee-tracker-v${CACHE_VERSION}`;
 const STATIC_ASSETS = [
     '/',
     '/index.html',
     '/manifest.json',
     '/css/styles.css',
-    '/js/utils.js',
+    // JS core modules
+    '/js/app.js',
+    '/js/auth.js',
+    '/js/calculator-ewma.js',
+    '/js/calculator-tdee.js',
     '/js/calculator.js',
     '/js/storage.js',
+    '/js/sync.js',
+    '/js/utils.js',
+    '/js/version.js',
+    // UI components
+    '/js/ui/chart.js',
     '/js/ui/components.js',
     '/js/ui/dailyEntry.js',
-    '/js/ui/weeklyView.js',
     '/js/ui/dashboard.js',
+    '/js/ui/focusTrap.js',
     '/js/ui/settings.js',
-    '/js/ui/chart.js',
-    '/js/app.js'
+    '/js/ui/weeklyView.js',
+    // Icons
+    '/icons/icon-192.png',
+    '/icons/icon-512.png'
 ];
 
 // Install: cache static assets
