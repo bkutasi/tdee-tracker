@@ -388,6 +388,21 @@ const Storage = (function () {
         };
     }
 
+    function migrateData(data, fromVersion, toVersion) {
+        'use strict';
+        let migrated = { ...data };
+        
+        for (let version = fromVersion; version < toVersion; version++) {
+            switch (version) {
+                case 0:
+                    migrated.schemaVersion = 1;
+                    break;
+            }
+        }
+        
+        return migrated;
+    }
+
     /**
      * Import data from backup
      * @param {Object|string} data - Data to import (object or JSON string)
@@ -403,20 +418,30 @@ const Storage = (function () {
                 return error('Invalid data format. Expected a JSON object with "entries" and/or "settings".', 'INVALID_FORMAT');
             }
 
+            const importVersion = data.schemaVersion || 0;
+            
+            if (importVersion > CURRENT_SCHEMA_VERSION) {
+                return error(`Import requires newer app version (schema ${importVersion} > ${CURRENT_SCHEMA_VERSION})`, 'VERSION_MISMATCH');
+            }
+            
+            const migratedData = importVersion < CURRENT_SCHEMA_VERSION 
+                ? migrateData(data, importVersion, CURRENT_SCHEMA_VERSION)
+                : data;
+
             // Import settings if present
-            if (data.settings) {
-                saveSettings(data.settings);
+            if (migratedData.settings) {
+                saveSettings(migratedData.settings);
             }
 
             // Import entries
             let entriesImported = 0;
             let entriesSkipped = 0;
             
-            if (data.entries && typeof data.entries === 'object') {
+            if (migratedData.entries && typeof migratedData.entries === 'object') {
                 const existingEntries = getAllEntries();
                 const mergedEntries = { ...existingEntries };
 
-                for (const [date, entry] of Object.entries(data.entries)) {
+                for (const [date, entry] of Object.entries(migratedData.entries)) {
                     // Validate date format
                     if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
                         // Sanitize entry data to prevent XSS

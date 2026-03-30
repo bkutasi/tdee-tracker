@@ -361,6 +361,7 @@ const Settings = (function () {
      * - File read errors → "Failed to read file" toast
      * - Invalid JSON → Import failed toast with error message
      * - Skipped entries → Toast shows count, details in console
+     * - Sync errors → Displayed to user via Components.showError()
      * 
      * @example
      * // Called when user selects a backup file
@@ -371,36 +372,51 @@ const Settings = (function () {
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (event) => {
-            const result = Storage.importData(event.target.result);
+        reader.onload = async (event) => {
+            try {
+                const result = Storage.importData(event.target.result);
 
-            if (result.success) {
-                // Check if any entries were skipped
-                if (result.entriesSkipped > 0) {
-                    Components.showToast(
-                        `Imported ${result.entriesImported} entries. ${result.entriesSkipped} skipped (check console).`,
-                        'error'
-                    );
-                } else if (result.entriesImported > 0) {
-                    Components.showToast(`Imported ${result.entriesImported} entries!`, 'success');
+                if (result.success) {
+                    // Check if any entries were skipped
+                    if (result.entriesSkipped > 0) {
+                        Components.showToast(
+                            `Imported ${result.entriesImported} entries. ${result.entriesSkipped} skipped (check console).`,
+                            'error'
+                        );
+                    } else if (result.entriesImported > 0) {
+                        Components.showToast(`Imported ${result.entriesImported} entries!`, 'success');
+                    } else {
+                        Components.showToast('No entries imported. Check file format.', 'error');
+                    }
+                    loadSettings();
+                    DailyEntry.refresh();
+                    WeeklyView.refresh();
+                    Dashboard.refresh();
+                    Chart.refresh();
+                    
+                    // Queue imported entries for sync if authenticated
+                    if (window.Sync && window.Auth && Auth.isAuthenticated()) {
+                        try {
+                            // Trigger sync to process queued operations
+                            await Sync.syncAll();
+                            Components.showToast('Data synced to cloud', 'success');
+                        } catch (syncError) {
+                            console.error('Import sync failed:', syncError);
+                            Components.showError(
+                                `Import succeeded but sync failed: ${syncError.message}. Your data is saved locally.`,
+                                'Settings.importData'
+                            );
+                        }
+                    }
                 } else {
-                    Components.showToast('No entries imported. Check file format.', 'error');
+                    Components.showToast(`Import failed: ${result.error}`, 'error');
                 }
-                loadSettings();
-                DailyEntry.refresh();
-                WeeklyView.refresh();
-                Dashboard.refresh();
-                Chart.refresh();
-                
-                // Queue imported entries for sync if authenticated
-                if (window.Sync && window.Auth && Auth.isAuthenticated()) {
-                    // Trigger sync to process queued operations
-                    Sync.syncAll().catch(() => {
-                        // Sync failed - silently continue
-                    });
-                }
-            } else {
-                Components.showToast(`Import failed: ${result.error}`, 'error');
+            } catch (error) {
+                console.error('Import failed:', error);
+                Components.showError(
+                    `Import failed: ${error.message}. Please try again.`,
+                    'Settings.importData'
+                );
             }
         };
 

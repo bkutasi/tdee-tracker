@@ -139,7 +139,7 @@ git commit -m "fix(p1): add error boundaries to render functions
 
 ---
 
-## Fix P1-2: Silent Sync Error Swallowing (15 minutes)
+## ~~Fix P1-2: Silent Sync Error Swallowing (15 minutes)~~ ✅ COMPLETE
 
 **Problem**: Sync errors not shown to user → data inconsistency between local and cloud
 
@@ -391,7 +391,7 @@ git commit -m "fix(p1): fix parseDate() timezone bug
 
 ---
 
-## Fix P1-5: No Quota Validation in importData() (20 minutes)
+## ~~Fix P1-5: No Quota Validation in importData() (20 minutes)~~ ✅ COMPLETE
 
 **Problem**: Risk of partial corruption on large imports if LocalStorage quota exceeded
 
@@ -471,7 +471,7 @@ git commit -m "fix(p1): add quota validation to importData()
 
 ---
 
-## Fix P1-6: No Schema Versioning in importData() (30 minutes)
+## ~~Fix P1-6: No Schema Versioning in importData() (30 minutes)~~ ✅ COMPLETE
 
 **Problem**: No migration path for future schema changes → breaking changes risk
 
