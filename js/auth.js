@@ -75,6 +75,7 @@ const Auth = (function() {
             const script = document.createElement('script');
             // Pinned version for security - update manually when needed
             script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.47.0/dist/umd/supabase.min.js';
+            script.integrity = 'sha384-fm42zLXjam4N3lT5umWgNtBBPMP3Ddrdmr9lnPKtDWzs5Dqy457Yn6+eTvCgRU3n';
             script.crossOrigin = 'anonymous';
             script.onload = () => {
                 resolve();

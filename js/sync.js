@@ -172,6 +172,20 @@ const Sync = (function() {
     }
 
     /**
+     * Sleep with exponential backoff
+     * @param {number} attempt - Attempt number (0-indexed)
+     * @returns {Promise<void>}
+     */
+    function sleepWithBackoff(attempt) {
+        'use strict';
+        const baseDelay = 1000;  // 1 second
+        const maxDelay = 30000;  // 30 seconds cap
+        const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+        
+        return new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    /**
      * Load pending sync operations from LocalStorage
      */
     function loadSyncQueue() {
@@ -692,80 +706,99 @@ const Sync = (function() {
      * Sync all pending operations
      */
     async function syncAll() {
-        if (isSyncing) {
-            _SyncDebug.log('Sync already in progress', 'warn');
-            return;
-        }
-
-        if (!canSync()) {
-            return;
-        }
-
-        if (syncQueue.length === 0) {
-            _SyncDebug.log('No pending operations', 'info');
-            return;
-        }
-
-        isSyncing = true;
-        const startTime = Date.now();
-        const operationCount = syncQueue.length;
-        _SyncDebug.log(`Starting sync of ${operationCount} operations`, 'info');
-
-        const failed = [];
-        const removed = []; // Track operations removed due to retry limit or duplicate errors
-
-        for (const operation of syncQueue) {
-            try {
-                const success = await executeOperation(operation);
-                if (!success) {
-                    // Check if operation should be removed (retry limit OR duplicate key)
-                    const errorMessage = operation.lastError?.message || '';
-                    const isDuplicateKey = errorMessage.includes('duplicate key') || 
-                                          errorMessage.includes('23505');
-                    
-                    if (operation.retries > MAX_RETRIES || isDuplicateKey) {
-                        removed.push(operation);
-                        // Don't add to failed - remove from queue permanently
-                    } else {
-                        failed.push(operation);
-                    }
-                }
-            } catch (error) {
-                _SyncDebug.log(`Operation failed: ${error.message}`, 'error', { operation, error });
-                recordError(operation.type, error, { operation });
-                failed.push(operation);
-            }
-        }
-
-        // Keep failed operations for retry (only those under retry limit)
-        syncQueue = failed;
-        saveSyncQueue();
-
-        isSyncing = false;
-        lastSyncTime = Date.now();
-        const duration = Date.now() - startTime;
+        const TIMEOUT_MS = 30000; // 30 seconds
         
-        _SyncDebug.log(`Sync complete: ${operationCount - failed.length - removed.length}/${operationCount} succeeded. ${failed.length} pending retry. ${removed.length} removed (retry limit).`, 
-            failed.length > 0 || removed.length > 0 ? 'warn' : 'info');
-
-        if (removed.length > 0) {
-            showToast(`${removed.length} operations removed from queue (max retries exceeded)`, 'error');
-        }
-
-        // Dispatch sync complete event
-        window.dispatchEvent(new CustomEvent('sync:complete', {
-            detail: { 
-                success: failed.length === 0 && removed.length === 0, 
-                failed: failed.length,
-                succeeded: operationCount - failed.length - removed.length,
-                removed: removed.length,
-                duration
+        const syncPromise = (async () => {
+            if (isSyncing) {
+                _SyncDebug.log('Sync already in progress', 'warn');
+                return;
             }
-        }));
+
+            if (!canSync()) {
+                return;
+            }
+
+            if (syncQueue.length === 0) {
+                _SyncDebug.log('No pending operations', 'info');
+                return;
+            }
+
+            isSyncing = true;
+            const startTime = Date.now();
+            const operationCount = syncQueue.length;
+            _SyncDebug.log(`Starting sync of ${operationCount} operations`, 'info');
+
+            const failed = [];
+            const removed = []; // Track operations removed due to retry limit or duplicate errors
+
+            for (const operation of syncQueue) {
+                try {
+                    const success = await executeOperation(operation);
+                    if (!success) {
+                        // Check if operation should be removed (retry limit OR duplicate key)
+                        const errorMessage = operation.lastError?.message || '';
+                        const isDuplicateKey = errorMessage.includes('duplicate key') || 
+                                              errorMessage.includes('23505');
+                        
+                        if (operation.retries > MAX_RETRIES || isDuplicateKey) {
+                            removed.push(operation);
+                            // Don't add to failed - remove from queue permanently
+                        } else {
+                            failed.push(operation);
+                        }
+                    }
+                } catch (error) {
+                    _SyncDebug.log(`Operation failed: ${error.message}`, 'error', { operation, error });
+                    recordError(operation.type, error, { operation });
+                    failed.push(operation);
+                }
+            }
+
+            // Keep failed operations for retry (only those under retry limit)
+            syncQueue = failed;
+            saveSyncQueue();
+
+            isSyncing = false;
+            lastSyncTime = Date.now();
+            const duration = Date.now() - startTime;
+            
+            _SyncDebug.log(`Sync complete: ${operationCount - failed.length - removed.length}/${operationCount} succeeded. ${failed.length} pending retry. ${removed.length} removed (retry limit).`, 
+                failed.length > 0 || removed.length > 0 ? 'warn' : 'info');
+
+            if (removed.length > 0) {
+                showToast(`${removed.length} operations removed from queue (max retries exceeded)`, 'error');
+            }
+
+            // Dispatch sync complete event
+            window.dispatchEvent(new CustomEvent('sync:complete', {
+                detail: { 
+                    success: failed.length === 0 && removed.length === 0, 
+                    failed: failed.length,
+                    succeeded: operationCount - failed.length - removed.length,
+                    removed: removed.length,
+                    duration
+                }
+            }));
+        })();
+        
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Sync timeout after 30s')), TIMEOUT_MS);
+        });
+        
+        try {
+            return await Promise.race([syncPromise, timeoutPromise]);
+        } catch (error) {
+            if (error.message.includes('timeout')) {
+                _SyncDebug.error('Sync timed out:', error);
+                isSyncing = false;
+                return { success: false, error: 'Sync timed out. Please check connection.' };
+            }
+            throw error;
+        }
     }
 
     /**
-     * Execute a single sync operation
+     * Execute a single sync operation with exponential backoff retry
      */
     async function executeOperation(operation) {
         const Auth = window.Auth;
@@ -786,47 +819,73 @@ const Sync = (function() {
 
         _SyncDebug.log(`Executing ${type} on ${table} [ID: ${id}, Retry: ${retries}]`, 'debug');
 
-        let result;
+        // Retry loop with exponential backoff
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                let result;
 
-        switch (type) {
-            case 'create':
-                result = await createRecord(table, data);
-                break;
-            case 'update':
-                result = await updateRecord(table, data);
-                break;
-            case 'delete':
-                result = await deleteRecord(table, data);
-                break;
-            default:
-                _SyncDebug.log(`Unknown operation type: ${type}`, 'error', { operation });
-                return false;
-        }
+                switch (type) {
+                    case 'create':
+                        result = await createRecord(table, data);
+                        break;
+                    case 'update':
+                        result = await updateRecord(table, data);
+                        break;
+                    case 'delete':
+                        result = await deleteRecord(table, data);
+                        break;
+                    default:
+                        _SyncDebug.log(`Unknown operation type: ${type}`, 'error', { operation });
+                        return false;
+                }
 
-        if (result.success) {
-            _SyncDebug.log(`${type} ${table} synced successfully [ID: ${id}]`, 'info');
-            return true;
-        } else {
-            const errorMessage = result.error?.message || result.error || 'Unknown error';
-            const errorCode = result.error?.code || result.error?.status;
-            
-            // Check if this is a duplicate key violation (409 Conflict)
-            const isDuplicateKey = errorMessage.includes('duplicate key') || 
-                                   errorCode === '409' || 
-                                   errorCode === '23505'; // PostgreSQL unique violation code
-            
-            if (isDuplicateKey) {
-                // Don't retry duplicate key errors - they won't succeed on retry
-                _SyncDebug.log(`Duplicate key detected [ID: ${id}] - removing from queue (will be handled by existence check)`, 'warn');
-                recordError(`${type} ${table} (duplicate)`, result.error || new Error('Duplicate key'), { operation });
-                return false; // Operation will be removed from queue
+                if (result.success) {
+                    _SyncDebug.log(`${type} ${table} synced successfully [ID: ${id}]`, 'info');
+                    return true;
+                } else {
+                    const errorMessage = result.error?.message || result.error || 'Unknown error';
+                    const errorCode = result.error?.code || result.error?.status;
+                    
+                    // Check if this is a duplicate key violation (409 Conflict)
+                    const isDuplicateKey = errorMessage.includes('duplicate key') || 
+                                           errorCode === '409' || 
+                                           errorCode === '23505'; // PostgreSQL unique violation code
+                    
+                    if (isDuplicateKey) {
+                        // Don't retry duplicate key errors - they won't succeed on retry
+                        _SyncDebug.log(`Duplicate key detected [ID: ${id}] - removing from queue (will be handled by existence check)`, 'warn');
+                        recordError(`${type} ${table} (duplicate)`, result.error || new Error('Duplicate key'), { operation });
+                        return false;
+                    }
+                    
+                    // Last attempt - record error and return false
+                    if (attempt === MAX_RETRIES) {
+                        _SyncDebug.log(`Operation failed after ${MAX_RETRIES + 1} attempts [ID: ${id}]: ${errorMessage}`, 'error', { error: result.error });
+                        recordError(`${type} ${table}`, result.error || new Error('Operation failed'), { operation });
+                        operation.retries = retries + 1;
+                        return false;
+                    }
+                    
+                    // Wait with exponential backoff before retry
+                    _SyncDebug.log(`Attempt ${attempt + 1} failed, retrying with backoff...`, 'warn');
+                    await sleepWithBackoff(attempt);
+                }
+            } catch (error) {
+                // Last attempt - record error and return false
+                if (attempt === MAX_RETRIES) {
+                    _SyncDebug.log(`Operation failed after ${MAX_RETRIES + 1} attempts [ID: ${id}]: ${error.message}`, 'error', { operation, error });
+                    recordError(operation.type, error, { operation });
+                    operation.retries = retries + 1;
+                    return false;
+                }
+                
+                // Wait with exponential backoff before retry
+                _SyncDebug.log(`Attempt ${attempt + 1} failed with exception, retrying with backoff...`, 'warn');
+                await sleepWithBackoff(attempt);
             }
-            
-            _SyncDebug.log(`Operation failed [ID: ${id}]: ${errorMessage}`, 'error', { error: result.error });
-            recordError(`${type} ${table}`, result.error || new Error('Operation failed'), { operation });
-            operation.retries = retries + 1;
-            return false;
         }
+        
+        return false;
     }
 
     /**
