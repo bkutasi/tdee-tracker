@@ -478,11 +478,13 @@ const Sync = (function() {
             return { success: false, error: 'Not authenticated' };
         }
 
-        const user = Auth.getCurrentUser();
-        if (!user) {
+        const { session } = await Auth.getSession();
+        if (!session || !session.user) {
             _SyncDebug.info('No user - skipping');
             return { success: false, error: 'No user found' };
         }
+
+        const user = session.user;
 
         // Get all local entries
         const allEntriesObj = Storage.getAllEntries();
@@ -972,7 +974,8 @@ const Sync = (function() {
         }
 
         const isAuthenticated = Auth.isAuthenticated();
-        const user = Auth.getCurrentUser();
+        const { session } = await Auth.getSession();
+        const user = session && session.user ? session.user : null;
 
         // Queue sync to Supabase if authenticated (regardless of online status)
         if (isAuthenticated && user) {
@@ -1031,7 +1034,8 @@ const Sync = (function() {
         }
 
         const isAuthenticated = Auth.isAuthenticated();
-        const user = Auth.getCurrentUser();
+        const { session } = await Auth.getSession();
+        const user = session && session.user ? session.user : null;
 
         // Queue sync to Supabase if authenticated (regardless of online status)
         if (isAuthenticated && user) {
