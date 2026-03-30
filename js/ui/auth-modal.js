@@ -22,6 +22,7 @@ const AuthModal = (function() {
     let logoutButton = null;
     let statusContainer = null;
     let messageElement = null;
+    let releaseFocus = null;
 
     /**
      * Initialize auth modal
@@ -777,11 +778,10 @@ const AuthModal = (function() {
         // Always re-render auth state when modal opens
         renderAuthState();
 
-        // Focus first interactive element
-        setTimeout(() => {
-            const firstFocusable = modalContent.querySelector('button, input');
-            firstFocusable?.focus();
-        }, 100);
+        // Trap focus within modal
+        if (typeof FocusTrap !== 'undefined') {
+            releaseFocus = FocusTrap.trapFocus(modalContent);
+        }
     }
 
     /**
@@ -795,6 +795,12 @@ const AuthModal = (function() {
         modal.setAttribute('aria-hidden', 'true');
         modal.classList.remove('show');
         document.body.style.overflow = '';
+
+        // Release focus trap (restores focus to trigger element)
+        if (releaseFocus) {
+            releaseFocus();
+            releaseFocus = null;
+        }
     }
 
     /**
