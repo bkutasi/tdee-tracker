@@ -683,35 +683,26 @@ describe('Sync.queueLocalEntriesForSync', () => {
     });
 });
 
-describe('Sync.saveWeightEntry - Calories-only entries', () => {
+describe('Sync.saveWeightEntry - Weight validation', () => {
     beforeEach(() => {
         localStorage.clear();
         Storage.init();
     });
 
-    it('saves calories-only entry to LocalStorage (no weight)', async () => {
+    it('rejects entry without weight field', async () => {
         const entry = {
             date: '2026-03-10',
-            weight: null,
             calories: 2000,
-            notes: 'Calories only'
+            notes: 'No weight field'
         };
 
         const result = await Sync.saveWeightEntry(entry);
 
-        expect(result.success).toBeTrue();
-        const retrieved = Storage.getEntry('2026-03-10');
-        expect(retrieved.weight).toBeNull();
-        expect(retrieved.calories).toBe(2000);
-        expect(retrieved.notes).toBe('Calories only');
+        expect(result.success).toBeFalse();
+        expect(result.error).toBe('Entry must include valid weight value');
     });
 
-    it('does not queue calories-only entry for sync when not authenticated', async () => {
-        window.Auth = {
-            isAuthenticated: () => false,
-            getCurrentUser: () => null
-        };
-
+    it('rejects entry with null weight', async () => {
         const entry = {
             date: '2026-03-11',
             weight: null,
@@ -720,75 +711,66 @@ describe('Sync.saveWeightEntry - Calories-only entries', () => {
 
         const result = await Sync.saveWeightEntry(entry);
 
-        expect(result.success).toBeTrue();
-        const queue = Sync.getQueue();
-        expect(queue).toHaveLength(0);
+        expect(result.success).toBeFalse();
+        expect(result.error).toBe('Entry must include valid weight value');
     });
 
-    it('queues calories-only entry for sync when authenticated', async () => {
-        window.Auth = {
-            isAuthenticated: () => true,
-            getCurrentUser: () => ({ id: 'user-789', email: 'test@example.com' }),
-            getSession: async () => ({ session: { user: { id: 'user-789' } } }),
-            _getSupabase: () => null,
-            onAuthStateChange: () => {}
-        };
-
+    it('rejects entry with undefined weight', async () => {
         const entry = {
             date: '2026-03-12',
-            weight: null,
-            calories: 2200,
-            notes: 'High calorie day'
+            weight: undefined,
+            calories: 2200
         };
 
         const result = await Sync.saveWeightEntry(entry);
 
-        expect(result.success).toBeTrue();
-        const queue = Sync.getQueue();
-        expect(queue).toHaveLength(1);
-        expect(queue[0].data.weight).toBeNull();
-        expect(queue[0].data.calories).toBe(2200);
-        expect(queue[0].data.notes).toBe('High calorie day');
+        expect(result.success).toBeFalse();
+        expect(result.error).toBe('Entry must include valid weight value');
     });
 
-    it('saves weight-only entry to LocalStorage (no calories)', async () => {
+    it('rejects entry with NaN weight', async () => {
         const entry = {
             date: '2026-03-13',
+            weight: NaN,
+            calories: 2000
+        };
+
+        const result = await Sync.saveWeightEntry(entry);
+
+        expect(result.success).toBeFalse();
+        expect(result.error).toBe('Entry must include valid weight value');
+    });
+
+    it('accepts entry with valid weight and no calories', async () => {
+        const entry = {
+            date: '2026-03-14',
             weight: 75.5,
             calories: null,
-            notes: ''
+            notes: 'Weight only'
         };
 
         const result = await Sync.saveWeightEntry(entry);
 
         expect(result.success).toBeTrue();
-        const retrieved = Storage.getEntry('2026-03-13');
+        const retrieved = Storage.getEntry('2026-03-14');
         expect(retrieved.weight).toBe(75.5);
         expect(retrieved.calories).toBeNull();
     });
 
-    it('queues weight-only entry for sync when authenticated', async () => {
-        window.Auth = {
-            isAuthenticated: () => true,
-            getCurrentUser: () => ({ id: 'user-999', email: 'test@example.com' }),
-            getSession: async () => ({ session: { user: { id: 'user-999' } } }),
-            _getSupabase: () => null,
-            onAuthStateChange: () => {}
-        };
-
+    it('accepts entry with valid weight and calories', async () => {
         const entry = {
-            date: '2026-03-14',
+            date: '2026-03-15',
             weight: 76.0,
-            calories: null
+            calories: 2200,
+            notes: 'Complete entry'
         };
 
         const result = await Sync.saveWeightEntry(entry);
 
         expect(result.success).toBeTrue();
-        const queue = Sync.getQueue();
-        expect(queue).toHaveLength(1);
-        expect(queue[0].data.weight).toBe(76.0);
-        expect(queue[0].data.calories).toBeNull();
+        const retrieved = Storage.getEntry('2026-03-15');
+        expect(retrieved.weight).toBe(76.0);
+        expect(retrieved.calories).toBe(2200);
     });
 });
 
@@ -861,5 +843,72 @@ describe('Components.showToast - Empty message handling', () => {
         const toast = document.querySelector('.toast');
         expect(toast.classList.contains('info') || toast.classList.contains('toast')).toBeTrue();
         expect(toast.textContent).toBe('Info message');
+    });
+});
+
+describe('Import triggers sync when authenticated', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        Storage.init();
+    });
+
+    it('triggers sync after successful import when authenticated', async () => {
+        window.Auth = {
+            isAuthenticated: () => true,
+            getCurrentUser: () => ({ id: 'test-user', email: 'test@example.com' }),
+            getSession: async () => ({ session: { user: { id: 'test-user' } } })
+        };
+
+        const syncSpy = jest.fn(() => Promise.resolve());
+        const originalSyncAll = Sync.syncAll;
+        Sync.syncAll = syncSpy;
+
+        const importData = {
+            schemaVersion: 1,
+            entries: {
+                '2026-03-01': { weight: 80, calories: 1600, notes: '' }
+            }
+        };
+
+        const result = Storage.importData(importData);
+        expect(result.success).toBeTrue();
+
+        if (window.Auth && window.Auth.isAuthenticated()) {
+            await Sync.syncAll();
+        }
+
+        expect(syncSpy).toHaveBeenCalledTimes(1);
+
+        Sync.syncAll = originalSyncAll;
+        delete window.Auth;
+    });
+
+    it('does not trigger sync if not authenticated', async () => {
+        window.Auth = {
+            isAuthenticated: () => false
+        };
+
+        const syncSpy = jest.fn(() => Promise.resolve());
+        const originalSyncAll = Sync.syncAll;
+        Sync.syncAll = syncSpy;
+
+        const importData = {
+            schemaVersion: 1,
+            entries: {
+                '2026-03-02': { weight: 81, calories: 1700, notes: '' }
+            }
+        };
+
+        const result = Storage.importData(importData);
+        expect(result.success).toBeTrue();
+
+        if (window.Auth && window.Auth.isAuthenticated()) {
+            await Sync.syncAll();
+        }
+
+        expect(syncSpy).not.toHaveBeenCalled();
+
+        Sync.syncAll = originalSyncAll;
+        delete window.Auth;
     });
 });

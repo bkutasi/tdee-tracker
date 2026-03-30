@@ -270,34 +270,24 @@ test('does not queue delete with null ID', async () => {
 
 console.log('\n=== Phase 1: Clear Queue Integration (Fix #4) ===\n');
 
-// TODO: Fix test setup - queue not populating correctly in Node.js environment
-// test('clears sync queue before clearing storage', () => {
-//     Storage.init();
-//     
-//     window.Auth = { 
-//         isAuthenticated: () => true,
-//         getCurrentUser: () => ({ id: 'test-user-123', email: 'test@example.com' })
-//     };
-//     
-//     const Sync = resetSyncMocks();
-//     
-//     Sync.saveWeightEntry({ date: '2026-03-16', weight: 80.5, calories: 2000 });
-//     Sync.saveWeightEntry({ date: '2026-03-17', weight: 81.0, calories: 2100 });
-//     
-//     const queueBefore = Sync.getQueue();
-//     expect(queueBefore.length).toBe(2);
-//     
-//     if (typeof Sync.clearQueue === 'function') {
-//         Sync.clearQueue();
-//     }
-//     Storage.clearAll();
-//     
-//     const queueAfter = Sync.getQueue();
-//     expect(queueAfter.length).toBe(0);
-//     
-//     const allEntries = Storage.getAllEntries();
-//     expect(Object.keys(allEntries).length).toBe(0);
-// });
+test('clears sync queue before clearing storage', async () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    await Sync.saveWeightEntry({ date: '2026-03-16', weight: 80.5, calories: 2000 });
+    await Sync.saveWeightEntry({ date: '2026-03-17', weight: 81.0, calories: 2100 });
+    
+    const queueBefore = Sync.getQueue();
+    expect(queueBefore.length).toBe(2);
+    
+    Storage.clearAll();
+    
+    const queueAfter = Sync.getQueue();
+    expect(queueAfter.length).toBe(0);
+    
+    const allEntries = Storage.getAllEntries();
+    expect(Object.keys(allEntries).length).toBe(0);
+});
 
 test('handles clear data when Sync module not available', () => {
     Storage.init();
