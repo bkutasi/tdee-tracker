@@ -5,6 +5,34 @@
 
 const Utils = (function () {
     'use strict';
+    
+    // Define AppConstants for Node.js environment (not available in global scope)
+    if (typeof window === 'undefined' && typeof AppConstants === 'undefined') {
+        var AppConstants = {
+            MS_PER_SECOND: 1000,
+            MS_PER_MINUTE: 60000,
+            MS_PER_HOUR: 3600000,
+            MS_PER_DAY: 86400000,
+            SYNC_INTERVAL_MS: 30000,
+            MAX_RETRIES: 3,
+            RETRY_DELAY_MS: 1000,
+            AUTH_TIMEOUT_MS: 5000,
+            AUTH_POLL_INTERVAL_MS: 100,
+            TOAST_AUTO_HIDE_DELAY_MS: 5000,
+            MAX_SYNC_ERROR_HISTORY: 50,
+            MAX_STORAGE_ENTRIES: 10000,
+            STORAGE_KEY_ENTRIES: 'tdee_entries',
+            STORAGE_KEY_SETTINGS: 'tdee_settings',
+            MIN_WEIGHT_KG: 20,
+            MAX_WEIGHT_KG: 300,
+            MIN_WEIGHT_LB: 44,
+            MAX_WEIGHT_LB: 660,
+            MIN_CALORIES: 0,
+            MAX_CALORIES: 15000,
+            DEBOUNCE_DELAY_MS: 300,
+            THROTTLE_LIMIT_MS: 100
+        };
+    }
 
     /**
      * Result object pattern for consistent error handling
@@ -39,25 +67,28 @@ const Utils = (function () {
      * Based on realistic human weight ranges
      */
     const WEIGHT_BOUNDS = {
-        kg: { min: 20, max: 300 },
-        lb: { min: 44, max: 660 }
+        kg: { min: AppConstants?.MIN_WEIGHT_KG || 20, max: AppConstants?.MAX_WEIGHT_KG || 300 },
+        lb: { min: AppConstants?.MIN_WEIGHT_LB || 44, max: AppConstants?.MAX_WEIGHT_LB || 660 }
     };
 
     /**
      * Validation bounds for calorie intake
      * Allows for extreme outliers while catching obvious errors
      */
-    const CALORIE_BOUNDS = { min: 0, max: 15000 };
+    const CALORIE_BOUNDS = { 
+        min: AppConstants?.MIN_CALORIES || 0, 
+        max: AppConstants?.MAX_CALORIES || 15000 
+    };
 
     /**
      * Debounce default wait time in milliseconds
      */
-    const DEBOUNCE_DELAY = 300;
+    const DEBOUNCE_DELAY = AppConstants?.DEBOUNCE_DELAY_MS || 300;
 
     /**
      * Throttle default limit in milliseconds
      */
-    const THROTTLE_LIMIT = 100;
+    const THROTTLE_LIMIT = AppConstants?.THROTTLE_LIMIT_MS || 100;
 
     /**
      * Format date as YYYY-MM-DD
@@ -123,7 +154,7 @@ const Utils = (function () {
         const dayNum = d.getUTCDay() || 7;
         d.setUTCDate(d.getUTCDate() + 4 - dayNum);
         const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        return Math.ceil((((d - yearStart) / AppConstants.MS_PER_DAY) + 1) / 7);
     }
 
     /**
@@ -420,7 +451,7 @@ const Utils = (function () {
         }
 
         // Check range limit
-        const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.round((end - start) / AppConstants.MS_PER_DAY);
         if (diffDays > maxDays) {
             return error(
                 `Date range exceeds maximum of ${maxDays} days (${Math.round(maxDays / 365)} years)`,

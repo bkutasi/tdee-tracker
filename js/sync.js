@@ -18,6 +18,34 @@
 
 'use strict';
 
+// Define AppConstants for Node.js environment (not available in global scope)
+if (typeof window === 'undefined' && typeof AppConstants === 'undefined') {
+    var AppConstants = {
+        MS_PER_SECOND: 1000,
+        MS_PER_MINUTE: 60000,
+        MS_PER_HOUR: 3600000,
+        MS_PER_DAY: 86400000,
+        SYNC_INTERVAL_MS: 30000,
+        MAX_RETRIES: 3,
+        RETRY_DELAY_MS: 1000,
+        AUTH_TIMEOUT_MS: 5000,
+        AUTH_POLL_INTERVAL_MS: 100,
+        TOAST_AUTO_HIDE_DELAY_MS: 5000,
+        MAX_SYNC_ERROR_HISTORY: 50,
+        MAX_STORAGE_ENTRIES: 10000,
+        STORAGE_KEY_ENTRIES: 'tdee_entries',
+        STORAGE_KEY_SETTINGS: 'tdee_settings',
+        MIN_WEIGHT_KG: 20,
+        MAX_WEIGHT_KG: 300,
+        MIN_WEIGHT_LB: 44,
+        MAX_WEIGHT_LB: 660,
+        MIN_CALORIES: 0,
+        MAX_CALORIES: 15000,
+        DEBOUNCE_DELAY_MS: 300,
+        THROTTLE_LIMIT_MS: 100
+    };
+}
+
 // Load SyncDebug module (Node.js compatibility)
 // Uses lazy getter + proxy to access window.SyncDebug at runtime, not load time
 // This fixes the issue where sync.js loads before sync-debug.js sets window.SyncDebug
@@ -53,15 +81,15 @@ const Sync = (function() {
     let syncQueue = [];
     let isSyncing = false;
     let lastSyncTime = null;
-    // Time constants
-    const SYNC_INTERVAL = 30000;           // 30 seconds - background sync interval
-    const AUTH_TIMEOUT = 5000;             // 5 seconds - timeout for auth ready check
-    const AUTH_POLL_INTERVAL = 100;        // 100ms - polling interval for auth ready
-    const TOAST_AUTO_HIDE_DELAY = 5000;    // 5 seconds - auto-hide toast notifications
+    // Time constants (use AppConstants when available)
+    const SYNC_INTERVAL = AppConstants?.SYNC_INTERVAL_MS || 30000;
+    const AUTH_TIMEOUT = AppConstants?.AUTH_TIMEOUT_MS || 5000;
+    const AUTH_POLL_INTERVAL = AppConstants?.AUTH_POLL_INTERVAL_MS || 100;
+    const TOAST_AUTO_HIDE_DELAY = AppConstants?.TOAST_AUTO_HIDE_DELAY_MS || 5000;
     
     // Retry and error constants
-    const MAX_RETRIES = 3;                 // Maximum retry attempts for sync operations
-    const MAX_ERROR_HISTORY = 50;          // Maximum error history entries to keep
+    const MAX_RETRIES = AppConstants?.MAX_RETRIES || 3;
+    const MAX_ERROR_HISTORY = AppConstants?.MAX_SYNC_ERROR_HISTORY || 50;
     
     // Storage keys
     const QUEUE_KEY = 'tdee_sync_queue';
@@ -695,7 +723,7 @@ const Sync = (function() {
                     const isDuplicateKey = errorMessage.includes('duplicate key') || 
                                           errorMessage.includes('23505');
                     
-                    if (operation.retries > 3 || isDuplicateKey) {
+                    if (operation.retries > MAX_RETRIES || isDuplicateKey) {
                         removed.push(operation);
                         // Don't add to failed - remove from queue permanently
                     } else {
