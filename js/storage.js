@@ -248,7 +248,7 @@ const Storage = (function () {
     /**
      * Delete entry for a specific date
      * @param {string} date - Date in YYYY-MM-DD format
-     * @returns {boolean|Object} true for success, or error object with {success: false, error, code}
+     * @returns {Object} {success: boolean, error?: string, code?: string}
      */
     function deleteEntry(date) {
         // Validate date format
@@ -265,8 +265,11 @@ const Storage = (function () {
                 
                 // Invalidate cache after deleting
                 entriesCache = null;
+                
+                return success({ deleted: true });
             }
-            return true;
+            // Entry not found - still success (idempotent)
+            return success({ deleted: false, reason: 'not_found' });
         } catch (err) {
             if (err.name === 'QuotaExceededError') {
                 return error('Storage limit reached. Please export and clear old data.', 'QUOTA_EXCEEDED');

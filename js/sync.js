@@ -1070,6 +1070,10 @@ const Sync = (function() {
             return localResult;
         }
 
+        if (localResult.deleted === false && localResult.reason === 'not_found') {
+            _SyncDebug.warn(`Entry not found locally: ${id}`);
+        }
+
         // Check authentication status
         const Auth = window.Auth;
         if (!Auth) {
