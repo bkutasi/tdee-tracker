@@ -39,18 +39,40 @@ const App = (function () {
                 }
                 
                 await Sync.init();
-                AuthModal.init();
+                // AuthModal.init() removed - will be called when lazy loaded on first click
             } catch (error) {
                 // Auth initialization failed - error is handled internally
             }
         }
 
-        // Initialize UI components
+        // Initialize UI components (critical path)
         DailyEntry.init();
         WeeklyView.init();
         Dashboard.init();
         Settings.init();
-        Chart.init();
+        
+        // Lazy load chart modules on demand (only when progress section is visible)
+        // Chart is not critical for initial page load - load when needed
+        const progressSection = document.getElementById('progress-section');
+        if (progressSection) {
+            // Use IntersectionObserver to load chart when it scrolls into view
+            const chartObserver = new IntersectionObserver(async (entries) => {
+                if (entries[0].isIntersecting) {
+                    try {
+                        // Load chart modules lazily
+                        await Utils.loadScript('js/ui/chart-data.js');
+                        await Utils.loadScript('js/ui/chart-render.js');
+                        await Utils.loadScript('js/ui/chart.js');
+                        Chart.init();
+                        chartObserver.disconnect(); // Stop observing after loading
+                    } catch (error) {
+                        console.error('Failed to lazy load chart modules:', error);
+                    }
+                }
+            }, { threshold: 0.1 }); // Load when 10% visible
+            
+            chartObserver.observe(progressSection);
+        }
 
         // Set up auth modal button
         setupAuthModal();
@@ -59,10 +81,21 @@ const App = (function () {
         registerKeyboardShortcuts();
     }
 
-    function setupAuthModal() {
+    async function setupAuthModal() {
         const authModalBtn = document.getElementById('auth-modal-btn');
         if (authModalBtn) {
-            authModalBtn.addEventListener('click', () => {
+            authModalBtn.addEventListener('click', async () => {
+                // Lazy load auth-modal on first click
+                if (typeof AuthModal === 'undefined' || !AuthModal.show) {
+                    try {
+                        await Utils.loadScript('js/ui/auth-modal.js');
+                        await Utils.loadScript('js/ui/focusTrap.js');
+                        AuthModal.init();
+                    } catch (error) {
+                        console.error('Failed to lazy load auth-modal:', error);
+                        return;
+                    }
+                }
                 AuthModal.show();
             });
         }

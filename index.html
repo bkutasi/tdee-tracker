@@ -383,16 +383,18 @@
     <script src="js/auth.js" defer></script>
     <script src="js/sync.js" defer></script>
     
-    <!-- UI Components -->
+    <!-- UI Components (critical path) -->
     <script src="js/ui/components.js" defer></script>
     <script src="js/ui/dailyEntry.js" defer></script>
     <script src="js/ui/weeklyView.js" defer></script>
     <script src="js/ui/dashboard.js" defer></script>
     <script src="js/ui/settings.js" defer></script>
-    <script src="js/ui/chart-data.js" defer></script>
-    <script src="js/ui/chart-render.js" defer></script>
-    <script src="js/ui/auth-modal.js" defer></script>
     <script src="js/ui/focusTrap.js" defer></script>
+    
+    <!-- Lazy-loaded modules (loaded on demand) -->
+    <!-- chart-data.js, chart-render.js, chart.js - loaded when chart scrolls into view -->
+    <!-- auth-modal.js - loaded when auth button clicked -->
+    <!-- sync-debug.js - dev-only, loaded when needed -->
     
     <!-- Version Management -->
     <script src="js/version.js" defer></script>
