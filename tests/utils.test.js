@@ -28,6 +28,22 @@ describe('Utils.parseDate', () => {
     });
 });
 
+describe('parseDate edge cases', () => {
+    it('handles invalid date strings', () => {
+        expect(Utils.parseDate('')).toBe(null);
+        expect(Utils.parseDate('invalid')).toBe(null);
+        expect(Utils.parseDate(null)).toBe(null);
+        expect(Utils.parseDate(undefined)).toBe(null);
+    });
+    
+    it('handles leap years', () => {
+        const date = Utils.parseDate('2024-02-29');
+        expect(date.getFullYear()).toBe(2024);
+        expect(date.getMonth()).toBe(1);
+        expect(date.getDate()).toBe(29);
+    });
+});
+
 describe('Utils.getWeekStart', () => {
     it('returns Sunday of the week', () => {
         // Wednesday Jan 15, 2025
