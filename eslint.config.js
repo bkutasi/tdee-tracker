@@ -1,7 +1,7 @@
 // ESLint v9+ Flat Config
 // Configured for vanilla JS IIFE modules
 
-export default [
+module.exports = [
   {
     files: ["**/*.js"],
     languageOptions: {
