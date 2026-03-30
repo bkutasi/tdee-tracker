@@ -268,6 +268,29 @@ const Utils = (function () {
     }
 
     /**
+     * Lazy load a script on demand
+     * @param {string} src - Script source path
+     * @returns {Promise<void>}
+     */
+    function loadScript(src) {
+        'use strict';
+        return new Promise((resolve, reject) => {
+            // Check if already loaded
+            if (document.querySelector(`script[src="${src}"]`)) {
+                resolve();
+                return;
+            }
+            
+            const script = document.createElement('script');
+            script.src = src;
+            script.defer = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error(`Failed to load ${src}`));
+            document.head.appendChild(script);
+        });
+    }
+
+    /**
      * Format number with locale-specific formatting
      * @param {number} value - Number to format
      * @param {number} decimals - Decimal places
@@ -422,7 +445,9 @@ const Utils = (function () {
         formatNumber,
         // Math utilities (consolidated from calculator modules)
         round,
-        calculateStats
+        calculateStats,
+        // Script loading
+        loadScript
     };
 })();
 
