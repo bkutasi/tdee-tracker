@@ -273,8 +273,8 @@ const Settings = (function () {
     function saveSettings() {
         const settings = {
             gender: document.getElementById('user-gender').value,
-            age: parseInt(document.getElementById('user-age').value) || null,
-            height: parseInt(document.getElementById('user-height').value) || null,
+            age: parseInt(document.getElementById('user-age').value, 10) || null,
+            height: parseInt(document.getElementById('user-height').value, 10) || null,
             activityLevel: parseFloat(document.getElementById('activity-level').value),
             startingWeight: parseFloat(document.getElementById('starting-weight').value) || null,
             goalWeight: parseFloat(document.getElementById('goal-weight').value) || null,

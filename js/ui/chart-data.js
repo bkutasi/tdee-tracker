@@ -14,7 +14,6 @@ const ChartData = (function () {
      * @returns {object} Chart data: { weights, tdees, labels }
      */
     function getChartData(days, settings) {
-        const weightUnit = settings.weightUnit || 'kg';
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);

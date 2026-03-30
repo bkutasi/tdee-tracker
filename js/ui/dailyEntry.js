@@ -53,7 +53,11 @@ const DailyEntry = (function () {
         const dateBtn = document.getElementById('date-picker-btn');
 
         dateBtn.addEventListener('click', () => {
-            dateInput.showPicker?.() || dateInput.focus();
+            if (dateInput.showPicker) {
+                dateInput.showPicker();
+            } else {
+                dateInput.focus();
+            }
         });
 
         dateInput.addEventListener('change', (e) => {
@@ -196,7 +200,7 @@ const DailyEntry = (function () {
             } else {
                 Components.showToast(result.error || 'Failed to save entry', 'error');
             }
-        } catch (error) {
+        } catch (_error) {
             Components.showToast('Failed to save entry', 'error');
         } finally {
             // Hide sync pending indicator
@@ -231,7 +235,7 @@ const DailyEntry = (function () {
             if (!result.success) {
                 // Auto-save failed silently
             }
-        } catch (error) {
+        } catch (_error) {
             // Auto-save failed silently
         } finally {
             // Hide sync pending indicator

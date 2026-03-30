@@ -739,6 +739,27 @@ These run only in `test-runner.html`, not in Node.js.
 - ❌ **DO NOT** clear data without clearing queue — orphaned operations (Fix #4)
 - ❌ **DO NOT** import data without sync trigger — data never synced (Fix #5)
 
+### ESLint (NEW in v3.0.1)
+
+**Configuration**: `eslint.config.js` (flat config, ESLint v9+)
+
+**Pre-commit**: Run `npx eslint js/` before every commit — must pass with 0 errors.
+
+**Auto-fix**: Run `npx eslint js/ --fix` for auto-fixable issues.
+
+**IIFE Pattern Support**: ESLint configured to allow:
+- Unused catch params: `catch (_error) { }` (underscore prefix)
+- Event handler params: `function onClick(event) { }` (event can be unused)
+- Var hoisting: `var AppConstants;` declared before conditional assignment
+- Return assignments: `return x = y` (common vanilla JS pattern)
+- Deep nesting: max-depth 7 (for chart rendering)
+
+**Anti-Patterns**:
+- ❌ **DO NOT** ignore ESLint errors — fix before commit
+- ❌ **DO NOT** disable rules without justification
+- ❌ **DO NOT** use `.eslintrc.*` — only `eslint.config.js` (flat config)
+- ❌ **DO NOT** add unused variables — prefix with `_` if intentionally unused
+
 ---
 
 ## 12. Unique Styles

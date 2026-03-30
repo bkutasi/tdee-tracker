@@ -134,7 +134,7 @@ const Chart = (function () {
             // Cache the chart rendering for fast tooltip updates
             try {
                 chartImageCache = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            } catch (e) {
+            } catch (_e) {
                 chartImageCache = null;
             }
         } catch (error) {

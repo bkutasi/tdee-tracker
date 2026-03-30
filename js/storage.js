@@ -200,7 +200,7 @@ const Storage = (function () {
             const data = localStorage.getItem(STORAGE_KEYS.ENTRIES);
             entriesCache = data ? JSON.parse(data) : {};
             return entriesCache;
-        } catch (error) {
+        } catch (_error) {
             return {};
         }
     }
@@ -332,7 +332,7 @@ const Storage = (function () {
         try {
             const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
             return data ? { ...getDefaultSettings(), ...JSON.parse(data) } : getDefaultSettings();
-        } catch (error) {
+        } catch (_error) {
             return getDefaultSettings();
         }
     }
@@ -390,7 +390,7 @@ const Storage = (function () {
 
     function migrateData(data, fromVersion, toVersion) {
         'use strict';
-        let migrated = { ...data };
+        const migrated = { ...data };
         
         for (let version = fromVersion; version < toVersion; version++) {
             switch (version) {
@@ -481,7 +481,7 @@ const Storage = (function () {
             localStorage.removeItem(STORAGE_KEYS.SETTINGS);
             localStorage.removeItem(STORAGE_KEYS.SCHEMA_VERSION);
             return true;
-        } catch (error) {
+        } catch (_error) {
             return false;
         }
     }

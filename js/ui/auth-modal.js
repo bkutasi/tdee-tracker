@@ -17,9 +17,9 @@ const AuthModal = (function() {
     let modal = null;
     let modalContent = null;
     let closeButton = null;
-    let emailInput = null;
-    let sendLinkButton = null;
-    let logoutButton = null;
+    const emailInput = null;
+    const sendLinkButton = null;
+    const logoutButton = null;
     let statusContainer = null;
     let messageElement = null;
     let releaseFocus = null;
@@ -162,7 +162,7 @@ const AuthModal = (function() {
         // Try to get user - handle case where Auth module exists but not initialized
         try {
             user = Auth.getCurrentUser ? Auth.getCurrentUser() : null;
-        } catch (e) {
+        } catch (_error) {
             // Error getting user - continue with null
         }
         

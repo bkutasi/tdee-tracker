@@ -220,7 +220,7 @@ const SyncDebug = (function() {
     function info() {
         if (!syncModule) {
             warn('Sync module not initialized');
-            return;
+            return { status: null, queue: [], errors: [] };
         }
         const status = syncModule.getStatus();
         const queue = syncModule.getQueue();

@@ -440,7 +440,7 @@ const TDEE = (function () {
      * @param {number} windowDays - Window size for regression
      * @returns {Object} { confidence, accuracy }
      */
-    function determineConfidenceLevel(trackedDays, hasLargeGap, windowDays) {
+    function determineConfidenceLevel(trackedDays, hasLargeGap, _windowDays) {
         let confidence = 'none';
         let accuracy = null;
         

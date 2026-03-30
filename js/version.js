@@ -95,7 +95,7 @@ const VersionManager = (function () {
                 }
             });
 
-        } catch (error) {
+        } catch (_error) {
             // SW registration error - silently fail as SW is optional
         }
     }
@@ -108,7 +108,7 @@ const VersionManager = (function () {
 
         try {
             await registration.update();
-        } catch (error) {
+        } catch (_error) {
             // Update check failed - silently fail
         }
     }

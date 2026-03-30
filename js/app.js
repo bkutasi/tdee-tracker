@@ -40,7 +40,7 @@ const App = (function () {
                 
                 await Sync.init();
                 // AuthModal.init() removed - will be called when lazy loaded on first click
-            } catch (error) {
+            } catch (_error) {
                 // Auth initialization failed - error is handled internally
             }
         }

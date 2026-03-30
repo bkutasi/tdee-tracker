@@ -103,7 +103,7 @@ const Auth = (function() {
             authStateListeners.forEach(listener => {
                 try {
                     listener(event, currentUser);
-                } catch (error) {
+                } catch (_error) {
                     // Listener error - silently continue to not break other listeners
                 }
             });
