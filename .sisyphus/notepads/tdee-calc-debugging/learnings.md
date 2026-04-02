@@ -91,3 +91,62 @@ This is required because `calculator-tdee.js` references `Utils` and `EWMA` duri
 - Implement water weight detection (CV threshold, sudden change detection)
 - Implement gap detection (consecutive missing days, tracking frequency)
 - Add confidence reduction for unreliable data patterns
+
+## Task 3: Root Cause Analysis (2026-04-02)
+
+### Root Cause Identified
+
+**Issue**: User reported 7-day TDEE showing 787 kcal/day (impossible value)
+
+**Root Cause**: `calculatePeriodTDEE()` function (js/calculator-tdee.js:1031-1056) lacks physiological range validation (800-5000 kcal), allowing impossible TDEE values to be displayed.
+
+### Analysis Details
+
+#### User's Data (Last 7 Days)
+- Weight change: +2.4 kg (74.2 → 76.6 kg)
+- Average calories: 3433 kcal/day
+- Notes indicate creatine loading and increased sodium
+
+#### Manual Calculation
+```
+Slope (linear regression): 0.418 kg/day
+TDEE = avgCalories - (slope × 7716)
+TDEE = 3433 - (0.418 × 7716)
+TDEE = 3433 - 3224
+TDEE = 209 kcal/day (IMPOSSIBLE)
+```
+
+#### Why This Happens
+1. Water/glycogen fluctuations from creatine/sodium cause rapid weight gain
+2. Linear regression interprets ALL weight change as fat/muscle
+3. Formula calculates huge calorie surplus (3224 kcal/day)
+4. Subtracts from intake, producing impossibly low TDEE
+5. NO validation to reject values outside 800-5000 kcal range
+
+#### Missing Code
+`calculateTDEE` has validation (line 156-160):
+```javascript
+if (roundedTdee < 800 || roundedTdee > 5000) {
+    return null;
+}
+```
+
+`calculatePeriodTDEE` (line 1055) does NOT:
+```javascript
+return round(avgCalories - (slope * calPerUnit), 0);  // NO VALIDATION!
+```
+
+### Impact
+- **Affected Features**: 7-Day Trend, 14-Day Trend displays
+- **User Impact**: Misleading data, loss of trust, poor dietary decisions
+- **Severity**: HIGH (P0-Critical)
+
+### Evidence Location
+- Analysis: `.sisyphus/evidence/task-3-analysis.md`
+- Debug output: `.sisyphus/evidence/task-1-debug-output.txt`
+
+### Next Steps
+- Task 4: Add physiological range validation to `calculatePeriodTDEE`
+- Task 5: Add test cases for water weight scenarios
+- Task 6: Verify fix with user's data
+
