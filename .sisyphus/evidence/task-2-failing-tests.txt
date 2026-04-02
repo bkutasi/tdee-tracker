@@ -1,0 +1,19 @@
+Loading modules...
+
+=== Research-Backed TDEE Scenarios ===
+
+✓ Scenario 1: Maintenance - TDEE ≈ 2500 for stable weight (±0.1kg) with 2500 cal/day
+✓ Scenario 2: Cutting - TDEE ≈ 2554 for 0.5kg/week loss with 2000 cal/day
+✓ Scenario 3: Bulking - TDEE ≈ 2446 for 0.5kg/week gain with 3000 cal/day
+✗ Scenario 4: Water Weight - flags unreliable data for +2.4kg/week spike
+  Error: Expected null, got 894
+✗ Scenario 5: Gap Handling - maintains TDEE with 2-3 missing days/week
+  Error: Expected true, got false
+
+========================================
+Total: 5 tests, 3 passed, 2 failed
+========================================
+
+Failed Tests:
+  - Scenario 4: Water Weight - flags unreliable data for +2.4kg/week spike: Expected null, got 894
+  - Scenario 5: Gap Handling - maintains TDEE with 2-3 missing days/week: Expected true, got false
