@@ -1,0 +1,111 @@
+================================================================================
+TDEE DEBUG SCRIPT
+================================================================================
+Loaded 106 entries from sample_data_export.json
+Date range: 2025-11-23 to 2026-03-13
+
+SAMPLE DATA SUMMARY
+--------------------------------------------------------------------------------
+Total entries: 106
+Entries with weight: 103
+Entries with calories: 101
+
+LAST 7 DAYS DATA
+--------------------------------------------------------------------------------
+  1. 2026-03-13: weight=76.6 kg, calories=null
+  2. 2026-03-12: weight=76.9 kg, calories=3300 kcal
+  3. 2026-03-11: weight=76.3 kg, calories=3300 kcal
+  4. 2026-03-10: weight=75.6 kg, calories=3500 kcal
+  5. 2026-03-09: weight=75.2 kg, calories=3650 kcal
+  6. 2026-03-08: weight=75.2 kg, calories=3550 kcal
+  7. 2026-03-07: weight=74.2 kg, calories=3300 kcal
+
+LAST 14 DAYS DATA
+--------------------------------------------------------------------------------
+  1. 2026-03-13: weight=76.6 kg, calories=null
+  2. 2026-03-12: weight=76.9 kg, calories=3300 kcal
+  3. 2026-03-11: weight=76.3 kg, calories=3300 kcal
+  4. 2026-03-10: weight=75.6 kg, calories=3500 kcal
+  5. 2026-03-09: weight=75.2 kg, calories=3650 kcal
+  6. 2026-03-08: weight=75.2 kg, calories=3550 kcal
+  7. 2026-03-07: weight=74.2 kg, calories=3300 kcal
+  8. 2026-03-06: weight=null, calories=3000 kcal
+  9. 2026-03-05: weight=null, calories=3050 kcal
+  10. 2026-03-04: weight=null, calories=3100 kcal
+  11. 2026-03-03: weight=75.8 kg, calories=3000 kcal
+  12. 2026-03-02: weight=76.1 kg, calories=3200 kcal
+  13. 2026-03-01: weight=76.1 kg, calories=3550 kcal
+  14. 2026-02-28: weight=76.8 kg, calories=null
+
+================================================================================
+7-DAY TDEE CALCULATION (Fast TDEE)
+================================================================================
+
+INTERMEDIATE VALUES:
+EWMA Weights:
+  1. 2026-03-13: 76.600 kg
+  2. 2026-03-12: 76.690 kg
+  3. 2026-03-11: 76.570 kg
+  4. 2026-03-10: 76.280 kg
+  5. 2026-03-09: 75.960 kg
+  6. 2026-03-08: 75.730 kg
+  7. 2026-03-07: 75.270 kg
+
+First EWMA: 76.600 kg
+Last EWMA: 75.270 kg
+EWMA Delta: -1.330 kg
+
+Average Calories: 3433 kcal
+Tracked Days: 6
+Weight Delta: -1.330 kg
+
+RESULT:
+  7-Day TDEE: null kcal/day
+  Confidence: none
+  Has Outliers: false
+
+================================================================================
+14-DAY TDEE CALCULATION (Stable TDEE)
+================================================================================
+
+INTERMEDIATE VALUES:
+EWMA Weights:
+  1. 2026-03-13: 76.600 kg
+  2. 2026-03-12: 76.690 kg
+  3. 2026-03-11: 76.570 kg
+  4. 2026-03-10: 76.280 kg
+  5. 2026-03-09: 75.960 kg
+  6. 2026-03-08: 75.730 kg
+  7. 2026-03-07: 75.270 kg
+  8. 2026-03-06: 75.270 kg
+  9. 2026-03-05: 75.270 kg
+  10. 2026-03-04: 75.270 kg
+  11. 2026-03-03: 75.430 kg
+  12. 2026-03-02: 75.630 kg
+  13. 2026-03-01: 75.770 kg
+  14. 2026-02-28: 76.080 kg
+
+First EWMA: 76.600 kg
+Last EWMA: 76.080 kg
+EWMA Delta: -0.520 kg
+
+Average Calories: 3292 kcal
+Tracked Days: 12
+Slope: 0.5560 kg/day
+Has Large Gap: true
+CV (Coefficient of Variation): 67.00%
+
+RESULT:
+  14-Day TDEE: 2679 kcal/day
+  Confidence: none
+
+================================================================================
+COMPARISON: 7-Day vs 14-Day TDEE
+================================================================================
+
+7-Day TDEE:  null kcal/day (none confidence)
+14-Day TDEE: 2679 kcal/day (none confidence)
+
+================================================================================
+DEBUG COMPLETE
+================================================================================
