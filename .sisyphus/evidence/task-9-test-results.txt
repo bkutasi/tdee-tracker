@@ -1,0 +1,393 @@
+
+=== Calculator Tests ===
+
+✓ round handles floating point precision
+✓ EWMA returns current when no previous
+✓ EWMA applies 0.3/0.7 smoothing
+✓ EWMA matches Excel progression
+✓ TDEE calculated from weight loss
+✓ TDEE calculated from weight gain
+✓ TDEE returns null for zero tracked days
+✓ Rolling TDEE calculates average
+✓ Daily target with deficit
+✓ Weight conversion kg to lb
+✓ mround to nearest 10
+
+=== Utils Tests ===
+
+✓ formatDate formats correctly
+✓ getDateRange generates dates
+✓ validateWeight accepts valid kg
+✓ validateCalories accepts valid values
+✓ validateWeight rejects invalid values
+✓ validateWeight rejects out of range
+✓ validateCalories rejects out of range
+✓ success helper creates correct result
+✓ error helper creates correct result
+
+=== Storage Sanitization Tests ===
+
+✓ sanitizeString removes HTML tags
+✓ sanitizeString removes angle brackets
+✓ sanitizeString handles null/undefined
+✓ sanitizeString handles non-string types
+✓ sanitizeString trims whitespace
+✓ sanitizeEntry sanitizes notes field
+✓ importData sanitizes imported entries
+
+=== TDEE Sanity Check Tests ===
+
+✓ Sanity: maintenance calories = stable weight → TDEE equals intake
+✓ Sanity: 1600 cal + losing 1kg/week → TDEE ~2700
+✓ Sanity: 1800 cal + losing 0.5kg/week → TDEE ~2350
+✓ Sanity: 3000 cal + gaining 0.25kg/week → TDEE ~2725
+✓ Sanity: Real data week 1 - starting weight
+✓ Sanity: Partial week 5 days tracked - adjusted correctly
+✓ Sanity: pounds - 1500 cal + losing 2lb/week → TDEE ~2500
+✓ Sanity: Adding cardio - same intake but faster weight loss → higher TDEE
+
+=== Robust TDEE Tests ===
+
+✓ EWMA weight delta smooths daily noise
+✓ Exclude calorie outliers detects cheat days
+✓ calculateFastTDEE returns null with insufficient data
+✓ calculateFastTDEE works with sufficient data (14+ days)
+✓ calculateFastTDEE high confidence with 28+ days
+✓ calculateStableTDEE detects large gaps and downgrades confidence
+✓ MIN_TRACKED_DAYS constant is exported
+
+=== Utils Date Type Safety Tests ===
+
+✓ parseDate handles string input correctly
+✓ parseDate handles Date object without throwing
+✓ parseDate handles null gracefully
+✓ parseDate handles undefined gracefully
+✓ parseDate handles empty string gracefully
+✓ formatDate formats Date object correctly
+✓ formatDate handles null gracefully
+✓ formatDate handles undefined gracefully
+✓ validateDateFormat returns success structure
+✓ validateDateFormat returns error structure for null
+✓ validateDateFormat returns INVALID_FORMAT for wrong format
+✓ validateDateRange returns nested data structure
+✓ validateDateRange returns MISSING_INPUT for null
+✓ validateDateRange returns INVALID_RANGE when start > end
+✓ validateWeight returns success with data
+✓ validateWeight returns OUT_OF_RANGE for invalid value
+✓ validateCalories returns success with data
+✓ validateCalories returns OUT_OF_RANGE for excessive value
+
+=== Storage Migration Tests ===
+
+✓ Storage migration v0 to v1 initializes defaults
+✓ Storage preserves entry structure
+✓ Storage preserves 91 entries through migration
+✓ Storage import preserves entry count
+✓ Storage getEntriesInRange validates dates
+✓ Storage saveEntry validates date format
+✓ Storage export/import round-trip preserves data
+
+=== CSP Compliance Tests ===
+
+✓ CSP meta tag exists in index.html
+✓ CSP has default-src directive
+✓ CSP script-src includes self
+✓ CSP script-src includes unsafe-inline
+✓ CSP script-src includes cdn.jsdelivr.net
+✓ CSP style-src includes self
+✓ CSP style-src includes unsafe-inline
+✓ CSP img-src includes self
+✓ CSP img-src includes data:
+✓ CSP connect-src includes self
+✓ CSP connect-src includes supabase.co
+✓ CSP does not use wildcard for script-src
+✓ CSP does not allow unsafe-eval
+✓ CSP has at least 4 directive types
+
+=== Sync Module Tests ===
+
+[SyncDebug] Debug utilities loaded (DEBUG_MODE enabled). Type SyncDebug.help() for commands.
+[Sync][2026-04-02T15:00:21.232Z] Queued create operation for weight_entries [ID: 4341c522-5b92-42b9-9c2b-beeb918610c0]
+{
+  operation: {
+    id: '4341c522-5b92-42b9-9c2b-beeb918610c0',
+    type: 'create',
+    table: 'weight_entries',
+    data: { weight: 80, calories: 1600 },
+    localId: 'local-123',
+    timestamp: 1775142021232,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.232Z] canSync: authenticated=true, online=true → can sync now
+[Sync][2026-04-02T15:00:21.232Z] Starting sync of 1 operations
+✓ Sync.queueOperation creates operation with correct structure
+[Sync][2026-04-02T15:00:21.238Z] Queued create operation for weight_entries [ID: 85f3fcfb-159c-48a2-a3bc-1ee33d2bdd47]
+{
+  operation: {
+    id: '85f3fcfb-159c-48a2-a3bc-1ee33d2bdd47',
+    type: 'create',
+    table: 'weight_entries',
+    data: { weight: 80 },
+    localId: null,
+    timestamp: 1775142021238,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.239Z] canSync: authenticated=true, online=true → can sync now
+[Sync][2026-04-02T15:00:21.239Z] Starting sync of 1 operations
+✓ Sync.queueOperation persists to localStorage
+[Sync][2026-04-02T15:00:21.239Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.239Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.239Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.239Z] Queued create operation for weight_entries [ID: 78432a7f-b6d3-4ff3-8c4a-03332c89e9df]
+{
+  operation: {
+    id: '78432a7f-b6d3-4ff3-8c4a-03332c89e9df',
+    type: 'create',
+    table: 'weight_entries',
+    data: { weight: 80 },
+    localId: null,
+    timestamp: 1775142021239,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.239Z] canSync: authenticated=true, online=true → can sync now
+[Sync][2026-04-02T15:00:21.239Z] Starting sync of 1 operations
+[Sync][2026-04-02T15:00:21.239Z] Queued update operation for weight_entries [ID: 12b71914-1c67-4fc0-ac5d-4e52b224887a]
+{
+  operation: {
+    id: '12b71914-1c67-4fc0-ac5d-4e52b224887a',
+    type: 'update',
+    table: 'weight_entries',
+    data: { weight: 81 },
+    localId: null,
+    timestamp: 1775142021239,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.239Z] Sync already in progress
+[Sync][2026-04-02T15:00:21.239Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.239Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.239Z] Sync module not initialized
+✓ Sync.loadSyncQueue loads from localStorage on init
+[Sync][2026-04-02T15:00:21.239Z] Queued create operation for weight_entries [ID: 6c73657f-361e-42e3-8ee5-9ef90b772733]
+{
+  operation: {
+    id: '6c73657f-361e-42e3-8ee5-9ef90b772733',
+    type: 'create',
+    table: 'weight_entries',
+    data: { weight: 80 },
+    localId: null,
+    timestamp: 1775142021239,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.239Z] canSync: authenticated=true, online=true → can sync now
+[Sync][2026-04-02T15:00:21.239Z] Starting sync of 1 operations
+[Sync][2026-04-02T15:00:21.239Z] Queued update operation for weight_entries [ID: 05792ee8-c499-4412-85b3-1cb85d916b06]
+{
+  operation: {
+    id: '05792ee8-c499-4412-85b3-1cb85d916b06',
+    type: 'update',
+    table: 'weight_entries',
+    data: { weight: 81 },
+    localId: null,
+    timestamp: 1775142021239,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.239Z] Sync already in progress
+[Sync][2026-04-02T15:00:21.239Z] Queue cleared (2 operations removed)
+✓ Sync.clearQueue removes all operations
+✓ Sync.saveWeightEntry saves to LocalStorage immediately
+✓ Sync.saveWeightEntry returns error for missing date
+✓ Sync.saveWeightEntry queues sync operation
+✓ Sync.updateWeightEntry updates LocalStorage
+✓ Sync.updateWeightEntry queues update operation
+[Sync][2026-04-02T15:00:21.240Z] Queueing delete operation: entryId=2026-03-04
+[Sync][2026-04-02T15:00:21.240Z] Queued delete operation for weight_entries [ID: 0fecd43d-6544-44aa-ab57-da1949f4b890]
+{
+  operation: {
+    id: '0fecd43d-6544-44aa-ab57-da1949f4b890',
+    type: 'delete',
+    table: 'weight_entries',
+    data: { id: '2026-03-04' },
+    localId: '2026-03-04',
+    timestamp: 1775142021240,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.241Z] canSync: authenticated=true, online=true → can sync now
+[Sync][2026-04-02T15:00:21.241Z] Starting sync of 1 operations
+✓ Sync.deleteWeightEntry deletes from LocalStorage
+[Sync][2026-04-02T15:00:21.241Z] Queueing delete operation: entryId=2026-03-05
+[Sync][2026-04-02T15:00:21.241Z] Queued delete operation for weight_entries [ID: f7c7efb9-3b6a-4b73-8cbc-b823566ded85]
+{
+  operation: {
+    id: 'f7c7efb9-3b6a-4b73-8cbc-b823566ded85',
+    type: 'delete',
+    table: 'weight_entries',
+    data: { id: '2026-03-05' },
+    localId: '2026-03-05',
+    timestamp: 1775142021241,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.241Z] canSync: authenticated=true, online=true → can sync now
+[Sync][2026-04-02T15:00:21.241Z] Starting sync of 1 operations
+✓ Sync.deleteWeightEntry queues delete operation
+✓ Sync.mergeEntries combines remote and local data
+✓ Sync.mergeEntries conflict resolution: newest timestamp wins
+✓ Sync.mergeEntries keeps local when local timestamp is newer
+✓ Sync.mergeEntries preserves local-only entries
+✓ Sync.mergeEntries adds remote-only entries
+✓ Sync.mergeEntries sorts by date descending
+✓ Sync.getStatus returns correct structure
+[Sync][2026-04-02T15:00:21.242Z] Queued create operation for weight_entries [ID: 0b1cf389-9eab-4f7e-ace3-34637078d37e]
+{
+  operation: {
+    id: '0b1cf389-9eab-4f7e-ace3-34637078d37e',
+    type: 'create',
+    table: 'weight_entries',
+    data: { weight: 80 },
+    localId: null,
+    timestamp: 1775142021242,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.242Z] canSync: authenticated=true, online=true → can sync now
+[Sync][2026-04-02T15:00:21.242Z] Starting sync of 1 operations
+[Sync][2026-04-02T15:00:21.242Z] Queued update operation for weight_entries [ID: 3f473190-e23c-48ea-aa16-a0723d384b6a]
+{
+  operation: {
+    id: '3f473190-e23c-48ea-aa16-a0723d384b6a',
+    type: 'update',
+    table: 'weight_entries',
+    data: { weight: 81 },
+    localId: null,
+    timestamp: 1775142021242,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.242Z] Sync already in progress
+✓ Sync.getStatus shows correct pending operations count
+[Sync][2026-04-02T15:00:21.242Z] Queued create operation for weight_entries [ID: 158fa6d5-60a7-49eb-89e4-ec6147dc3f4e]
+{
+  operation: {
+    id: '158fa6d5-60a7-49eb-89e4-ec6147dc3f4e',
+    type: 'create',
+    table: 'weight_entries',
+    data: { weight: 80 },
+    localId: null,
+    timestamp: 1775142021242,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.242Z] canSync: authenticated=true, online=true → can sync now
+[Sync][2026-04-02T15:00:21.242Z] Starting sync of 1 operations
+[Sync][2026-04-02T15:00:21.242Z] Queued update operation for weight_entries [ID: eafdbe29-7bbf-4827-b927-215ee1ab485e]
+{
+  operation: {
+    id: 'eafdbe29-7bbf-4827-b927-215ee1ab485e',
+    type: 'update',
+    table: 'weight_entries',
+    data: { weight: 81 },
+    localId: null,
+    timestamp: 1775142021242,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.242Z] Sync already in progress
+✓ Sync.getQueue returns pending operations
+[Sync][2026-04-02T15:00:21.242Z] Queued create operation for weight_entries [ID: cc4c8da5-7dd8-40b1-a5c2-d8c98e9923b4]
+{
+  operation: {
+    id: 'cc4c8da5-7dd8-40b1-a5c2-d8c98e9923b4',
+    type: 'create',
+    table: 'weight_entries',
+    data: { weight: 80 },
+    localId: 'local-123',
+    timestamp: 1775142021242,
+    retries: 0
+  }
+}
+[Sync][2026-04-02T15:00:21.242Z] canSync: authenticated=true, online=true → can sync now
+[Sync][2026-04-02T15:00:21.242Z] Starting sync of 1 operations
+✓ Sync.getQueue includes operation metadata
+[Sync][2026-04-02T15:00:21.242Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.242Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.242Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.242Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.242Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.242Z] Sync module not initialized
+✓ Sync.getErrorHistory returns error entries
+[Sync][2026-04-02T15:00:21.243Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.243Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.243Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.243Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.243Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.243Z] Sync module not initialized
+[Sync][2026-04-02T15:00:21.243Z] Error history cleared
+✓ Sync.clearErrorHistory removes all errors
+✓ Sync.mergeEntries handles empty remote entries
+✓ Sync.saveWeightEntry handles null entry
+✓ Sync.saveWeightEntry handles undefined entry
+✓ Sync preserves data through full sync cycle
+✓ Sync handles multiple entry operations
+
+=== Auth Module Tests ===
+
+Note: Auth module tests require browser environment
+Run: open tests/test-runner.html
+
+
+=== Phase 1 Validation Tests ===
+
+[Sync] Debug utilities exposed (window.SyncDebug). Type _SyncDebug.help() for commands.
+
+=== Phase 1: Weight Validation (Fix #1) ===
+
+✓ rejects entry with null weight
+✓ rejects entry with undefined weight
+✓ rejects entry with NaN weight
+✓ accepts entry with valid weight
+✓ does not queue entry with null weight when authenticated
+✓ queues entry with valid weight when authenticated
+
+=== Phase 1: ID Validation (Fix #2) ===
+
+✓ rejects delete with null ID
+✓ rejects delete with empty string ID
+✓ rejects delete with whitespace ID
+✓ accepts delete with valid string ID
+✓ does not queue delete with null ID
+
+=== Phase 1: Clear Queue Integration (Fix #4) ===
+
+✓ clears sync queue before clearing storage
+✓ handles clear data when Sync module not available
+
+=== Phase 1: Import Sync Integration (Fix #5) ===
+
+✓ imports data successfully
+✓ handles empty import data
+✓ handles invalid JSON
+✓ handles missing entries field
+
+=== Phase 1: Validation Edge Cases ===
+
+✓ handles entry with missing calories
+✓ handles delete with tab character in ID
+✓ handles delete with newline in ID
+
+=== Phase 1: Integration Tests ===
+
+✓ full workflow: create, update, delete with validation
+✓ validation prevents invalid operations
+✓ multiple valid operations queue correctly
+
+========================================
+Total Results: 132 passed, 0 failed
+========================================
+

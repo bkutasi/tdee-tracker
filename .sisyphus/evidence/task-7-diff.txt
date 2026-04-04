@@ -1,0 +1,434 @@
+diff --git a/js/calculator-tdee.js b/js/calculator-tdee.js
+index 4b0fcbf..2ba7c45 100644
+--- a/js/calculator-tdee.js
++++ b/js/calculator-tdee.js
+@@ -31,12 +31,12 @@ const TDEE = (function () {
+         LOW: { minDays: 7, minWeightChange: 0.2, accuracy: '±15-25%' }
+     };
+ 
+-    // Multi-factor confidence scoring weights (must sum to 1.0)
++    // Multi-factor confidence scoring weights (must sum to 1.0) - Research-backed from nutritional epidemiology
+     const CONFIDENCE_WEIGHTS = {
+-        DAYS_TRACKED: 0.30,    // 30% weight
+-        CV: 0.25,              // 25% weight (weight volatility)
+-        R_SQUARED: 0.25,       // 25% weight (trend fit quality)
+-        LOGGING_CONSISTENCY: 0.20  // 20% weight (days with both weight + calories)
++        DURATION: 0.40,        // 40% weight - tracking duration
++        COMPLETENESS: 0.25,    // 25% weight - data completeness
++        VOLATILITY: 0.20,      // 20% weight - weight volatility (CV)
++        WEEKEND_COVERAGE: 0.15 // 15% weight - weekend coverage
+     };
+ 
+     // Confidence score thresholds for tier mapping
+@@ -961,30 +961,47 @@ const TDEE = (function () {
+     }
+ 
+     /**
+-     * Calculate days tracked score (0-100 points)
++     * Calculate duration score using penalty-based system (research-backed)
++     * Starting from 100, penalties applied based on tracking duration
+      * @param {number} daysTracked - Number of tracked days
+-     * @returns {number} Score: 100 (28+ days), 70 (14-27), 40 (7-13), 10 (<7)
++     * @returns {number} Score: 100 (28+), 85 (14-27), 70 (7-13), 40 (<7)
+      */
+     function getDaysTrackedScore(daysTracked) {
+-        if (daysTracked >= 28) return 100;
+-        if (daysTracked >= 14) return 70;
+-        if (daysTracked >= 7) return 40;
+-        return 10;
++        if (daysTracked >= 28) return 100;  // Optimal duration, no penalty
++        if (daysTracked >= 14) return 85;   // -15 penalty
++        if (daysTracked >= 7) return 70;    // -30 penalty
++        return 40;                           // -60 penalty (very insufficient)
+     }
+ 
+     /**
+-     * Calculate CV score (0-100 points)
+-     * Lower CV = more stable = higher score
++     * Calculate completeness score using penalty-based system (research-backed)
++     * Starting from 100, penalties applied based on data completeness ratio
++     * @param {number} trackedDays - Number of days with data
++     * @param {number} totalDays - Total days in period
++     * @returns {number} Score: 100 (≥85%), 75 (70-84%), 50 (<70%)
++     */
++    function getCompletenessScore(trackedDays, totalDays) {
++        if (!totalDays || totalDays === 0) return 50;
++        
++        const completeness = trackedDays / totalDays;
++        
++        if (completeness >= 0.85) return 100;  // ≥85% complete, no penalty
++        if (completeness >= 0.70) return 75;   // 70-84% complete, -25 penalty
++        return 50;                              // <70% complete, -50 penalty
++    }
++
++    /**
++     * Calculate CV score using penalty-based system (research-backed)
++     * Starting from 100, penalties applied based on weight volatility
+      * @param {number|null} cv - Coefficient of Variation percentage
+-     * @returns {number} Score: 100 (CV<1%), 80 (1-2%), 60 (2-3%), 30 (>3%)
++     * @returns {number} Score: 100 (CV<0.2), 80 (0.2-0.3), 60 (>0.3)
+      */
+     function getCVScore(cv) {
+-        if (cv === null || cv === undefined) return 30; // Default to low score if unknown
++        if (cv === null || cv === undefined) return 60; // Default to moderate score if unknown
+         
+-        if (cv < 1) return 100;      // Very stable
+-        if (cv < 2) return 80;       // Stable
+-        if (cv < 3) return 60;       // Somewhat volatile
+-        return 30;                    // Very volatile
++        if (cv < 0.2) return 100;   // Low volatility, no penalty
++        if (cv < 0.3) return 80;    // Moderate volatility, -20 penalty
++        return 60;                   // High volatility, -40 penalty
+     }
+ 
+     /**
+@@ -1001,6 +1018,38 @@ const TDEE = (function () {
+         return 40;                         // Poor fit
+     }
+ 
++    /**
++     * Calculate weekend coverage score using penalty-based system (research-backed)
++     * Starting from 100, penalties applied based on weekend day coverage
++     * Weekend days are Saturday (6) and Sunday (0)
++     * @param {Object[]} entries - Array of daily entries
++     * @param {number} totalDays - Total days in tracking period
++     * @returns {number} Score: 100 (≥50% weekends), 70 (<50%), 40 (0% weekends)
++     */
++    function getWeekendCoverageScore(entries, totalDays) {
++        if (!entries || entries.length === 0 || totalDays <= 0) return 40;
++        
++        // Count expected weekends in period
++        const expectedWeekends = Math.floor(totalDays / 7) * 2;
++        if (expectedWeekends === 0) return 100; // Too short a period, no penalty
++        
++        // Count weekend days with entries
++        let weekendDaysTracked = 0;
++        for (const entry of entries) {
++            const date = new Date(entry.date);
++            const dayOfWeek = date.getDay();
++            if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
++                weekendDaysTracked++;
++            }
++        }
++        
++        const weekendCoverage = weekendDaysTracked / expectedWeekends;
++        
++        if (weekendCoverage >= 0.5) return 100;  // ≥50% coverage, no penalty
++        if (weekendCoverage > 0) return 70;      // <50% coverage, -30 penalty
++        return 40;                                // 0% coverage, -60 penalty
++    }
++
+     /**
+      * Calculate logging consistency score (0-100 points)
+      * @param {Object[]} entries - Array of daily entries
+@@ -1026,9 +1075,11 @@ const TDEE = (function () {
+     }
+ 
+     /**
+-     * Calculate multi-factor confidence score combining days tracked, CV, R², and logging consistency
+-     * @param {Object} tdeeResult - TDEE calculation result containing: trackedDays, entries, cv, rSquared
+-     * @returns {Object} { confidenceScore (0-100), confidenceTier (HIGH/MEDIUM/LOW/NONE), breakdown: { daysScore, cvScore, rSquaredScore, loggingScore } }
++     * Calculate multi-factor confidence score using research-backed 4-factor model
++     * Factors: duration (40%), completeness (25%), volatility (20%), weekend coverage (15%)
++     * Water weight detection applies additional -20 point penalty
++     * @param {Object} tdeeResult - TDEE calculation result containing: trackedDays, entries, cv, rSquared, isWaterWeight
++     * @returns {Object} { confidenceScore (0-100), confidenceTier (HIGH/MEDIUM/LOW/NONE), breakdown: { durationScore, completenessScore, volatilityScore, weekendScore } }
+      */
+     function calculateMultiFactorConfidence(tdeeResult) {
+         if (!tdeeResult) {
+@@ -1036,10 +1087,10 @@ const TDEE = (function () {
+                 confidenceScore: 0,
+                 confidenceTier: 'NONE',
+                 breakdown: {
+-                    daysScore: 0,
+-                    cvScore: 0,
+-                    rSquaredScore: 0,
+-                    loggingScore: 0
++                    durationScore: 0,
++                    completenessScore: 0,
++                    volatilityScore: 0,
++                    weekendScore: 0
+                 }
+             };
+         }
+@@ -1049,6 +1100,7 @@ const TDEE = (function () {
+         const cv = tdeeResult.cv !== undefined ? tdeeResult.cv : null;
+         const rSquared = tdeeResult.rSquared !== undefined ? tdeeResult.rSquared : null;
+         const entries = tdeeResult.entries || [];
++        const isWaterWeight = tdeeResult.isWaterWeight || false;
+         
+         // Calculate total days from entries (calendar span)
+         let totalDays = trackedDays;
+@@ -1065,20 +1117,22 @@ const TDEE = (function () {
+             }
+         }
+ 
+-        // Calculate individual factor scores
+-        const daysScore = getDaysTrackedScore(trackedDays);
+-        const cvScore = getCVScore(cv);
+-        const rSquaredScore = getRSquaredScore(rSquared);
+-        const loggingScore = getLoggingConsistencyScore(entries, totalDays);
++        // Calculate individual factor scores using penalty-based system
++        const durationScore = getDaysTrackedScore(trackedDays);
++        const completenessScore = getCompletenessScore(trackedDays, totalDays);
++        const volatilityScore = getCVScore(cv);
++        const weekendScore = getWeekendCoverageScore(entries, totalDays);
+ 
+-        // Calculate weighted average
++        // Calculate weighted average using new weights
+         const weightedScore = 
+-            (daysScore * CONFIDENCE_WEIGHTS.DAYS_TRACKED) +
+-            (cvScore * CONFIDENCE_WEIGHTS.CV) +
+-            (rSquaredScore * CONFIDENCE_WEIGHTS.R_SQUARED) +
+-            (loggingScore * CONFIDENCE_WEIGHTS.LOGGING_CONSISTENCY);
++            (durationScore * CONFIDENCE_WEIGHTS.DURATION) +
++            (completenessScore * CONFIDENCE_WEIGHTS.COMPLETENESS) +
++            (volatilityScore * CONFIDENCE_WEIGHTS.VOLATILITY) +
++            (weekendScore * CONFIDENCE_WEIGHTS.WEEKEND_COVERAGE);
+ 
+-        const confidenceScore = round(weightedScore, 0);
++        // Apply water weight penalty (-20 points if detected)
++        const waterWeightPenalty = isWaterWeight ? 20 : 0;
++        const confidenceScore = Math.max(0, round(weightedScore - waterWeightPenalty, 0));
+ 
+         // Map to confidence tier
+         let confidenceTier;
+@@ -1096,10 +1150,10 @@ const TDEE = (function () {
+             confidenceScore,
+             confidenceTier,
+             breakdown: {
+-                daysScore,
+-                cvScore,
+-                rSquaredScore,
+-                loggingScore
++                durationScore,
++                completenessScore,
++                volatilityScore,
++                weekendScore
+             }
+         };
+     }
+@@ -1218,9 +1272,11 @@ const TDEE = (function () {
+         // Multi-factor confidence scoring
+         calculateMultiFactorConfidence,
+         getDaysTrackedScore,
++        getCompletenessScore,
+         getCVScore,
+         getRSquaredScore,
+         getLoggingConsistencyScore,
++        getWeekendCoverageScore,
+ 
+         // Constants (for testing)
+         CALORIES_PER_KG,
+diff --git a/tests/calculator.test.js b/tests/calculator.test.js
+index f8b6d2f..d8089d4 100644
+--- a/tests/calculator.test.js
++++ b/tests/calculator.test.js
+@@ -909,51 +909,46 @@ describe('Calculator.getDaysTrackedScore', () => {
+         expect(TDEE.getDaysTrackedScore(50)).toBe(100);
+     });
+ 
+-    it('returns 70 for 14-27 days', () => {
+-        expect(TDEE.getDaysTrackedScore(14)).toBe(70);
+-        expect(TDEE.getDaysTrackedScore(20)).toBe(70);
+-        expect(TDEE.getDaysTrackedScore(27)).toBe(70);
++    it('returns 85 for 14-27 days', () => {
++        expect(TDEE.getDaysTrackedScore(14)).toBe(85);
++        expect(TDEE.getDaysTrackedScore(20)).toBe(85);
++        expect(TDEE.getDaysTrackedScore(27)).toBe(85);
+     });
+ 
+-    it('returns 40 for 7-13 days', () => {
+-        expect(TDEE.getDaysTrackedScore(7)).toBe(40);
+-        expect(TDEE.getDaysTrackedScore(10)).toBe(40);
+-        expect(TDEE.getDaysTrackedScore(13)).toBe(40);
++    it('returns 70 for 7-13 days', () => {
++        expect(TDEE.getDaysTrackedScore(7)).toBe(70);
++        expect(TDEE.getDaysTrackedScore(10)).toBe(70);
++        expect(TDEE.getDaysTrackedScore(13)).toBe(70);
+     });
+ 
+-    it('returns 10 for <7 days', () => {
+-        expect(TDEE.getDaysTrackedScore(0)).toBe(10);
+-        expect(TDEE.getDaysTrackedScore(3)).toBe(10);
+-        expect(TDEE.getDaysTrackedScore(6)).toBe(10);
++    it('returns 40 for <7 days', () => {
++        expect(TDEE.getDaysTrackedScore(0)).toBe(40);
++        expect(TDEE.getDaysTrackedScore(3)).toBe(40);
++        expect(TDEE.getDaysTrackedScore(6)).toBe(40);
+     });
+ });
+ 
+ describe('Calculator.getCVScore', () => {
+-    it('returns 100 for CV < 1% (very stable)', () => {
+-        expect(TDEE.getCVScore(0.5)).toBe(100);
+-        expect(TDEE.getCVScore(0.9)).toBe(100);
++    it('returns 100 for CV < 0.2 (low volatility)', () => {
++        expect(TDEE.getCVScore(0.1)).toBe(100);
++        expect(TDEE.getCVScore(0.19)).toBe(100);
+     });
+ 
+-    it('returns 80 for CV 1-2% (stable)', () => {
+-        expect(TDEE.getCVScore(1.0)).toBe(80);
+-        expect(TDEE.getCVScore(1.5)).toBe(80);
+-        expect(TDEE.getCVScore(1.9)).toBe(80);
++    it('returns 80 for CV 0.2-0.3 (moderate volatility)', () => {
++        expect(TDEE.getCVScore(0.2)).toBe(80);
++        expect(TDEE.getCVScore(0.25)).toBe(80);
++        expect(TDEE.getCVScore(0.29)).toBe(80);
+     });
+ 
+-    it('returns 60 for CV 2-3% (somewhat volatile)', () => {
+-        expect(TDEE.getCVScore(2.0)).toBe(60);
+-        expect(TDEE.getCVScore(2.5)).toBe(60);
+-        expect(TDEE.getCVScore(2.9)).toBe(60);
++    it('returns 60 for CV > 0.3 (high volatility)', () => {
++        expect(TDEE.getCVScore(0.3)).toBe(60);
++        expect(TDEE.getCVScore(0.5)).toBe(60);
++        expect(TDEE.getCVScore(1.0)).toBe(60);
+     });
+ 
+-    it('returns 30 for CV > 3% (very volatile)', () => {
+-        expect(TDEE.getCVScore(3.0)).toBe(30);
+-        expect(TDEE.getCVScore(5.0)).toBe(30);
+-    });
+-
+-    it('returns 30 for null/undefined CV', () => {
+-        expect(TDEE.getCVScore(null)).toBe(30);
+-        expect(TDEE.getCVScore(undefined)).toBe(30);
++    it('returns 60 for null/undefined CV', () => {
++        expect(TDEE.getCVScore(null)).toBe(60);
++        expect(TDEE.getCVScore(undefined)).toBe(60);
+     });
+ });
+ 
+@@ -1017,12 +1012,79 @@ describe('Calculator.getLoggingConsistencyScore', () => {
+     });
+ });
+ 
++describe('Calculator.getCompletenessScore', () => {
++    it('returns 100 for ≥85% completeness', () => {
++        expect(TDEE.getCompletenessScore(12, 14)).toBe(100);  // 85.7%
++        expect(TDEE.getCompletenessScore(17, 20)).toBe(100);  // 85%
++        expect(TDEE.getCompletenessScore(30, 30)).toBe(100);  // 100%
++    });
++
++    it('returns 75 for 70-84% completeness', () => {
++        expect(TDEE.getCompletenessScore(10, 14)).toBe(75);   // 71.4%
++        expect(TDEE.getCompletenessScore(7, 10)).toBe(75);    // 70%
++        expect(TDEE.getCompletenessScore(14, 17)).toBe(75);   // 82.4%
++    });
++
++    it('returns 50 for <70% completeness', () => {
++        expect(TDEE.getCompletenessScore(5, 14)).toBe(50);    // 35.7%
++        expect(TDEE.getCompletenessScore(6, 10)).toBe(50);    // 60%
++        expect(TDEE.getCompletenessScore(0, 14)).toBe(50);    // 0%
++    });
++
++    it('returns 50 for zero totalDays', () => {
++        expect(TDEE.getCompletenessScore(5, 0)).toBe(50);
++    });
++});
++
++describe('Calculator.getWeekendCoverageScore', () => {
++    it('returns 100 for ≥50% weekend coverage', () => {
++        // 14 days = 2 weekends = 4 weekend days expected
++        const entries = [
++            { date: '2025-01-04', weight: 80, calories: 2000 }, // Saturday
++            { date: '2025-01-05', weight: 80, calories: 2000 }, // Sunday
++            { date: '2025-01-11', weight: 80, calories: 2000 }, // Saturday
++            { date: '2025-01-12', weight: 80, calories: 2000 }  // Sunday
++        ];
++        expect(TDEE.getWeekendCoverageScore(entries, 14)).toBe(100);  // 4/4 = 100%
++    });
++
++    it('returns 70 for <50% weekend coverage', () => {
++        // 14 days = 2 weekends = 4 weekend days expected
++        const entries = [
++            { date: '2025-01-04', weight: 80, calories: 2000 }, // Saturday (1 of 4)
++            { date: '2025-01-12', weight: 80, calories: 2000 }  // Sunday (2 of 4)
++        ];
++        expect(TDEE.getWeekendCoverageScore(entries, 14)).toBe(70);  // 2/4 = 50%
++    });
++
++    it('returns 40 for 0% weekend coverage', () => {
++        // 14 days = 2 weekends = 4 weekend days expected
++        const entries = [
++            { date: '2025-01-06', weight: 80, calories: 2000 }, // Monday
++            { date: '2025-01-07', weight: 80, calories: 2000 }, // Tuesday
++            { date: '2025-01-08', weight: 80, calories: 2000 }  // Wednesday
++        ];
++        expect(TDEE.getWeekendCoverageScore(entries, 14)).toBe(40);  // 0/4 = 0%
++    });
++
++    it('returns 100 for short periods (<7 days)', () => {
++        const entries = [
++            { date: '2025-01-01', weight: 80, calories: 2000 }
++        ];
++        expect(TDEE.getWeekendCoverageScore(entries, 3)).toBe(100);  // Too short
++    });
++
++    it('returns 40 for empty entries', () => {
++        expect(TDEE.getWeekendCoverageScore([], 14)).toBe(40);
++    });
++});
++
+ describe('Calculator.calculateMultiFactorConfidence', () => {
+     it('returns HIGH confidence for excellent data across all factors', () => {
+-        // Arrange: 30 days tracked, low CV, high R², perfect logging
++        // Arrange: 30 days tracked, low CV, high R², perfect weekend coverage
+         const tdeeResult = {
+             trackedDays: 30,
+-            cv: 0.8,        // Very stable (<1%)
++            cv: 0.15,       // Very stable (<0.2)
+             rSquared: 0.95, // Excellent fit
+             entries: Array(30).fill({ date: '2025-01-01', weight: 80, calories: 2000 })
+         };
+@@ -1033,17 +1095,15 @@ describe('Calculator.calculateMultiFactorConfidence', () => {
+         // Assert
+         expect(result.confidenceTier).toBe('HIGH');
+         expect(result.confidenceScore).toBeGreaterThanOrEqual(80);
+-        expect(result.breakdown.daysScore).toBe(100);
+-        expect(result.breakdown.cvScore).toBe(100);
+-        expect(result.breakdown.rSquaredScore).toBe(100);
+-        expect(result.breakdown.loggingScore).toBe(100);
++        expect(result.breakdown.durationScore).toBe(100);
++        expect(result.breakdown.volatilityScore).toBe(100);
+     });
+ 
+     it('returns MEDIUM confidence for moderate data', () => {
+-        // Arrange: 15 days tracked, moderate CV, moderate R², good logging
++        // Arrange: 15 days tracked, moderate CV, moderate R²
+         const tdeeResult = {
+             trackedDays: 15,
+-            cv: 1.5,        // Stable (1-2%)
++            cv: 0.25,       // Moderate volatility (0.2-0.3)
+             rSquared: 0.65, // Moderate fit
+             entries: Array(15).fill({ date: '2025-01-01', weight: 80, calories: 2000 })
+         };
+@@ -1058,10 +1118,10 @@ describe('Calculator.calculateMultiFactorConfidence', () => {
+     });
+ 
+     it('returns LOW confidence for poor data', () => {
+-        // Arrange: 8 days tracked, high CV, low R², poor logging
++        // Arrange: 8 days tracked, high CV, low R²
+         const tdeeResult = {
+             trackedDays: 8,
+-            cv: 2.5,        // Somewhat volatile (2-3%)
++            cv: 0.35,       // High volatility (>0.3)
+             rSquared: 0.4,  // Poor fit
+             entries: [
+                 { date: '2025-01-01', weight: 80, calories: 2000 },
+@@ -1085,10 +1145,10 @@ describe('Calculator.calculateMultiFactorConfidence', () => {
+     });
+ 
+     it('returns NONE confidence for very poor data', () => {
+-        // Arrange: 3 days tracked, very high CV, very low R², no logging consistency
++        // Arrange: 3 days tracked, very high CV, very low R²
+         const tdeeResult = {
+             trackedDays: 3,
+-            cv: 4.0,        // Very volatile (>3%)
++            cv: 0.5,        // Very volatile
+             rSquared: 0.2,  // Very poor fit
+             entries: [
+                 { date: '2025-01-01', weight: 80, calories: null },

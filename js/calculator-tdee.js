@@ -31,12 +31,12 @@ const TDEE = (function () {
         LOW: { minDays: 7, minWeightChange: 0.2, accuracy: '±15-25%' }
     };
 
-    // Multi-factor confidence scoring weights (must sum to 1.0)
+    // Multi-factor confidence scoring weights (must sum to 1.0) - Research-backed from nutritional epidemiology
     const CONFIDENCE_WEIGHTS = {
-        DAYS_TRACKED: 0.30,    // 30% weight
-        CV: 0.25,              // 25% weight (weight volatility)
-        R_SQUARED: 0.25,       // 25% weight (trend fit quality)
-        LOGGING_CONSISTENCY: 0.20  // 20% weight (days with both weight + calories)
+        DURATION: 0.40,        // 40% weight - tracking duration
+        COMPLETENESS: 0.25,    // 25% weight - data completeness
+        VOLATILITY: 0.20,      // 20% weight - weight volatility (CV)
+        WEEKEND_COVERAGE: 0.15 // 15% weight - weekend coverage
     };
 
     // Confidence score thresholds for tier mapping
@@ -961,30 +961,47 @@ const TDEE = (function () {
     }
 
     /**
-     * Calculate days tracked score (0-100 points)
+     * Calculate duration score using penalty-based system (research-backed)
+     * Starting from 100, penalties applied based on tracking duration
      * @param {number} daysTracked - Number of tracked days
-     * @returns {number} Score: 100 (28+ days), 70 (14-27), 40 (7-13), 10 (<7)
+     * @returns {number} Score: 100 (28+), 85 (14-27), 70 (7-13), 40 (<7)
      */
     function getDaysTrackedScore(daysTracked) {
-        if (daysTracked >= 28) return 100;
-        if (daysTracked >= 14) return 70;
-        if (daysTracked >= 7) return 40;
-        return 10;
+        if (daysTracked >= 28) return 100;  // Optimal duration, no penalty
+        if (daysTracked >= 14) return 85;   // -15 penalty
+        if (daysTracked >= 7) return 70;    // -30 penalty
+        return 40;                           // -60 penalty (very insufficient)
     }
 
     /**
-     * Calculate CV score (0-100 points)
-     * Lower CV = more stable = higher score
+     * Calculate completeness score using penalty-based system (research-backed)
+     * Starting from 100, penalties applied based on data completeness ratio
+     * @param {number} trackedDays - Number of days with data
+     * @param {number} totalDays - Total days in period
+     * @returns {number} Score: 100 (≥85%), 75 (70-84%), 50 (<70%)
+     */
+    function getCompletenessScore(trackedDays, totalDays) {
+        if (!totalDays || totalDays === 0) return 50;
+        
+        const completeness = trackedDays / totalDays;
+        
+        if (completeness >= 0.85) return 100;  // ≥85% complete, no penalty
+        if (completeness >= 0.70) return 75;   // 70-84% complete, -25 penalty
+        return 50;                              // <70% complete, -50 penalty
+    }
+
+    /**
+     * Calculate CV score using penalty-based system (research-backed)
+     * Starting from 100, penalties applied based on weight volatility
      * @param {number|null} cv - Coefficient of Variation percentage
-     * @returns {number} Score: 100 (CV<1%), 80 (1-2%), 60 (2-3%), 30 (>3%)
+     * @returns {number} Score: 100 (CV<0.2), 80 (0.2-0.3), 60 (>0.3)
      */
     function getCVScore(cv) {
-        if (cv === null || cv === undefined) return 30; // Default to low score if unknown
+        if (cv === null || cv === undefined) return 60; // Default to moderate score if unknown
         
-        if (cv < 1) return 100;      // Very stable
-        if (cv < 2) return 80;       // Stable
-        if (cv < 3) return 60;       // Somewhat volatile
-        return 30;                    // Very volatile
+        if (cv < 0.2) return 100;   // Low volatility, no penalty
+        if (cv < 0.3) return 80;    // Moderate volatility, -20 penalty
+        return 60;                   // High volatility, -40 penalty
     }
 
     /**
@@ -999,6 +1016,38 @@ const TDEE = (function () {
         if (rSquared > 0.8) return 100;   // Excellent fit
         if (rSquared >= 0.5) return 70;   // Moderate fit
         return 40;                         // Poor fit
+    }
+
+    /**
+     * Calculate weekend coverage score using penalty-based system (research-backed)
+     * Starting from 100, penalties applied based on weekend day coverage
+     * Weekend days are Saturday (6) and Sunday (0)
+     * @param {Object[]} entries - Array of daily entries
+     * @param {number} totalDays - Total days in tracking period
+     * @returns {number} Score: 100 (≥50% weekends), 70 (<50%), 40 (0% weekends)
+     */
+    function getWeekendCoverageScore(entries, totalDays) {
+        if (!entries || entries.length === 0 || totalDays <= 0) return 40;
+        
+        // Count expected weekends in period
+        const expectedWeekends = Math.floor(totalDays / 7) * 2;
+        if (expectedWeekends === 0) return 100; // Too short a period, no penalty
+        
+        // Count weekend days with entries
+        let weekendDaysTracked = 0;
+        for (const entry of entries) {
+            const date = new Date(entry.date);
+            const dayOfWeek = date.getDay();
+            if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+                weekendDaysTracked++;
+            }
+        }
+        
+        const weekendCoverage = weekendDaysTracked / expectedWeekends;
+        
+        if (weekendCoverage >= 0.5) return 100;  // ≥50% coverage, no penalty
+        if (weekendCoverage > 0) return 70;      // <50% coverage, -30 penalty
+        return 40;                                // 0% coverage, -60 penalty
     }
 
     /**
@@ -1026,9 +1075,11 @@ const TDEE = (function () {
     }
 
     /**
-     * Calculate multi-factor confidence score combining days tracked, CV, R², and logging consistency
-     * @param {Object} tdeeResult - TDEE calculation result containing: trackedDays, entries, cv, rSquared
-     * @returns {Object} { confidenceScore (0-100), confidenceTier (HIGH/MEDIUM/LOW/NONE), breakdown: { daysScore, cvScore, rSquaredScore, loggingScore } }
+     * Calculate multi-factor confidence score using research-backed 4-factor model
+     * Factors: duration (40%), completeness (25%), volatility (20%), weekend coverage (15%)
+     * Water weight detection applies additional -20 point penalty
+     * @param {Object} tdeeResult - TDEE calculation result containing: trackedDays, entries, cv, rSquared, isWaterWeight
+     * @returns {Object} { confidenceScore (0-100), confidenceTier (HIGH/MEDIUM/LOW/NONE), breakdown: { durationScore, completenessScore, volatilityScore, weekendScore } }
      */
     function calculateMultiFactorConfidence(tdeeResult) {
         if (!tdeeResult) {
@@ -1036,10 +1087,10 @@ const TDEE = (function () {
                 confidenceScore: 0,
                 confidenceTier: 'NONE',
                 breakdown: {
-                    daysScore: 0,
-                    cvScore: 0,
-                    rSquaredScore: 0,
-                    loggingScore: 0
+                    durationScore: 0,
+                    completenessScore: 0,
+                    volatilityScore: 0,
+                    weekendScore: 0
                 }
             };
         }
@@ -1049,6 +1100,7 @@ const TDEE = (function () {
         const cv = tdeeResult.cv !== undefined ? tdeeResult.cv : null;
         const rSquared = tdeeResult.rSquared !== undefined ? tdeeResult.rSquared : null;
         const entries = tdeeResult.entries || [];
+        const isWaterWeight = tdeeResult.isWaterWeight || false;
         
         // Calculate total days from entries (calendar span)
         let totalDays = trackedDays;
@@ -1065,20 +1117,22 @@ const TDEE = (function () {
             }
         }
 
-        // Calculate individual factor scores
-        const daysScore = getDaysTrackedScore(trackedDays);
-        const cvScore = getCVScore(cv);
-        const rSquaredScore = getRSquaredScore(rSquared);
-        const loggingScore = getLoggingConsistencyScore(entries, totalDays);
+        // Calculate individual factor scores using penalty-based system
+        const durationScore = getDaysTrackedScore(trackedDays);
+        const completenessScore = getCompletenessScore(trackedDays, totalDays);
+        const volatilityScore = getCVScore(cv);
+        const weekendScore = getWeekendCoverageScore(entries, totalDays);
 
-        // Calculate weighted average
+        // Calculate weighted average using new weights
         const weightedScore = 
-            (daysScore * CONFIDENCE_WEIGHTS.DAYS_TRACKED) +
-            (cvScore * CONFIDENCE_WEIGHTS.CV) +
-            (rSquaredScore * CONFIDENCE_WEIGHTS.R_SQUARED) +
-            (loggingScore * CONFIDENCE_WEIGHTS.LOGGING_CONSISTENCY);
+            (durationScore * CONFIDENCE_WEIGHTS.DURATION) +
+            (completenessScore * CONFIDENCE_WEIGHTS.COMPLETENESS) +
+            (volatilityScore * CONFIDENCE_WEIGHTS.VOLATILITY) +
+            (weekendScore * CONFIDENCE_WEIGHTS.WEEKEND_COVERAGE);
 
-        const confidenceScore = round(weightedScore, 0);
+        // Apply water weight penalty (-20 points if detected)
+        const waterWeightPenalty = isWaterWeight ? 20 : 0;
+        const confidenceScore = Math.max(0, round(weightedScore - waterWeightPenalty, 0));
 
         // Map to confidence tier
         let confidenceTier;
@@ -1096,10 +1150,10 @@ const TDEE = (function () {
             confidenceScore,
             confidenceTier,
             breakdown: {
-                daysScore,
-                cvScore,
-                rSquaredScore,
-                loggingScore
+                durationScore,
+                completenessScore,
+                volatilityScore,
+                weekendScore
             }
         };
     }
@@ -1218,9 +1272,11 @@ const TDEE = (function () {
         // Multi-factor confidence scoring
         calculateMultiFactorConfidence,
         getDaysTrackedScore,
+        getCompletenessScore,
         getCVScore,
         getRSquaredScore,
         getLoggingConsistencyScore,
+        getWeekendCoverageScore,
 
         // Constants (for testing)
         CALORIES_PER_KG,

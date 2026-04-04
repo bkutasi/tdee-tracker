@@ -909,51 +909,46 @@ describe('Calculator.getDaysTrackedScore', () => {
         expect(TDEE.getDaysTrackedScore(50)).toBe(100);
     });
 
-    it('returns 70 for 14-27 days', () => {
-        expect(TDEE.getDaysTrackedScore(14)).toBe(70);
-        expect(TDEE.getDaysTrackedScore(20)).toBe(70);
-        expect(TDEE.getDaysTrackedScore(27)).toBe(70);
+    it('returns 85 for 14-27 days', () => {
+        expect(TDEE.getDaysTrackedScore(14)).toBe(85);
+        expect(TDEE.getDaysTrackedScore(20)).toBe(85);
+        expect(TDEE.getDaysTrackedScore(27)).toBe(85);
     });
 
-    it('returns 40 for 7-13 days', () => {
-        expect(TDEE.getDaysTrackedScore(7)).toBe(40);
-        expect(TDEE.getDaysTrackedScore(10)).toBe(40);
-        expect(TDEE.getDaysTrackedScore(13)).toBe(40);
+    it('returns 70 for 7-13 days', () => {
+        expect(TDEE.getDaysTrackedScore(7)).toBe(70);
+        expect(TDEE.getDaysTrackedScore(10)).toBe(70);
+        expect(TDEE.getDaysTrackedScore(13)).toBe(70);
     });
 
-    it('returns 10 for <7 days', () => {
-        expect(TDEE.getDaysTrackedScore(0)).toBe(10);
-        expect(TDEE.getDaysTrackedScore(3)).toBe(10);
-        expect(TDEE.getDaysTrackedScore(6)).toBe(10);
+    it('returns 40 for <7 days', () => {
+        expect(TDEE.getDaysTrackedScore(0)).toBe(40);
+        expect(TDEE.getDaysTrackedScore(3)).toBe(40);
+        expect(TDEE.getDaysTrackedScore(6)).toBe(40);
     });
 });
 
 describe('Calculator.getCVScore', () => {
-    it('returns 100 for CV < 1% (very stable)', () => {
-        expect(TDEE.getCVScore(0.5)).toBe(100);
-        expect(TDEE.getCVScore(0.9)).toBe(100);
+    it('returns 100 for CV < 0.2 (low volatility)', () => {
+        expect(TDEE.getCVScore(0.1)).toBe(100);
+        expect(TDEE.getCVScore(0.19)).toBe(100);
     });
 
-    it('returns 80 for CV 1-2% (stable)', () => {
-        expect(TDEE.getCVScore(1.0)).toBe(80);
-        expect(TDEE.getCVScore(1.5)).toBe(80);
-        expect(TDEE.getCVScore(1.9)).toBe(80);
+    it('returns 80 for CV 0.2-0.3 (moderate volatility)', () => {
+        expect(TDEE.getCVScore(0.2)).toBe(80);
+        expect(TDEE.getCVScore(0.25)).toBe(80);
+        expect(TDEE.getCVScore(0.29)).toBe(80);
     });
 
-    it('returns 60 for CV 2-3% (somewhat volatile)', () => {
-        expect(TDEE.getCVScore(2.0)).toBe(60);
-        expect(TDEE.getCVScore(2.5)).toBe(60);
-        expect(TDEE.getCVScore(2.9)).toBe(60);
+    it('returns 60 for CV > 0.3 (high volatility)', () => {
+        expect(TDEE.getCVScore(0.3)).toBe(60);
+        expect(TDEE.getCVScore(0.5)).toBe(60);
+        expect(TDEE.getCVScore(1.0)).toBe(60);
     });
 
-    it('returns 30 for CV > 3% (very volatile)', () => {
-        expect(TDEE.getCVScore(3.0)).toBe(30);
-        expect(TDEE.getCVScore(5.0)).toBe(30);
-    });
-
-    it('returns 30 for null/undefined CV', () => {
-        expect(TDEE.getCVScore(null)).toBe(30);
-        expect(TDEE.getCVScore(undefined)).toBe(30);
+    it('returns 60 for null/undefined CV', () => {
+        expect(TDEE.getCVScore(null)).toBe(60);
+        expect(TDEE.getCVScore(undefined)).toBe(60);
     });
 });
 
@@ -1017,12 +1012,79 @@ describe('Calculator.getLoggingConsistencyScore', () => {
     });
 });
 
+describe('Calculator.getCompletenessScore', () => {
+    it('returns 100 for ≥85% completeness', () => {
+        expect(TDEE.getCompletenessScore(12, 14)).toBe(100);  // 85.7%
+        expect(TDEE.getCompletenessScore(17, 20)).toBe(100);  // 85%
+        expect(TDEE.getCompletenessScore(30, 30)).toBe(100);  // 100%
+    });
+
+    it('returns 75 for 70-84% completeness', () => {
+        expect(TDEE.getCompletenessScore(10, 14)).toBe(75);   // 71.4%
+        expect(TDEE.getCompletenessScore(7, 10)).toBe(75);    // 70%
+        expect(TDEE.getCompletenessScore(14, 17)).toBe(75);   // 82.4%
+    });
+
+    it('returns 50 for <70% completeness', () => {
+        expect(TDEE.getCompletenessScore(5, 14)).toBe(50);    // 35.7%
+        expect(TDEE.getCompletenessScore(6, 10)).toBe(50);    // 60%
+        expect(TDEE.getCompletenessScore(0, 14)).toBe(50);    // 0%
+    });
+
+    it('returns 50 for zero totalDays', () => {
+        expect(TDEE.getCompletenessScore(5, 0)).toBe(50);
+    });
+});
+
+describe('Calculator.getWeekendCoverageScore', () => {
+    it('returns 100 for ≥50% weekend coverage', () => {
+        // 14 days = 2 weekends = 4 weekend days expected
+        const entries = [
+            { date: '2025-01-04', weight: 80, calories: 2000 }, // Saturday
+            { date: '2025-01-05', weight: 80, calories: 2000 }, // Sunday
+            { date: '2025-01-11', weight: 80, calories: 2000 }, // Saturday
+            { date: '2025-01-12', weight: 80, calories: 2000 }  // Sunday
+        ];
+        expect(TDEE.getWeekendCoverageScore(entries, 14)).toBe(100);  // 4/4 = 100%
+    });
+
+    it('returns 70 for <50% weekend coverage', () => {
+        // 14 days = 2 weekends = 4 weekend days expected
+        const entries = [
+            { date: '2025-01-04', weight: 80, calories: 2000 }, // Saturday (1 of 4)
+            { date: '2025-01-12', weight: 80, calories: 2000 }  // Sunday (2 of 4)
+        ];
+        expect(TDEE.getWeekendCoverageScore(entries, 14)).toBe(70);  // 2/4 = 50%
+    });
+
+    it('returns 40 for 0% weekend coverage', () => {
+        // 14 days = 2 weekends = 4 weekend days expected
+        const entries = [
+            { date: '2025-01-06', weight: 80, calories: 2000 }, // Monday
+            { date: '2025-01-07', weight: 80, calories: 2000 }, // Tuesday
+            { date: '2025-01-08', weight: 80, calories: 2000 }  // Wednesday
+        ];
+        expect(TDEE.getWeekendCoverageScore(entries, 14)).toBe(40);  // 0/4 = 0%
+    });
+
+    it('returns 100 for short periods (<7 days)', () => {
+        const entries = [
+            { date: '2025-01-01', weight: 80, calories: 2000 }
+        ];
+        expect(TDEE.getWeekendCoverageScore(entries, 3)).toBe(100);  // Too short
+    });
+
+    it('returns 40 for empty entries', () => {
+        expect(TDEE.getWeekendCoverageScore([], 14)).toBe(40);
+    });
+});
+
 describe('Calculator.calculateMultiFactorConfidence', () => {
     it('returns HIGH confidence for excellent data across all factors', () => {
-        // Arrange: 30 days tracked, low CV, high R², perfect logging
+        // Arrange: 30 days tracked, low CV, high R², perfect weekend coverage
         const tdeeResult = {
             trackedDays: 30,
-            cv: 0.8,        // Very stable (<1%)
+            cv: 0.15,       // Very stable (<0.2)
             rSquared: 0.95, // Excellent fit
             entries: Array(30).fill({ date: '2025-01-01', weight: 80, calories: 2000 })
         };
@@ -1033,17 +1095,15 @@ describe('Calculator.calculateMultiFactorConfidence', () => {
         // Assert
         expect(result.confidenceTier).toBe('HIGH');
         expect(result.confidenceScore).toBeGreaterThanOrEqual(80);
-        expect(result.breakdown.daysScore).toBe(100);
-        expect(result.breakdown.cvScore).toBe(100);
-        expect(result.breakdown.rSquaredScore).toBe(100);
-        expect(result.breakdown.loggingScore).toBe(100);
+        expect(result.breakdown.durationScore).toBe(100);
+        expect(result.breakdown.volatilityScore).toBe(100);
     });
 
     it('returns MEDIUM confidence for moderate data', () => {
-        // Arrange: 15 days tracked, moderate CV, moderate R², good logging
+        // Arrange: 15 days tracked, moderate CV, moderate R²
         const tdeeResult = {
             trackedDays: 15,
-            cv: 1.5,        // Stable (1-2%)
+            cv: 0.25,       // Moderate volatility (0.2-0.3)
             rSquared: 0.65, // Moderate fit
             entries: Array(15).fill({ date: '2025-01-01', weight: 80, calories: 2000 })
         };
@@ -1058,10 +1118,10 @@ describe('Calculator.calculateMultiFactorConfidence', () => {
     });
 
     it('returns LOW confidence for poor data', () => {
-        // Arrange: 8 days tracked, high CV, low R², poor logging
+        // Arrange: 8 days tracked, high CV, low R²
         const tdeeResult = {
             trackedDays: 8,
-            cv: 2.5,        // Somewhat volatile (2-3%)
+            cv: 0.35,       // High volatility (>0.3)
             rSquared: 0.4,  // Poor fit
             entries: [
                 { date: '2025-01-01', weight: 80, calories: 2000 },
@@ -1085,10 +1145,10 @@ describe('Calculator.calculateMultiFactorConfidence', () => {
     });
 
     it('returns NONE confidence for very poor data', () => {
-        // Arrange: 3 days tracked, very high CV, very low R², no logging consistency
+        // Arrange: 3 days tracked, very high CV, very low R²
         const tdeeResult = {
             trackedDays: 3,
-            cv: 4.0,        // Very volatile (>3%)
+            cv: 0.5,        // Very volatile
             rSquared: 0.2,  // Very poor fit
             entries: [
                 { date: '2025-01-01', weight: 80, calories: null },
