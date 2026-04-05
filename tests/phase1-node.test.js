@@ -117,7 +117,7 @@ const Sync = resetSyncMocks();
 
 console.log('\n=== Phase 1: Weight Validation (Fix #1) ===\n');
 
-test('rejects entry with null weight', async () => {
+test('accepts entry with null weight but has calories', async () => {
     const Sync = resetSyncMocks();
     Storage.init();
     
@@ -129,11 +129,14 @@ test('rejects entry with null weight', async () => {
     
     const result = await Sync.saveWeightEntry(entry);
     
-    expect(result.success).toBe(false);
-    expect(result.error).toInclude('valid weight value');
+    expect(result.success).toBe(true);
+    
+    const retrieved = Storage.getEntry('2026-03-16');
+    expect(retrieved.calories).toBe(2000);
+    expect(retrieved.weight).toBe(null);
 });
 
-test('rejects entry with undefined weight', async () => {
+test('accepts entry with undefined weight but has calories', async () => {
     const Sync = resetSyncMocks();
     Storage.init();
     
@@ -145,10 +148,10 @@ test('rejects entry with undefined weight', async () => {
     
     const result = await Sync.saveWeightEntry(entry);
     
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
 });
 
-test('rejects entry with NaN weight', async () => {
+test('accepts entry with NaN weight but has calories', async () => {
     const Sync = resetSyncMocks();
     Storage.init();
     
@@ -160,7 +163,7 @@ test('rejects entry with NaN weight', async () => {
     
     const result = await Sync.saveWeightEntry(entry);
     
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
 });
 
 test('accepts entry with valid weight', async () => {
@@ -179,6 +182,18 @@ test('accepts entry with valid weight', async () => {
     
     const retrieved = Storage.getEntry('2026-03-16');
     expect(retrieved.weight).toBe(80.5);
+});
+
+test('rejects entry with no weight, calories, or notes', async () => {
+    const Sync = resetSyncMocks();
+    Storage.init();
+    
+    const entry = { date: '2026-03-16' };
+    
+    const result = await Sync.saveWeightEntry(entry);
+    
+    expect(result.success).toBe(false);
+    expect(result.error).toInclude('weight, calories, or notes');
 });
 
 test('does not queue entry with null weight when authenticated', async () => {

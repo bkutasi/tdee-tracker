@@ -1040,16 +1040,20 @@ const Sync = (function() {
             return { success: false, error: 'Entry must include date field' };
         }
 
-        // Validate weight is present and numeric (required for Supabase sync)
-        if (entry.weight === null || entry.weight === undefined || isNaN(entry.weight)) {
-            return { success: false, error: 'Entry must include valid weight value' };
+        // Validate entry has at least one data field (weight, calories, or notes)
+        const hasWeight = entry.weight !== null && entry.weight !== undefined && !isNaN(entry.weight);
+        const hasCalories = entry.calories !== null && entry.calories !== undefined && !isNaN(entry.calories);
+        const hasNotes = entry.notes && entry.notes.trim().length > 0;
+
+        if (!hasWeight && !hasCalories && !hasNotes) {
+            return { success: false, error: 'Entry must include weight, calories, or notes' };
         }
 
         // Save to LocalStorage immediately (optimistic UI)
         const localResult = Storage.saveEntry(entry.date, {
-            weight: entry.weight,
-            calories: entry.calories,
-            notes: entry.notes || ''
+            weight: hasWeight ? entry.weight : null,
+            calories: hasCalories ? entry.calories : null,
+            notes: entry.notes ? entry.notes.trim() : ''
         });
         
         if (localResult !== true) {
@@ -1067,8 +1071,8 @@ const Sync = (function() {
         const { session } = await Auth.getSession();
         const user = session && session.user ? session.user : null;
 
-        // Queue sync to Supabase if authenticated (regardless of online status)
-        if (isAuthenticated && user) {
+        // Queue sync to Supabase only if weight is present (required by DB schema)
+        if (isAuthenticated && user && hasWeight) {
             // Check if entry already exists in LocalStorage to determine operation type
             const existingEntries = Storage.getAllEntries();
             const existingEntry = existingEntries[entry.date];
@@ -1094,7 +1098,11 @@ const Sync = (function() {
             _SyncDebug.log(`Queueing ${operationType} operation: userId=${user.id}, date=${entry.date}`, 'info');
             queueOperation(operationType, 'weight_entries', operationData, localResult.id);
         } else {
-            _SyncDebug.log('User not authenticated - entry saved locally only (not queued)', 'warn');
+            if (!hasWeight) {
+                _SyncDebug.log('No weight in entry - saved locally only (not queued for sync)', 'info');
+            } else {
+                _SyncDebug.log('User not authenticated - entry saved locally only (not queued)', 'warn');
+            }
         }
 
         // Return consistent success object (not boolean) for proper error handling

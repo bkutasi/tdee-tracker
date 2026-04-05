@@ -702,7 +702,7 @@ describe('Sync.saveWeightEntry - Weight validation', () => {
         expect(result.error).toBe('Entry must include valid weight value');
     });
 
-    it('rejects entry with null weight', async () => {
+    it('accepts entry with null weight but has calories', async () => {
         const entry = {
             date: '2026-03-11',
             weight: null,
@@ -711,11 +711,12 @@ describe('Sync.saveWeightEntry - Weight validation', () => {
 
         const result = await Sync.saveWeightEntry(entry);
 
-        expect(result.success).toBeFalse();
-        expect(result.error).toBe('Entry must include valid weight value');
+        expect(result.success).toBeTrue();
+        const retrieved = Storage.getEntry('2026-03-11');
+        expect(retrieved.calories).toBe(1800);
     });
 
-    it('rejects entry with undefined weight', async () => {
+    it('accepts entry with undefined weight but has calories', async () => {
         const entry = {
             date: '2026-03-12',
             weight: undefined,
@@ -724,11 +725,10 @@ describe('Sync.saveWeightEntry - Weight validation', () => {
 
         const result = await Sync.saveWeightEntry(entry);
 
-        expect(result.success).toBeFalse();
-        expect(result.error).toBe('Entry must include valid weight value');
+        expect(result.success).toBeTrue();
     });
 
-    it('rejects entry with NaN weight', async () => {
+    it('accepts entry with NaN weight but has calories', async () => {
         const entry = {
             date: '2026-03-13',
             weight: NaN,
@@ -737,8 +737,18 @@ describe('Sync.saveWeightEntry - Weight validation', () => {
 
         const result = await Sync.saveWeightEntry(entry);
 
+        expect(result.success).toBeTrue();
+    });
+
+    it('rejects entry with no weight, calories, or notes', async () => {
+        const entry = {
+            date: '2026-03-13'
+        };
+
+        const result = await Sync.saveWeightEntry(entry);
+
         expect(result.success).toBeFalse();
-        expect(result.error).toBe('Entry must include valid weight value');
+        expect(result.error).toInclude('weight, calories, or notes');
     });
 
     it('accepts entry with valid weight and no calories', async () => {

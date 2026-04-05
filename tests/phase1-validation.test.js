@@ -31,7 +31,7 @@ describe('Phase 1: Weight Validation (Fix #1)', () => {
         delete window.Auth;
     });
 
-    it('rejects entry with null weight', async () => {
+    it('accepts entry with null weight but has calories', async () => {
         const entry = { 
             date: '2026-03-16', 
             weight: null, 
@@ -40,11 +40,10 @@ describe('Phase 1: Weight Validation (Fix #1)', () => {
         
         const result = await Sync.saveWeightEntry(entry);
         
-        expect(result.success).toBe(false);
-        expect(result.error).toContain('valid weight value');
+        expect(result.success).toBe(true);
     });
 
-    it('rejects entry with undefined weight', async () => {
+    it('accepts entry with undefined weight but has calories', async () => {
         const entry = { 
             date: '2026-03-16', 
             weight: undefined, 
@@ -53,11 +52,10 @@ describe('Phase 1: Weight Validation (Fix #1)', () => {
         
         const result = await Sync.saveWeightEntry(entry);
         
-        expect(result.success).toBe(false);
-        expect(result.error).toContain('valid weight value');
+        expect(result.success).toBe(true);
     });
 
-    it('rejects entry with NaN weight', async () => {
+    it('accepts entry with NaN weight but has calories', async () => {
         const entry = { 
             date: '2026-03-16', 
             weight: NaN, 
@@ -66,8 +64,32 @@ describe('Phase 1: Weight Validation (Fix #1)', () => {
         
         const result = await Sync.saveWeightEntry(entry);
         
+        expect(result.success).toBe(true);
+    });
+
+    it('rejects entry with no weight, calories, or notes', async () => {
+        const entry = { 
+            date: '2026-03-16'
+        };
+        
+        const result = await Sync.saveWeightEntry(entry);
+        
         expect(result.success).toBe(false);
-        expect(result.error).toContain('valid weight value');
+        expect(result.error).toContain('weight, calories, or notes');
+    });
+
+    it('accepts entry with notes only', async () => {
+        const entry = { 
+            date: '2026-03-16', 
+            notes: 'Feeling great today' 
+        };
+        
+        const result = await Sync.saveWeightEntry(entry);
+        
+        expect(result.success).toBe(true);
+        
+        const retrieved = Storage.getEntry('2026-03-16');
+        expect(retrieved.notes).toBe('Feeling great today');
     });
 
     it('rejects entry with empty string weight', async () => {
