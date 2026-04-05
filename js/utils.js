@@ -6,11 +6,12 @@
 const Utils = (function () {
     'use strict';
     
-    // Declare AppConstants first (before usage)
+    // Resolve AppConstants: use window.AppConstants in browser, fallback for Node.js
     var AppConstants;
     
-    // Define AppConstants for Node.js environment (not available in global scope)
-    if (typeof window === 'undefined' && typeof AppConstants === 'undefined') {
+    if (typeof window !== 'undefined' && window.AppConstants) {
+        AppConstants = window.AppConstants;
+    } else if (typeof AppConstants === 'undefined') {
         AppConstants = {
             MS_PER_SECOND: 1000,
             MS_PER_MINUTE: 60000,

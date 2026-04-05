@@ -47,9 +47,12 @@ const _SyncDebug = new Proxy({}, {
 });
 
 const Sync = (function() {
+    // Resolve AppConstants: use window.AppConstants in browser, fallback for Node.js
     var AppConstants;
-    
-    if (typeof window === 'undefined' && (typeof global === 'undefined' || typeof global.AppConstants === 'undefined')) {
+
+    if (typeof window !== 'undefined' && window.AppConstants) {
+        AppConstants = window.AppConstants;
+    } else if (typeof global === 'undefined' || typeof global.AppConstants === 'undefined') {
         AppConstants = {
             MS_PER_SECOND: 1000,
             MS_PER_MINUTE: 60000,
