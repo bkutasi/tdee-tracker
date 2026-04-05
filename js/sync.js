@@ -911,9 +911,9 @@ const Sync = (function() {
                     .select('id')
                     .eq('user_id', data.user_id)
                     .eq('date', data.date)
-                    .single();
+                    .maybeSingle();
 
-                if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = not found
+                if (fetchError) {
                     return { success: false, error: fetchError };
                 }
 
@@ -1559,7 +1559,7 @@ if (typeof window !== 'undefined') {
   _SyncDebug.clearErrors()    - Clear error history
   _SyncDebug.lastSync()       - Get last sync time
   _SyncDebug.testEntry()      - Create test entry
-  _SyncDebug.info()           - Full status report
+  _SyncDebug.fullStatus()     - Full status report
   _SyncDebug.backfillLocal()  - Queue all local entries for upload
   _SyncDebug.help()           - Show this help
                 `);

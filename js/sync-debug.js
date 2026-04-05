@@ -7,7 +7,7 @@
  * Usage:
  *   SyncDebug.log('Message', 'info', { data });
  *   SyncDebug.status(); // Get sync status
- *   SyncDebug.info();   // Full debug report
+ *   SyncDebug.fullStatus();   // Full debug report
  */
 
 'use strict';
@@ -215,9 +215,9 @@ const SyncDebug = (function() {
     }
     
     /**
-     * Print debug info to console
+     * Print full debug info to console
      */
-    function info() {
+    function fullStatus() {
         if (!syncModule) {
             warn('Sync module not initialized');
             return { status: null, queue: [], errors: [] };
@@ -277,7 +277,7 @@ const SyncDebug = (function() {
   SyncDebug.clearErrors()             - Clear error history
   SyncDebug.lastSync()                - Get last sync time
   SyncDebug.testEntry()               - Create test entry
-  SyncDebug.info()                    - Full status report
+  SyncDebug.fullStatus()              - Full status report
   SyncDebug.backfillLocal()           - Queue all local entries for upload
   SyncDebug.help()                    - Show this help
                 `);
@@ -303,7 +303,7 @@ const SyncDebug = (function() {
         clearErrors,
         lastSync,
         testEntry,
-        info,
+        fullStatus,
         backfillLocal,
         help,
         
