@@ -4,6 +4,9 @@
  * Run with: node tests/node-test.js
  */
 
+const fs = require('fs');
+const path = require('path');
+
 // Simple test harness for Node.js
 let passed = 0;
 let failed = 0;
@@ -17,8 +20,13 @@ function expect(actual) {
             if (actual === null) throw new Error(`Expected not null, but got ${actual}`);
         },
         toContain(item) {
-            if (!Array.isArray(actual)) throw new Error(`Expected array, got ${typeof actual}`);
-            if (actual.includes(item)) throw new Error(`Expected ${JSON.stringify(actual)} not to contain ${JSON.stringify(item)}`);
+            if (Array.isArray(actual)) {
+                if (actual.includes(item)) throw new Error(`Expected ${JSON.stringify(actual)} not to contain ${JSON.stringify(item)}`);
+            } else if (typeof actual === 'string') {
+                if (actual.includes(item)) throw new Error(`Expected string not to contain "${item}"`);
+            } else {
+                throw new Error(`Expected array or string, got ${typeof actual}`);
+            }
         }
     };
     
@@ -52,14 +60,25 @@ function expect(actual) {
             if (actual.length !== length) throw new Error(`Expected length ${length}, got ${actual.length}`);
         },
         toContain(item) {
-            if (!Array.isArray(actual)) throw new Error(`Expected array, got ${typeof actual}`);
-            if (!actual.includes(item)) throw new Error(`Expected ${JSON.stringify(actual)} to contain ${JSON.stringify(item)}`);
+            if (Array.isArray(actual)) {
+                if (!actual.includes(item)) throw new Error(`Expected ${JSON.stringify(actual)} to contain ${JSON.stringify(item)}`);
+            } else if (typeof actual === 'string') {
+                if (!actual.includes(item)) throw new Error(`Expected string to contain "${item}"`);
+            } else {
+                throw new Error(`Expected array or string, got ${typeof actual}`);
+            }
         },
         toBeGreaterThan(expected) {
             if (!(actual > expected)) throw new Error(`Expected ${actual} > ${expected}`);
         },
         toBeGreaterThanOrEqual(expected) {
             if (!(actual >= expected)) throw new Error(`Expected ${actual} >= ${expected}`);
+        },
+        toBeLessThan(expected) {
+            if (!(actual < expected)) throw new Error(`Expected ${actual} < ${expected}`);
+        },
+        toBeLessThanOrEqual(expected) {
+            if (!(actual <= expected)) throw new Error(`Expected ${actual} <= ${expected}`);
         },
         toMatch(pattern) {
             if (!pattern.test(actual)) throw new Error(`Expected ${actual} to match ${pattern}`);
@@ -833,6 +852,35 @@ test('CSP has at least 4 directive types', () => {
     expect(directiveCount).toBeGreaterThanOrEqual(4);
 });
 
+test('HTML does NOT use X-Frame-Options meta tag (ineffective, use HTTP header)', () => {
+    const htmlPath = path.join(__dirname, '..', 'index.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    expect(html).not.toContain('X-Frame-Options');
+});
+
+test('constants.js loads before utils.js in script order', () => {
+    const scriptOrder = CSPTests.getScriptOrder();
+    const constantsIdx = scriptOrder.indexOf('js/constants.js');
+    const utilsIdx = scriptOrder.indexOf('js/utils.js');
+    expect(constantsIdx).toBeGreaterThanOrEqual(0);
+    expect(utilsIdx).toBeGreaterThanOrEqual(0);
+    expect(constantsIdx).toBeLessThan(utilsIdx);
+});
+
+test('utils.js loads before calculator modules', () => {
+    const scriptOrder = CSPTests.getScriptOrder();
+    const utilsIdx = scriptOrder.indexOf('js/utils.js');
+    const calcIdx = scriptOrder.findIndex(s => s.startsWith('js/calculator'));
+    expect(utilsIdx).toBeGreaterThanOrEqual(0);
+    expect(calcIdx).toBeGreaterThanOrEqual(0);
+    expect(utilsIdx).toBeLessThan(calcIdx);
+});
+
+test('app.js loads last in script order', () => {
+    const scriptOrder = CSPTests.getScriptOrder();
+    expect(scriptOrder[scriptOrder.length - 1]).toBe('js/app.js');
+});
+
 console.log('\n=== Sync Module Tests ===\n');
 
 // Mock setup for Sync tests
@@ -1423,6 +1471,9 @@ global.expect = expect;
 
 // Load Phase 1 tests (they will use global test/expect)
 require('./phase1-node.test.js');
+
+console.log('\n=== Config Validation Tests ===\n');
+require('./config-validation.test.js');
 
 // Summary
 console.log(`\n${'='.repeat(40)}`);

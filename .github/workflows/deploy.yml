@@ -95,6 +95,20 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Generate test config for E2E
+        run: |
+          cat > js/config.js << 'EOF'
+          'use strict';
+          window.SUPABASE_CONFIG = {
+              url: 'https://test-placeholder.supabase.co',
+              anonKey: 'test-placeholder-key-for-e2e-testing-only',
+              siteUrl: 'http://localhost:8765'
+          };
+          if (typeof module !== 'undefined' && module.exports) {
+              module.exports = window.SUPABASE_CONFIG;
+          }
+          EOF
+
       - name: Run E2E tests
         run: npx playwright test
 
@@ -128,6 +142,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SITE_URL: ${{ secrets.SITE_URL }}
+
+      - name: Validate generated config
+        run: node tests/config-validation.test.js
 
       - name: Deploy to Cloudflare Pages (Production)
         if: github.ref == 'refs/heads/master'

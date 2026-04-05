@@ -14,8 +14,10 @@
     const fs = typeof require !== 'undefined' ? require('fs') : null;
     const path = typeof require !== 'undefined' ? require('path') : null;
 
+    let htmlContent = '';
     let cspContent = '';
     let cspDirectives = {};
+    let scriptOrder = [];
 
     /**
      * Parse CSP content into structured directives
@@ -54,19 +56,26 @@
      * Initialize CSP data
      */
     function initCSPData() {
-        if (cspContent) return; // Already initialized
-        
+        if (cspContent) return;
+
+        let rawHtml = '';
         if (fs && path) {
-            // Node.js environment
             const htmlPath = path.join(__dirname, '../index.html');
-            const htmlContent = fs.readFileSync(htmlPath, 'utf8');
-            cspContent = extractCSPFromHTML(htmlContent);
-            cspDirectives = parseCSP(cspContent);
+            rawHtml = fs.readFileSync(htmlPath, 'utf8');
         } else if (typeof document !== 'undefined') {
-            // Browser environment
-            const htmlContent = document.documentElement.outerHTML;
-            cspContent = extractCSPFromHTML(htmlContent);
-            cspDirectives = parseCSP(cspContent);
+            rawHtml = document.documentElement.outerHTML;
+        }
+
+        htmlContent = rawHtml;
+        cspContent = extractCSPFromHTML(rawHtml);
+        cspDirectives = parseCSP(cspContent);
+
+        const scriptMatches = rawHtml.match(/<script[^>]*src="([^"]+)"[^>]*><\/script>/gi);
+        if (scriptMatches) {
+            scriptOrder = scriptMatches.map(m => {
+                const srcMatch = m.match(/src="([^"]+)"/i);
+                return srcMatch ? srcMatch[1] : '';
+            }).filter(Boolean);
         }
     }
 
@@ -232,6 +241,34 @@
                 expect(cspDirectives['connect-src']).toBeDefined();
             });
         });
+
+        describe('Script Load Order', () => {
+            it('constants.js loads before utils.js', () => {
+                const constantsIdx = scriptOrder.indexOf('js/constants.js');
+                const utilsIdx = scriptOrder.indexOf('js/utils.js');
+                expect(constantsIdx).toBeGreaterThanOrEqual(0);
+                expect(utilsIdx).toBeGreaterThanOrEqual(0);
+                expect(constantsIdx).toBeLessThan(utilsIdx);
+            });
+
+            it('utils.js loads before calculator modules', () => {
+                const utilsIdx = scriptOrder.indexOf('js/utils.js');
+                const calcIdx = scriptOrder.findIndex(s => s.startsWith('js/calculator'));
+                expect(utilsIdx).toBeGreaterThanOrEqual(0);
+                expect(calcIdx).toBeGreaterThanOrEqual(0);
+                expect(utilsIdx).toBeLessThan(calcIdx);
+            });
+
+            it('app.js loads last', () => {
+                expect(scriptOrder[scriptOrder.length - 1]).toBe('js/app.js');
+            });
+        });
+
+        describe('Security Meta Tags', () => {
+            it('does NOT use X-Frame-Options meta tag (ineffective, use HTTP header)', () => {
+                expect(htmlContent).not.toContain('X-Frame-Options');
+            });
+        });
     }
 
     // Export for Node.js testing
@@ -240,7 +277,8 @@
             parseCSP,
             extractCSPFromHTML,
             getCSPContent: () => cspContent,
-            getCSPDirectives: () => cspDirectives
+            getCSPDirectives: () => cspDirectives,
+            getScriptOrder: () => scriptOrder
         };
     }
 })();
