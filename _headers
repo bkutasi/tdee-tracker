@@ -1,0 +1,26 @@
+# Cloudflare Pages Headers
+# https://developers.cloudflare.com/pages/configuration/headers/
+
+# Service Worker — always check for updates (never stale)
+/sw.js
+  Cache-Control: no-cache
+
+# HTML — revalidate frequently
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# JS modules — long cache with revalidation (versioned by SW cache bust)
+/js/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# CSS — long cache with revalidation
+/css/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Icons — long cache
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# PWA manifest — revalidate frequently (install prompt depends on freshness)
+/manifest.json
+  Cache-Control: public, max-age=0, must-revalidate
