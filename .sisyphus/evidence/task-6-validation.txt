@@ -1,0 +1,91 @@
+Loading modules...
+✓ Modules loaded successfully
+
+=== TDEE Validation Against Controlled Datasets ===
+
+Research Standard: Hall & Chow (2011) - Energy Balance Dynamics
+Tolerance: ±5% for valid TDEE scenarios
+
+────────────────────────────────────────────────────────────
+SCENARIO 1: MAINTENANCE
+────────────────────────────────────────────────────────────
+
+============================================================
+Scenario 1: Maintenance (stable weight ±0.1kg, 2500 cal/day)
+============================================================
+  Expected TDEE: 2500 ±5%
+  Actual TDEE:   2518
+  Confidence:    medium
+  Has Large Gap: false
+  Result: ✓ PASS - Within tolerance (2375-2625) | confidence: medium (expected: high)
+
+────────────────────────────────────────────────────────────
+SCENARIO 2: CUTTING
+────────────────────────────────────────────────────────────
+
+============================================================
+Scenario 2: Cutting (0.5kg/week loss, 2000 cal/day)
+============================================================
+  Expected TDEE: 2554 ±5%
+  Actual TDEE:   2478
+  Confidence:    medium
+  Has Large Gap: false
+  Result: ✓ PASS - Within tolerance (2426-2682) | confidence: medium (expected: high)
+
+────────────────────────────────────────────────────────────
+SCENARIO 3: BULKING
+────────────────────────────────────────────────────────────
+
+============================================================
+Scenario 3: Bulking (0.5kg/week gain, 3000 cal/day)
+============================================================
+  Expected TDEE: 2446 ±5%
+  Actual TDEE:   2522
+  Confidence:    medium
+  Has Large Gap: false
+  Result: ✓ PASS - Within tolerance (2324-2568) | confidence: medium (expected: high)
+
+────────────────────────────────────────────────────────────
+SCENARIO 4: WATER WEIGHT
+────────────────────────────────────────────────────────────
+
+============================================================
+Scenario 4: Water Weight (+2.4kg/week spike, unreliable)
+============================================================
+  Expected TDEE: null (unreliable)
+  Actual TDEE:   null
+  Confidence:    none
+  Result: ✓ PASS - Correctly detected unreliable data
+
+────────────────────────────────────────────────────────────
+SCENARIO 5: GAP HANDLING
+────────────────────────────────────────────────────────────
+
+============================================================
+Scenario 5: Gap Handling (2-3 missing days/week, 21 days)
+============================================================
+  Expected TDEE: 2554 ±10%
+  Actual TDEE:   2454
+  Confidence:    low
+  Has Large Gap: false
+  Result: ✗ FAIL - Within tolerance (2299-2809) | hasLargeGap should be true | confidence: low (expected: medium)
+
+============================================================
+VALIDATION SUMMARY
+============================================================
+
+────────────────────────────────────────────────────────────
+Scenario          | Expected      | Actual        | Pass/Fail
+────────────────────────────────────────────────────────────
+Scenario 1        | 2500 ±5%      | 2518          | ✓ PASS
+Scenario 2        | 2554 ±5%      | 2478          | ✓ PASS
+Scenario 3        | 2446 ±5%      | 2522          | ✓ PASS
+Scenario 4        | null          | null          | ✓ PASS
+Scenario 5        | 2554 ±10%     | 2454          | ✗ FAIL
+────────────────────────────────────────────────────────────
+
+Total: 4/5 scenarios passed (80.0%)
+
+✓ VALIDATION SUCCESSFUL: At least 4/5 scenarios passed
+
+============================================================

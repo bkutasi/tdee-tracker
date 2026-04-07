@@ -1,0 +1,134 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 09c5e25..bce64f3 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -689,6 +689,7 @@ These run only in `test-runner.html`, not in Node.js.
+ | Symbol | Type | File | Purpose |
+ |--------|------|------|---------|
+ | `Calculator` | Module | `js/calculator.js` | Core TDEE engine (EWMA, regression, confidence) |
++| `TDEE` | Module | `js/calculator-tdee.js` | Advanced TDEE: Fast/Stable, water weight, 4-factor confidence |
+ | `Storage` | Module | `js/storage.js` | LocalStorage persistence |
+ | `Utils` | Module | `js/utils.js` | Date/validation helpers |
+ | `App` | Module | `js/app.js` | Initialization coordinator |
+@@ -739,6 +740,29 @@ These run only in `test-runner.html`, not in Node.js.
+ - ❌ **DO NOT** clear data without clearing queue — orphaned operations (Fix #4)
+ - ❌ **DO NOT** import data without sync trigger — data never synced (Fix #5)
+ 
++### Water Weight Detection (NEW in v3.1)
++
++**Module**: `js/calculator-tdee.js` — `detectWaterWeight()` function
++
++Water weight refers to rapid body weight fluctuations caused by glycogen-water binding, sodium, creatine, or carb refeeds. These are NOT fat/muscle changes and produce unreliable TDEE estimates.
++
++**Detection Criteria** (based on Hall & Chow 2011, Kreitzman et al. 1992):
++- Weight change >1 kg/week without calorie correlation
++- Sudden swing >2 kg in 3 days (glycogen-water loading)
++- Weight gain during calorie deficit (>0.3 kg/week while eating <2000 cal/day)
++- Implied TDEE outside physiological bounds (800-5000 kcal)
++
++**Behavior When Detected**:
++- **Fast TDEE**: Returns `null`, sets `isWaterWeight: true`
++- **Stable TDEE**: Returns `null`, sets `confidence: 'none'`
++- Falls back to more stable calculation window
++
++**Anti-Patterns**:
++- ❌ **DO NOT** display TDEE when `isWaterWeight: true` — data is unreliable
++- ❌ **DO NOT** ignore water weight flags in Fast TDEE results
++- ❌ **DO NOT** treat rapid weight swings as fat/muscle change
++- ❌ **DO NOT** calculate TDEE without checking `detectWaterWeight()` first
++
+ ### ESLint (NEW in v3.0.1)
+ 
+ **Configuration**: `eslint.config.js` (flat config, ESLint v9+)
+@@ -805,9 +829,44 @@ source venv/bin/activate
+ 
+ **EWMA**: `current * 0.3 + previous * 0.7`
+ **TDEE**: `avgCalories + ((-weightDelta * 7716) / trackedDays)` (kg)
+-**Confidence**: High (6+ days, ±5%), Medium (4-5 days, ±10%), Low (<4 days)
+ **Theoretical TDEE**: `Mifflin-St Jeor BMR × Activity Level`
+ 
++### Enhanced Confidence Scoring (4-Factor Model)
++
++Weighted score (0-100) mapped to tiers:
++
++| Factor | Weight | Score Tiers | Purpose |
++|--------|--------|-------------|---------|
++| **Duration** | 40% | 100 (28+d), 85 (14-27d), 70 (7-13d), 40 (<7d) | Tracking duration adequacy |
++| **Completeness** | 25% | 100 (≥85%), 75 (70-84%), 50 (<70%) | Data completeness ratio |
++| **Volatility** | 20% | 100 (CV<0.2), 80 (0.2-0.3), 60 (>0.3) | Weight stability (CV) |
++| **Weekend Coverage** | 15% | 100 (≥50%), 70 (<50%), 40 (0%) | Weekend tracking coverage |
++
++**Water Weight Penalty**: -20 points when `isWaterWeight: true`
++
++**Confidence Tiers**:
++- **HIGH** (80-100): Trust for decision-making
++- **MEDIUM** (60-79): Use with caution
++- **LOW** (40-59): Preliminary estimate only
++- **NONE** (<40): Insufficient data
++
++**Formula**: `score = (duration × 0.40) + (completeness × 0.25) + (volatility × 0.20) + (weekend × 0.15) - waterWeightPenalty`
++
++### Physiological Range Validation
++
++All TDEE values validated against physiological bounds:
++- **Minimum**: 800 kcal/day (below BMR, impossible)
++- **Maximum**: 5000 kcal/day (superhuman, impossible)
++- **Action**: Returns `null` if outside range
++
++### Water Weight Detection
++
++Based on Hall & Chow (2011), Kreitzman et al. (1992) — glycogen-water binding (1g glycogen : 3-4g water):
++- Weight change >1 kg/week without calorie correlation
++- Sudden swing >2 kg in 3 days
++- Weight gain during calorie deficit (>0.3 kg/week, <2000 cal/day)
++- Implied TDEE outside 800-5000 kcal bounds
++
+ ---
+ 
+ ## 15. Constants
+@@ -821,6 +880,16 @@ source venv/bin/activate
+ | `OUTLIER_THRESHOLD` | 3 | Std devs for calorie outlier detection |
+ | `SYNC_INTERVAL` | 30000ms | Background sync interval |
+ | `MAX_RETRIES` | 3 | Max sync retry attempts |
++| `CONFIDENCE_WEIGHTS.DURATION` | 0.40 | Duration factor weight (4-factor model) |
++| `CONFIDENCE_WEIGHTS.COMPLETENESS` | 0.25 | Completeness factor weight |
++| `CONFIDENCE_WEIGHTS.VOLATILITY` | 0.20 | Volatility factor weight (CV) |
++| `CONFIDENCE_WEIGHTS.WEEKEND_COVERAGE` | 0.15 | Weekend coverage factor weight |
++| `CONFIDENCE_SCORE_TIERS.HIGH` | 80 | Minimum score for HIGH confidence |
++| `CONFIDENCE_SCORE_TIERS.MEDIUM` | 60 | Minimum score for MEDIUM confidence |
++| `CONFIDENCE_SCORE_TIERS.LOW` | 40 | Minimum score for LOW confidence |
++| `WATER_WEIGHT_PENALTY` | 20 | Points deducted when water weight detected |
++| `PHYSIOLOGICAL_TDEE_MIN` | 800 | Minimum valid TDEE (kcal/day) |
++| `PHYSIOLOGICAL_TDEE_MAX` | 5000 | Maximum valid TDEE (kcal/day) |
+ 
+ ---
+ 
+@@ -905,6 +974,28 @@ node tests/node-test.js
+ - Check `<meta http-equiv="Content-Security-Policy">` in `index.html`
+ - Required directives: `script-src`, `connect-src`, `style-src`, `img-src`
+ 
++### TDEE Calculation Issues
++
++**Impossible TDEE values (<800 or >5000 kcal):**
++```javascript
++// Check if calculatePeriodTDEE() has physiological validation
++// Should return null for values outside 800-5000 kcal range
++// If not, add validation before return statement
++```
++
++**Water weight detected (TDEE returns null):**
++```javascript
++// Check detectWaterWeight() result
++// Common causes: creatine loading, sodium spikes, carb refeeds
++// Solution: Wait for stable data, rely on Stable TDEE (14-day)
++```
++
++**Low confidence scores:**
++- Check completeness ratio (need ≥85% for max score)
++- Check weight volatility (CV >0.3 reduces score)
++- Check weekend coverage (need ≥50% weekend days)
++- Check for water weight penalty (-20 points)
++
+ ### Deployment Issues
+ 
+ **See Deployment Troubleshooting** (Section 5) or `DEPLOYMENT.md`

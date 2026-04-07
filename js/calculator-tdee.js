@@ -1221,7 +1221,15 @@ const TDEE = (function () {
 
         // TDEE = avgCalories - (slope * calPerUnit)
         const calPerUnit = unit === 'kg' ? CALORIES_PER_KG : CALORIES_PER_LB;
-        return round(avgCalories - (slope * calPerUnit), 0);
+        const rawTdee = avgCalories - (slope * calPerUnit);
+
+        // Physiological range validation (800-5000 kcal)
+        // Human BMR alone is ~1200-1800 kcal/day. TDEE below 800 or above 5000 is impossible.
+        if (rawTdee < 800 || rawTdee > 5000) {
+            return null;
+        }
+
+        return round(rawTdee, 0);
     }
 
     // Public API

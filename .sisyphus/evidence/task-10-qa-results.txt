@@ -1,0 +1,25 @@
+=== Task 10: TDEE Calculation Browser QA Results ===
+Date: 2026-04-07T12:23:38.684Z
+
+--- Main TDEE Display ---
+14-Day TDEE: 3,310
+Confidence: ○ Low (null)
+Current Weight: 76.2
+Weekly Change: +0.27
+Target Intake: 3,977
+
+--- TDEE Trends ---
+7-Day Trend: 638
+14-Day Trend: 3,273
+
+--- Verification Results ---
+✓ 14-Day TDEE (3310) is in physiological range (800-5000)
+✗ 7-Day Trend (638) IMPOSSIBLE VALUE - BUG: calculatePeriodTDEE lacks validation
+✓ 14-Day Trend (3273) in physiological range (800-5000)
+✓ Confidence badge present: "○ Low (null)"
+
+--- Screenshots ---
+- .sisyphus/evidence/task-10-dashboard.png
+- .sisyphus/evidence/task-10-dashboard-loaded.png
+
+=== End of Report ===

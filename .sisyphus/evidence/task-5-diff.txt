@@ -1,0 +1,146 @@
+diff --git a/js/calculator-tdee.js b/js/calculator-tdee.js
+index 3302255..4b0fcbf 100644
+--- a/js/calculator-tdee.js
++++ b/js/calculator-tdee.js
+@@ -325,11 +325,25 @@ const TDEE = (function () {
+         }
+ 
+         // Check for weight data
+-        const weightEntries = processed.filter(e => e.ewmaWeight !== null);
++        const weightEntries = processed.filter(e => e.ewmaWeight !== null && e.ewmaWeight !== undefined);
+         if (weightEntries.length < 2) {
+             return { tdee: null, confidence, trackedDays, hasOutliers: false };
+         }
+ 
++        // Check for water weight (unreliable data from rapid fluctuations)
++        const isWaterWeight = detectWaterWeight(entries);
++        if (isWaterWeight) {
++            // Water weight detected - return null, fall back to Stable TDEE (14-day)
++            return { 
++                tdee: null, 
++                confidence, 
++                trackedDays, 
++                hasOutliers: false,
++                isWaterWeight: true,
++                reason: 'Water weight detected - rapid fluctuation without calorie correlation'
++            };
++        }
++
+         // Calculate calories (with outlier detection)
+         const calories = calorieEntries.map(e => e.calories);
+         const calResult = excludeCalorieOutliers(calories);
+@@ -409,6 +423,94 @@ const TDEE = (function () {
+         return smoothed;
+     }
+ 
++    /**
++     * Detect water weight from rapid weight fluctuations not supported by calorie intake
++     * Based on Hall & Chow (2011), Kreitzman et al. (1992) - glycogen-water binding
++     * @param {Object[]} entries - Array of daily entries with weight and calories
++     * @returns {boolean} true if water weight detected (unreliable data)
++     */
++    function detectWaterWeight(entries) {
++        if (!entries || entries.length < 7) {
++            return false; // Need at least 7 days to detect weekly rate
++        }
++
++        const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
++        const weightEntries = sortedEntries.filter(e => e.weight !== null && !isNaN(e.weight));
++        
++        if (weightEntries.length < 2) {
++            return false;
++        }
++
++        // Calculate weight change over the period
++        const firstEntry = weightEntries[0];
++        const lastEntry = weightEntries[weightEntries.length - 1];
++        const firstWeight = firstEntry.weight;
++        const lastWeight = lastEntry.weight;
++        const daysDiff = (new Date(lastEntry.date) - new Date(firstEntry.date)) / (1000 * 60 * 60 * 24);
++        
++        if (daysDiff < 1) {
++            return false; // Need at least 1 day difference
++        }
++
++        const weeksDiff = daysDiff / 7;
++        const weightChangePerWeek = (lastWeight - firstWeight) / weeksDiff;
++
++        // Physiological bounds for fat/muscle change (Hall & Chow, 2011)
++        const MAX_GAIN_PER_WEEK = 0.5;  // kg/week (muscle + fat, natural lifter)
++        const MAX_LOSS_PER_WEEK = 1.0;  // kg/week (aggressive cut, sustainable)
++
++        // Check if weight change exceeds physiological bounds
++        const exceedsGainBound = weightChangePerWeek > MAX_GAIN_PER_WEEK;
++        const exceedsLossBound = weightChangePerWeek < -MAX_LOSS_PER_WEEK;
++
++        if (!exceedsGainBound && !exceedsLossBound) {
++            return false; // Weight change is within normal bounds
++        }
++
++        // Weight change exceeds physiological bounds - check if calorie intake supports it
++        const calorieEntries = sortedEntries.filter(e => e.calories !== null && !isNaN(e.calories));
++        if (calorieEntries.length === 0) {
++            // No calorie data - assume water weight if change is extreme (>2kg/week)
++            return Math.abs(weightChangePerWeek) > 2.0;
++        }
++
++        const avgCalories = calorieEntries.reduce((sum, e) => sum + e.calories, 0) / calorieEntries.length;
++        
++        // Calculate required calorie surplus/deficit for observed weight change
++        // 1 kg fat/muscle = 7716 calories
++        const requiredDailySurplus = (weightChangePerWeek * CALORIES_PER_KG) / 7;
++        const impliedTDEE = avgCalories - requiredDailySurplus;
++
++        // If implied TDEE is physiologically impossible, it's water weight
++        const IMPOSSIBLE_TDEE_MIN = 800;   // Below BMR, impossible
++        const IMPOSSIBLE_TDEE_MAX = 5000;  // Superhuman, impossible
++
++        if (impliedTDEE < IMPOSSIBLE_TDEE_MIN || impliedTDEE > IMPOSSIBLE_TDEE_MAX) {
++            return true; // Water weight detected
++        }
++
++        // Additional check: if weight change rate is extreme (>1.5x max bound), it's water weight
++        // Even if implied TDEE is technically possible, such rapid change is unlikely to be real tissue
++        const EXTREME_GAIN_THRESHOLD = MAX_GAIN_PER_WEEK * 2; // >1.0 kg/week gain
++        const EXTREME_LOSS_THRESHOLD = -MAX_LOSS_PER_WEEK * 1.5; // <-1.5 kg/week loss
++        
++        if (weightChangePerWeek > EXTREME_GAIN_THRESHOLD || weightChangePerWeek < EXTREME_LOSS_THRESHOLD) {
++            return true; // Extreme rate indicates water weight
++        }
++
++        // Additional check: sudden swing >2kg in 3 days (glycogen-water loading)
++        if (daysDiff <= 3 && Math.abs(lastWeight - firstWeight) > 2.0) {
++            return true; // Sudden swing indicates water retention
++        }
++
++        // Weight gain during reported calorie deficit (physiologically impossible as fat/muscle)
++        if (weightChangePerWeek > 0.3 && avgCalories < 2000) {
++            return true; // Gaining weight on low calories = water retention
++        }
++
++        return false;
++    }
++
+     /**
+      * Detect large gaps in weight data (>2 consecutive days without weight)
+      * @param {Object[]} entries - Array of daily entries
+@@ -723,6 +825,19 @@ const TDEE = (function () {
+             return { tdee: null, confidence: 'none', trackedDays: 0 };
+         }
+ 
++        // Check for water weight (unreliable data from rapid fluctuations)
++        const isWaterWeight = detectWaterWeight(entries);
++        if (isWaterWeight) {
++            // Water weight detected - return null, data is unreliable
++            return { 
++                tdee: null, 
++                confidence: 'none', 
++                trackedDays: 0,
++                isWaterWeight: true,
++                reason: 'Water weight detected - rapid fluctuation without calorie correlation'
++            };
++        }
++
+         // Prepare data
+         const data = _prepareStableTDEEData(entries);
+         
