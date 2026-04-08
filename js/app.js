@@ -81,20 +81,28 @@ const App = (function () {
         registerKeyboardShortcuts();
     }
 
+    let authModalLoading = false;
+
     async function setupAuthModal() {
         const authModalBtn = document.getElementById('auth-modal-btn');
         if (authModalBtn) {
             authModalBtn.addEventListener('click', async () => {
+                // Guard against double-init on rapid mobile taps
+                if (authModalLoading) return;
+
                 // Lazy load auth-modal on first click
                 if (typeof AuthModal === 'undefined' || !AuthModal.show) {
+                    authModalLoading = true;
                     try {
                         await Utils.loadScript('js/ui/auth-modal.js');
                         await Utils.loadScript('js/ui/focusTrap.js');
                         AuthModal.init();
                     } catch (error) {
                         console.error('Failed to lazy load auth-modal:', error);
+                        authModalLoading = false;
                         return;
                     }
+                    authModalLoading = false;
                 }
                 AuthModal.show();
             });

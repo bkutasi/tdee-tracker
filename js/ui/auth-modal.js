@@ -145,7 +145,7 @@ const AuthModal = (function() {
     /**
      * Render auth state UI
      */
-    function renderAuthState() {
+    async function renderAuthState() {
         // Guard against missing elements
         if (!statusContainer) {
             statusContainer = document.getElementById('auth-status');
@@ -158,17 +158,13 @@ const AuthModal = (function() {
         }
         
         let user = null;
-        
-        // Try to get user - handle case where Auth module exists but not initialized
+
+        // Use getSession() for reliable async state (Fix #3: getCurrentUser is in-memory only)
         try {
-            user = Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+            const { session } = await Auth.getSession();
+            user = session?.user || null;
         } catch (_error) {
-            // Error getting user - continue with null
-        }
-        
-        // If no user from getCurrentUser, check if we have a recent auth event
-        if (!user && Auth._lastUser) {
-            user = Auth._lastUser;
+            user = Auth._lastUser || null;
         }
 
         if (user) {
@@ -323,6 +319,7 @@ const AuthModal = (function() {
                             placeholder="you@example.com"
                             required
                             autocomplete="email"
+                            inputmode="email"
                         />
                     </div>
 
