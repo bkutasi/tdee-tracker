@@ -218,10 +218,10 @@ const SyncMerge = (function() {
                 const localTime = new Date(local.updatedAt || local.createdAt || 0).getTime();
                 if (remoteTime > localTime) {
                     merged.push(remote);
-                    localMap.delete(remote.date);
                 } else {
                     merged.push(local);
                 }
+                localMap.delete(remote.date);
             }
         });
 

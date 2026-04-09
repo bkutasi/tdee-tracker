@@ -112,14 +112,24 @@ setupMocks();
 // Load modules
 const jsDir = path.join(__dirname, '../../js');
 
-const utilsCode = fs.readFileSync(path.join(jsDir, 'utils.js'), 'utf8');
-eval(utilsCode.replace('if (typeof module', '// if (typeof module'));
+if (!global.window) global.window = {};
+global.window.localStorage = global.localStorage;
 
-const calculatorCode = fs.readFileSync(path.join(jsDir, 'calculator.js'), 'utf8');
-eval(calculatorCode.replace('if (typeof module', '// if (typeof module'));
+function loadModule(filePath) {
+    const code = fs.readFileSync(filePath, 'utf8');
+    const patched = code
+        .replace(/if \(typeof module !== 'undefined' && module\.exports\)/g, 'if (false)');
+    eval(patched);
+}
 
-const storageCode = fs.readFileSync(path.join(jsDir, 'storage.js'), 'utf8');
-eval(storageCode.replace('if (typeof module', '// if (typeof module'));
+loadModule(path.join(jsDir, 'utils.js'));
+global.Utils = global.window.Utils;
+
+loadModule(path.join(jsDir, 'calculator.js'));
+global.Calculator = global.window.Calculator;
+
+loadModule(path.join(jsDir, 'storage.js'));
+global.Storage = global.window.Storage;
 
 const Storage = global.Storage;
 
@@ -143,29 +153,37 @@ const Auth = {
     onAuthStateChange: () => () => {}
 };
 
-global.window = { Auth, Storage, localStorage: global.localStorage };
+global.window.Auth = Auth;
+global.window.Storage = Storage;
 
-// Load sync module
-const syncCode = fs.readFileSync(path.join(jsDir, 'sync.js'), 'utf8');
-eval(syncCode.replace('if (typeof module', '// if (typeof module'));
+loadModule(path.join(jsDir, 'sync-errors.js'));
+loadModule(path.join(jsDir, 'sync-queue.js'));
+loadModule(path.join(jsDir, 'sync-merge.js'));
+loadModule(path.join(jsDir, 'sync-core.js'));
+
+global.SyncErrors = global.window.SyncErrors;
+global.SyncQueue = global.window.SyncQueue;
+global.SyncMerge = global.window.SyncMerge;
+global.Sync = global.window.Sync;
+
 const Sync = global.Sync;
 
 // Tests
 test('E2E: Sync module exports all required methods', () => {
-    const required = ['init', 'syncAll', 'saveWeightEntry', 'updateWeightEntry', 'deleteWeightEntry', 
+    const required = ['init', 'syncAll', 'saveWeightEntry', 'updateWeightEntry', 'deleteWeightEntry',
                       'fetchWeightEntries', 'mergeEntries', 'fetchAndMergeData', 'getStatus', 'getQueue', 'clearQueue'];
-    required.forEach(method => expect(typeof Sync[method]).toBeTypeOf('function'));
+    required.forEach(method => expect(typeof Sync[method]).toBe('function'));
 });
 
 test('E2E: Auth._getSupabase() returns Supabase client', () => {
     const supabase = Auth._getSupabase();
     expect(supabase).toBeTruthy();
-    expect(typeof supabase.from).toBeTypeOf('function');
+    expect(typeof supabase.from).toBe('function');
 });
 
 test('E2E: Storage has required methods (no clearEntries/addEntry)', () => {
-    expect(typeof Storage.saveEntry).toBeTypeOf('function');
-    expect(typeof Storage.getAllEntries).toBeTypeOf('function');
+    expect(typeof Storage.saveEntry).toBe('function');
+    expect(typeof Storage.getAllEntries).toBe('function');
     expect(Storage.clearEntries).toBeTypeOf('undefined');
     expect(Storage.addEntry).toBeTypeOf('undefined');
 });
@@ -234,15 +252,15 @@ test('E2E: Sync queue persists to localStorage', async () => {
 });
 
 test('E2E: mergeEntries resolves conflicts by newest timestamp', () => {
-    const localEntries = {
-        '2026-03-01': { weight: 80.5, calories: 2200, notes: 'Local', updatedAt: '2026-03-01T10:00:00Z' }
-    };
-    global.localStorage.setItem('tdee_entries', JSON.stringify(localEntries));
-    
+    Storage.clearAll();
+    Storage.init();
+    Storage.saveEntry('2026-03-01', { weight: 80.5, calories: 2200, notes: 'Local' });
+
+    const futureTime = new Date(Date.now() + 10000).toISOString();
     const remoteEntries = [
-        { date: '2026-03-01', weight: 81.0, calories: 2300, notes: 'Remote', updated_at: '2026-03-01T12:00:00Z' }
+        { date: '2026-03-01', weight: 81.0, calories: 2300, notes: 'Remote', updated_at: futureTime }
     ];
-    
+
     const merged = Sync.mergeEntries(remoteEntries);
     expect(merged.length).toBe(1);
     expect(merged[0].weight).toBe(81.0);

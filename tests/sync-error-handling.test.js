@@ -235,7 +235,7 @@ describe('SyncDebug Window Global Protection', () => {
         // But we can test the protection logic
         
         // This test documents that Sync.js checks for existing SyncDebug
-        // before creating its own (see sync.js:1257)
+        // before creating its own (see sync-core.js)
         expect(window.SyncDebug).toBeUndefined();
     });
 
