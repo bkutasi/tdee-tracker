@@ -44,3 +44,10 @@ export_Data.json
 __pycache__/
 *.pyc
 env/
+
+# Agent artifacts
+qa-test.mjs
+test-results/
+.sisyphus/notepads/
+.sisyphus/plans/
+.sisyphus/boulder.json
