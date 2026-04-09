@@ -136,7 +136,7 @@ const Calculator = (function () {
     function calculateDailyTarget(tdee, targetPercent) {
         if (!tdee) return null;
         const target = tdee * (1 + targetPercent);
-        return round(target, 0);
+        return Utils.round(target, 0);
     }
 
     /**
@@ -183,12 +183,12 @@ const Calculator = (function () {
         return {
             startDate: dailyEntries[0]?.date,
             endDate: dailyEntries[dailyEntries.length - 1]?.date,
-            avgWeight: weightCount > 0 ? round(weightSum / weightCount, 2) : null,
+            avgWeight: weightCount > 0 ? Utils.round(weightSum / weightCount, 2) : null,
             ewmaWeight,
-            avgCalories: calorieCount > 0 ? round(calorieSum / calorieCount, 0) : null,
+            avgCalories: calorieCount > 0 ? Utils.round(calorieSum / calorieCount, 0) : null,
             trackedDays: calorieCount,
             totalDays: dailyEntries.length,
-            confidence: round(calorieCount / dailyEntries.length, 2),
+            confidence: Utils.round(calorieCount / dailyEntries.length, 2),
             hasGaps: calorieCount < dailyEntries.length
         };
     }
@@ -208,7 +208,7 @@ const Calculator = (function () {
             value,
             index,
             isOutlier: Math.abs(value - stats.mean) > (threshold * stats.stdDev),
-            zScore: round((value - stats.mean) / stats.stdDev, 2)
+            zScore: Utils.round((value - stats.mean) / stats.stdDev, 2)
         }));
     }
 
@@ -282,7 +282,7 @@ const Calculator = (function () {
 
         return {
             valid: true,
-            bmr: round(bmr, 0)
+            bmr: Utils.round(bmr, 0)
         };
     }
 
@@ -296,7 +296,7 @@ const Calculator = (function () {
         // Handle both old format (number) and new format (object with valid/bmr)
         const bmrValue = bmr?.bmr ?? bmr;
         if (!bmrValue || !activityLevel) return null;
-        return round(bmrValue * activityLevel, 0);
+        return Utils.round(bmrValue * activityLevel, 0);
     }
 
     /**
@@ -304,8 +304,8 @@ const Calculator = (function () {
      */
     function convertWeight(value, from, to) {
         if (from === to) return value;
-        if (from === 'kg' && to === 'lb') return round(value * KG_TO_LB_CONVERSION, 2);
-        if (from === 'lb' && to === 'kg') return round(value * LB_TO_KG_CONVERSION, 2);
+        if (from === 'kg' && to === 'lb') return Utils.round(value * KG_TO_LB_CONVERSION, 2);
+        if (from === 'lb' && to === 'kg') return Utils.round(value * LB_TO_KG_CONVERSION, 2);
         return value;
     }
 
@@ -314,27 +314,9 @@ const Calculator = (function () {
      */
     function convertCalories(value, from, to) {
         if (from === to) return value;
-        if (from === 'cal' && to === 'kj') return round(value * 4.184, 0);
-        if (from === 'kj' && to === 'cal') return round(value / 4.184, 0);
+        if (from === 'cal' && to === 'kj') return Utils.round(value * 4.184, 0);
+        if (from === 'kj' && to === 'cal') return Utils.round(value / 4.184, 0);
         return value;
-    }
-
-    /**
-     * Round to specified decimal places (handles floating-point precision)
-     * Delegates to Utils module for consistency
-     * @param {number} value - Value to round
-     * @param {number} decimals - Decimal places
-     * @returns {number} Rounded value
-     */
-    function round(value, decimals = 2) {
-        // Use Utils module if available, otherwise use inline implementation
-        if (typeof Utils !== 'undefined' && Utils.round) {
-            return Utils.round(value, decimals);
-        }
-        // Fallback inline implementation
-        if (value === null || value === undefined || isNaN(value)) return null;
-        const factor = Math.pow(10, decimals);
-        return Math.round((value + Number.EPSILON) * factor) / factor;
     }
 
     /**
@@ -400,10 +382,10 @@ const Calculator = (function () {
             }
             // Fallback inline implementation
             if (previous === null || previous === undefined) {
-                return round(current, 2);
+                return Utils.round(current, 2);
             }
             const result = (current * (alpha || DEFAULT_ALPHA)) + (previous * (1 - (alpha || DEFAULT_ALPHA)));
-            return round(result, 2);
+            return Utils.round(result, 2);
         },
         
         getAdaptiveAlpha: function(recentWeights) {
@@ -426,7 +408,7 @@ const Calculator = (function () {
             if (withEWMA.length < 2) return null;
             const firstEWMA = withEWMA[0].ewmaWeight;
             const lastEWMA = withEWMA[withEWMA.length - 1].ewmaWeight;
-            return round(lastEWMA - firstEWMA, 3);
+            return Utils.round(lastEWMA - firstEWMA, 3);
         },
 
         // TDEE calculations (re-exported from TDEE module)
@@ -438,7 +420,7 @@ const Calculator = (function () {
             if (params.trackedDays === 0) return null;
             const calPerUnit = params.unit === 'kg' ? CALORIES_PER_KG : CALORIES_PER_LB;
             const tdee = params.avgCalories + ((-params.weightDelta * calPerUnit) / params.trackedDays);
-            return round(tdee, 0);
+            return Utils.round(tdee, 0);
         },
         
         calculateRollingTDEE: function(weeklyData, windowSize) {
@@ -449,7 +431,7 @@ const Calculator = (function () {
             const validWeeks = weeklyData.filter(w => w.tdee !== null && !isNaN(w.tdee)).slice(-windowSize);
             if (validWeeks.length === 0) return null;
             const sum = validWeeks.reduce((acc, w) => acc + w.tdee, 0);
-            return round(sum / validWeeks.length, 0);
+            return Utils.round(sum / validWeeks.length, 0);
         },
         
         calculateSmoothedTDEE: function(currentTDEE, previousSmoothedTDEE, alpha) {
@@ -566,7 +548,7 @@ const Calculator = (function () {
         convertCalories,
 
         // Utilities
-        round,
+        round: Utils.round,
         mround,
 
         // Constants (for testing)

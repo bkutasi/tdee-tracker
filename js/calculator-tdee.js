@@ -47,19 +47,9 @@ const TDEE = (function () {
         NONE: 0      // Score < 40
     };
 
-    // Use consolidated utilities from Utils module (with fallback for Node.js testing)
-    function getRoundFn() {
-        if (typeof Utils !== 'undefined' && Utils.round) return Utils.round;
-        return function(v, d = 2) {
-            if (v === null || v === undefined || isNaN(v)) return null;
-            const f = Math.pow(10, d);
-            return Math.round((v + Number.EPSILON) * f) / f;
-        };
-    }
     
     function getCalculateStatsFn() {
         if (typeof Utils !== 'undefined' && Utils.calculateStats) return Utils.calculateStats;
-        const roundFn = getRoundFn();
         return function(data) {
             if (data.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0 };
             let sum = 0, min = Infinity, max = -Infinity;
@@ -75,16 +65,15 @@ const TDEE = (function () {
             }
             const variance = sumSqDiff / data.length;
             return {
-                mean: roundFn(mean, 4),
-                stdDev: roundFn(Math.sqrt(variance), 4),
-                min: roundFn(min, 4),
-                max: roundFn(max, 4)
+                mean: Utils.round(mean, 4),
+                stdDev: Utils.round(Math.sqrt(variance), 4),
+                min: Utils.round(min, 4),
+                max: Utils.round(max, 4)
             };
         };
     }
     
-    // Cache the functions
-    const round = getRoundFn();
+    // Cache the calculateStats function
     const calculateStats = getCalculateStatsFn();
 
     // Delegate CV, volatility, and adaptive alpha to EWMA module for consistency
@@ -93,7 +82,7 @@ const TDEE = (function () {
         if (!weights || weights.length === 0) return null;
         const stats = calculateStats(weights);
         if (stats.mean === 0) return null;
-        return round((stats.stdDev / stats.mean) * 100, 2);
+        return Utils.round((stats.stdDev / stats.mean) * 100, 2);
     };
 
     const isVolatile = (typeof EWMA !== 'undefined' && EWMA.isVolatile) ? EWMA.isVolatile : function(cv, threshold = 2) {
@@ -107,9 +96,9 @@ const TDEE = (function () {
     };
 
     const calculateEWMA = (typeof EWMA !== 'undefined' && EWMA.calculateEWMA) ? EWMA.calculateEWMA : function(current, previous, alpha = DEFAULT_ALPHA) {
-        if (previous === null || previous === undefined) return round(current, 2);
+        if (previous === null || previous === undefined) return Utils.round(current, 2);
         const result = (current * alpha) + (previous * (1 - alpha));
-        return round(result, 2);
+        return Utils.round(result, 2);
     };
 
     /**
@@ -151,7 +140,7 @@ const TDEE = (function () {
         // TDEE = intake + (surplus or deficit from weight change)
         // If weight went down, delta is negative, so we ADD to intake
         const tdee = avgCalories + ((-weightDelta * calPerUnit) / trackedDays);
-        const roundedTdee = round(tdee, 0);
+        const roundedTdee = Utils.round(tdee, 0);
 
         // P0-2: Physiological range validation (800-5000 kcal)
         // Human BMR alone is ~1200-1800 kcal/day. TDEE below 800 or above 5000 is impossible.
@@ -176,7 +165,7 @@ const TDEE = (function () {
         if (validWeeks.length === 0) return null;
 
         const sum = validWeeks.reduce((acc, w) => acc + w.tdee, 0);
-        return round(sum / validWeeks.length, 0);
+        return Utils.round(sum / validWeeks.length, 0);
     }
 
     /**
@@ -203,7 +192,7 @@ const TDEE = (function () {
         }
 
         if (calories.length < 3) {
-            const avg = round(calories.reduce((a, b) => a + b, 0) / calories.length, 0);
+            const avg = Utils.round(calories.reduce((a, b) => a + b, 0) / calories.length, 0);
             return { filteredCalories: calories, filteredAvg: avg, outliers: [], originalAvg: avg };
         }
 
@@ -223,9 +212,9 @@ const TDEE = (function () {
             }
         }
 
-        const filteredAvg = filtered.length > 0 ? round(filteredSum / filtered.length, 0) : null;
+        const filteredAvg = filtered.length > 0 ? Utils.round(filteredSum / filtered.length, 0) : null;
 
-        return { filteredCalories: filtered, filteredAvg, outliers, originalAvg: round(stats.mean, 0) };
+        return { filteredCalories: filtered, filteredAvg, outliers, originalAvg: Utils.round(stats.mean, 0) };
     }
 
     /**
@@ -282,7 +271,7 @@ const TDEE = (function () {
         const firstEWMA = withEWMA[0].ewmaWeight;
         const lastEWMA = withEWMA[withEWMA.length - 1].ewmaWeight;
 
-        return round(lastEWMA - firstEWMA, 3);
+        return Utils.round(lastEWMA - firstEWMA, 3);
     }
 
     /**
@@ -655,7 +644,7 @@ const TDEE = (function () {
         // TDEE = avgCalories - (slope * cal_per_unit)
         // If slope is negative (losing), we subtract negative = add
         // If slope is positive (gaining), we subtract positive = lower TDEE
-        return round(avgCalories - (slope * calPerUnit), 0);
+        return Utils.round(avgCalories - (slope * calPerUnit), 0);
     }
 
     /**
@@ -686,7 +675,7 @@ const TDEE = (function () {
             confidenceTier: confidenceResult.confidenceTier,
             confidenceBreakdown: confidenceResult.breakdown,
             trackedDays,
-            slope: round(slope * 7, 3), // kg/week for display
+            slope: Utils.round(slope * 7, 3), // kg/week for display
             hasOutliers: calResult.outliers.length > 0,
             outliers: calResult.outliers,
             hasLargeGap,
@@ -936,7 +925,7 @@ const TDEE = (function () {
 
         // R² = 1 - (SS_res / SS_tot)
         const rSquared = 1 - (ssRes / ssTot);
-        return round(rSquared, 4);
+        return Utils.round(rSquared, 4);
     }
 
     /**
@@ -1071,7 +1060,7 @@ const TDEE = (function () {
         
         // Calculate percentage
         const consistency = (daysWithBoth / totalDays) * 100;
-        return round(consistency, 0);
+        return Utils.round(consistency, 0);
     }
 
     /**
@@ -1132,7 +1121,7 @@ const TDEE = (function () {
 
         // Apply water weight penalty (-20 points if detected)
         const waterWeightPenalty = isWaterWeight ? 20 : 0;
-        const confidenceScore = Math.max(0, round(weightedScore - waterWeightPenalty, 0));
+        const confidenceScore = Math.max(0, Utils.round(weightedScore - waterWeightPenalty, 0));
 
         // Map to confidence tier
         let confidenceTier;
@@ -1229,7 +1218,7 @@ const TDEE = (function () {
             return null;
         }
 
-        return round(rawTdee, 0);
+        return Utils.round(rawTdee, 0);
     }
 
     // Public API
@@ -1264,7 +1253,7 @@ const TDEE = (function () {
         getAdaptiveAlpha: EWMA?.getAdaptiveAlpha || getAdaptiveAlpha,
         calculateCV: EWMA?.calculateCV || calculateCV,
         isVolatile: EWMA?.isVolatile || isVolatile,
-        round: Utils?.round || round,
+        round: Utils.round,
         getEnergyDensity,
 
         // CV calculation (weight volatility)

@@ -16,19 +16,10 @@ const EWMA = (function () {
     const VOLATILE_ALPHA = 0.1;    // Reduced alpha for volatile periods
     const CV_THRESHOLD = 2;        // Coefficient of variation threshold (2%)
 
-    // Use consolidated utilities from Utils module (with fallback for Node.js testing)
-    function getRoundFn() {
-        if (typeof Utils !== 'undefined' && Utils.round) return Utils.round;
-        return function(v, d = 2) {
-            if (v === null || v === undefined || isNaN(v)) return null;
-            const f = Math.pow(10, d);
-            return Math.round((v + Number.EPSILON) * f) / f;
-        };
-    }
+    // Use Utils module for rounding (Utils loads first in script order)
     
     function getCalculateStatsFn() {
         if (typeof Utils !== 'undefined' && Utils.calculateStats) return Utils.calculateStats;
-        const roundFn = getRoundFn();
         return function(data) {
             if (data.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0 };
             let sum = 0, min = Infinity, max = -Infinity;
@@ -44,16 +35,15 @@ const EWMA = (function () {
             }
             const variance = sumSqDiff / data.length;
             return {
-                mean: roundFn(mean, 4),
-                stdDev: roundFn(Math.sqrt(variance), 4),
-                min: roundFn(min, 4),
-                max: roundFn(max, 4)
+                mean: Utils.round(mean, 4),
+                stdDev: Utils.round(Math.sqrt(variance), 4),
+                min: Utils.round(min, 4),
+                max: Utils.round(max, 4)
             };
         };
     }
     
-    // Cache the functions
-    const round = getRoundFn();
+    // Cache the calculateStats function
     const calculateStats = getCalculateStatsFn();
 
     /**
@@ -65,10 +55,10 @@ const EWMA = (function () {
      */
     function calculateEWMA(current, previous, alpha = DEFAULT_ALPHA) {
         if (previous === null || previous === undefined) {
-            return round(current, 2);
+            return Utils.round(current, 2);
         }
         const result = (current * alpha) + (previous * (1 - alpha));
-        return round(result, 2);
+        return Utils.round(result, 2);
     }
 
     /**
@@ -80,7 +70,7 @@ const EWMA = (function () {
         if (!weights || weights.length === 0) return null;
         const stats = calculateStats(weights);
         if (stats.mean === 0) return null;
-        return round((stats.stdDev / stats.mean) * 100, 2);
+        return Utils.round((stats.stdDev / stats.mean) * 100, 2);
     }
 
     /**
@@ -125,7 +115,7 @@ const EWMA = (function () {
         const firstEWMA = withEWMA[0].ewmaWeight;
         const lastEWMA = withEWMA[withEWMA.length - 1].ewmaWeight;
 
-        return round(lastEWMA - firstEWMA, 3);
+        return Utils.round(lastEWMA - firstEWMA, 3);
     }
 
     // Public API
@@ -141,7 +131,7 @@ const EWMA = (function () {
 
         // Re-export utilities from Utils for convenience (Node.js compatible)
         calculateStats: (typeof Utils !== 'undefined' && Utils?.calculateStats) || calculateStats,
-        round: (typeof Utils !== 'undefined' && Utils?.round) || round,
+        round: Utils.round,
 
         // Constants (for testing)
         DEFAULT_ALPHA,
