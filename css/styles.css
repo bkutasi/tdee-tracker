@@ -913,16 +913,6 @@ input::placeholder {
     display: none;
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
-}
-
 .modal {
     width: 100%;
     max-width: 500px;
@@ -1371,16 +1361,6 @@ input::placeholder {
     animation: fadeIn 0.3s ease;
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
-}
-
 .user-info {
     display: flex;
     align-items: center;
@@ -1470,16 +1450,6 @@ input::placeholder {
 .sync-status.offline .sync-indicator {
     background: var(--color-text-tertiary);
     animation: none;
-}
-
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.5;
-    }
 }
 
 .sync-info {
@@ -1656,18 +1626,6 @@ input::placeholder {
     animation: slideDown 0.3s ease;
 }
 
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
 .auth-message.success {
     background: var(--color-success-subtle);
     color: var(--color-success);
@@ -1689,12 +1647,6 @@ input::placeholder {
 /* Spinner */
 .spinner {
     animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
 }
 
 /* Text utilities */
@@ -1917,10 +1869,6 @@ input::placeholder {
     animation: spin 3s linear infinite;
 }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
 
 .update-notification__text {
     flex: 1;
