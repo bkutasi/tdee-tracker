@@ -363,6 +363,7 @@ const Sync = (function() {
         });
         
         localStorage.setItem('tdee_entries', JSON.stringify(allEntries));
+        Storage.entriesCache = null;
         _SyncDebug.info('Merged data saved to LocalStorage');
         
         return mergedEntries;
@@ -1073,21 +1074,8 @@ const Sync = (function() {
 
         // Queue sync to Supabase only if weight is present (required by DB schema)
         if (isAuthenticated && user && hasWeight) {
-            // Check if entry already exists in LocalStorage to determine operation type
-            const existingEntries = Storage.getAllEntries();
-            const existingEntry = existingEntries[entry.date];
-            const isNewEntry = !existingEntry || !existingEntry.id;
-            
-            // Queue appropriate operation type (CREATE for new, UPDATE for existing)
-            const operationType = isNewEntry ? 'create' : 'update';
-            const operationData = isNewEntry ? {
-                user_id: user.id,
-                date: entry.date,
-                weight: entry.weight,
-                calories: entry.calories || null,
-                notes: entry.notes || null
-            } : {
-                id: existingEntry.id,
+            // Always queue as 'create' - createRecord() handles existence check
+            const operationData = {
                 user_id: user.id,
                 date: entry.date,
                 weight: entry.weight,
@@ -1095,8 +1083,8 @@ const Sync = (function() {
                 notes: entry.notes || null
             };
             
-            _SyncDebug.log(`Queueing ${operationType} operation: userId=${user.id}, date=${entry.date}`, 'info');
-            queueOperation(operationType, 'weight_entries', operationData, localResult.id);
+            _SyncDebug.log(`Queueing create operation: userId=${user.id}, date=${entry.date}`, 'info');
+            queueOperation('create', 'weight_entries', operationData, localResult.id);
         } else {
             if (!hasWeight) {
                 _SyncDebug.log('No weight in entry - saved locally only (not queued for sync)', 'info');
@@ -1291,7 +1279,7 @@ const Sync = (function() {
         if (Auth) {
             authDetails = {
                 isAuthenticated: Auth.isAuthenticated(),
-                hasSession: !!(Auth.getSession && Auth.getSession()),
+                hasSession: Auth.isAuthenticated() || false,
                 currentUser: Auth.getCurrentUser ? Auth.getCurrentUser()?.email : null
             };
         }
