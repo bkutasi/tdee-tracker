@@ -411,6 +411,28 @@ const Utils = (function () {
     }
 
     /**
+     * Generic linear regression using ordinary least squares
+     * @param {Object[]} points - Array of { x, y } data points
+     * @returns {Object|null} { slope, intercept } or null if insufficient data
+     */
+    function linearRegression(points) {
+        if (!points || points.length < 2) return null;
+        const n = points.length;
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        for (const { x, y } of points) {
+            sumX += x;
+            sumY += y;
+            sumXY += x * y;
+            sumXX += x * x;
+        }
+        const denominator = n * sumXX - sumX * sumX;
+        if (denominator === 0) return null;
+        const slope = (n * sumXY - sumX * sumY) / denominator;
+        const intercept = (sumY - slope * sumX) / n;
+        return { slope, intercept };
+    }
+
+    /**
      * Validate date format (YYYY-MM-DD)
      * @param {string} dateStr - Date string to validate
      * @returns {Result} Validation result with parsed date if valid
@@ -509,6 +531,7 @@ const Utils = (function () {
         round,
         calculateStats,
         calculateEWMAWeightDelta,
+        linearRegression,
         // Script loading
         loadScript
     };

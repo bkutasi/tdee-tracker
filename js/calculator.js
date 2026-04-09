@@ -451,8 +451,17 @@ const Calculator = (function () {
             if (typeof _TDEE !== 'undefined' && _TDEE.calculateSlope) {
                 return _TDEE.calculateSlope(entries);
             }
-            // Fallback implementation would go here
-            return 0;
+            if (!entries || entries.length === 0) return 0;
+            const startDate = new Date(entries[0].date);
+            const points = entries
+                .filter(e => e.weight !== null && !isNaN(e.weight))
+                .map(e => ({
+                    x: Math.round((new Date(e.date) - startDate) / 86400000),
+                    y: e.weight
+                }));
+            if (points.length < 2) return 0;
+            const result = Utils.linearRegression(points);
+            return result ? result.slope : 0;
         },
 
         // Data processing (re-exported from TDEE module)

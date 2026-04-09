@@ -563,27 +563,9 @@ const TDEE = (function () {
      * @returns {Object|null} { slope } or null if cannot calculate
      */
     function performLinearRegression(ewmaData) {
-        if (ewmaData.length < 2) {
-            return null;
-        }
-
-        const n = ewmaData.length;
-        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-        
-        for (const { dayIndex, weight } of ewmaData) {
-            sumX += dayIndex;
-            sumY += weight;
-            sumXY += dayIndex * weight;
-            sumXX += dayIndex * dayIndex;
-        }
-
-        const denominator = (n * sumXX - sumX * sumX);
-        if (denominator === 0) {
-            return null;
-        }
-
-        const slope = (n * sumXY - sumX * sumY) / denominator;
-        return { slope };
+        const points = ewmaData.map(({ dayIndex, weight }) => ({ x: dayIndex, y: weight }));
+        const result = Utils.linearRegression(points);
+        return result ? { slope: result.slope } : null;
     }
 
     /**
@@ -809,29 +791,7 @@ const TDEE = (function () {
      * @returns {Object|null} { slope, intercept } or null if insufficient data
      */
     function calculateLinearRegression(dataPoints) {
-        if (!dataPoints || dataPoints.length < 2) {
-            return null;
-        }
-
-        const n = dataPoints.length;
-        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-
-        for (const { x, y } of dataPoints) {
-            sumX += x;
-            sumY += y;
-            sumXY += x * y;
-            sumXX += x * x;
-        }
-
-        const denominator = (n * sumXX - sumX * sumX);
-        if (denominator === 0) {
-            return null;
-        }
-
-        const slope = (n * sumXY - sumX * sumY) / denominator;
-        const intercept = (sumY - slope * sumX) / n;
-
-        return { slope, intercept };
+        return Utils.linearRegression(dataPoints);
     }
 
     /**
@@ -1110,28 +1070,15 @@ const TDEE = (function () {
         if (!entries || entries.length === 0) return 0;
         
         const startDate = new Date(entries[0].date);
-        const data = entries
+        const points = entries
             .filter(e => e.weight !== null && !isNaN(e.weight))
             .map(e => ({
-                dayIndex: Math.round((new Date(e.date) - startDate) / (1000 * 60 * 60 * 24)),
-                weight: e.weight
+                x: Math.round((new Date(e.date) - startDate) / 86400000),
+                y: e.weight
             }));
-
-        if (data.length < 2) return 0;
-
-        const n = data.length;
-        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-        for (const { dayIndex, weight } of data) {
-            sumX += dayIndex;
-            sumY += weight;
-            sumXY += dayIndex * weight;
-            sumXX += dayIndex * dayIndex;
-        }
-
-        const denominator = n * sumXX - sumX * sumX;
-        if (denominator === 0) return 0;
-
-        return (n * sumXY - sumX * sumY) / denominator;
+        if (points.length < 2) return 0;
+        const result = Utils.linearRegression(points);
+        return result ? result.slope : 0;
     }
 
     /**
