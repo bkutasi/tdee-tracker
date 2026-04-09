@@ -316,7 +316,7 @@
                                 Export Data
                             </button>
                             <button class="btn btn-secondary" id="import-data-btn">Import</button>
-                            <button class="btn btn-ghost" id="clear-data-btn">Clear Data</button>
+                            <button class="btn btn-ghost-error" id="clear-data-btn">Clear Data</button>
                         </div>
                         
                         <input type="file" id="import-file" accept=".json" class="hidden">
@@ -380,7 +380,10 @@
     
     <!-- Auth & Sync -->
     <script src="js/auth.js" defer></script>
-    <script src="js/sync.js" defer></script>
+    <script src="js/sync-errors.js" defer></script>
+    <script src="js/sync-queue.js" defer></script>
+    <script src="js/sync-merge.js" defer></script>
+    <script src="js/sync-core.js" defer></script>
     
     <!-- UI Components (critical path) -->
     <script src="js/ui/components.js" defer></script>

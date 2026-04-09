@@ -8,8 +8,6 @@ const Dashboard = (function () {
 
     /**
      * Initialize the dashboard component
-     * @description Loads and displays key statistics including current TDEE, confidence level,
-     * target intake, current weight, and weekly change. Called once on app startup.
      */
     function init() {
         refresh();
@@ -100,7 +98,7 @@ const Dashboard = (function () {
     function _renderConfidenceBadge(confidenceEl, confidence, stableResult, fastResult) {
         const confidenceTier = stableResult.confidenceTier || fastResult.confidenceTier;
         const accuracy = stableResult.accuracy || fastResult.accuracy;
-        
+
         const tierClass = confidenceTier ? confidenceTier.toLowerCase() : confidence;
         confidenceEl.className = `confidence-badge confidence-${tierClass}`;
 
@@ -108,7 +106,7 @@ const Dashboard = (function () {
             const tierLabel = confidenceTier.charAt(0) + confidenceTier.slice(1).toLowerCase();
             const symbol = confidenceTier === 'HIGH' ? '●' : confidenceTier === 'MEDIUM' ? '◐' : '○';
             const confidenceScore = stableResult.confidenceScore || fastResult.confidenceScore;
-            
+
             if (confidenceScore !== undefined) {
                 confidenceEl.textContent = `${symbol} ${tierLabel} (Score: ${confidenceScore}/100)`;
             } else {
@@ -231,13 +229,11 @@ const Dashboard = (function () {
 
     /**
      * Refresh all dashboard statistics
-     * @description Fetches recent entries from storage, calculates TDEE using the hierarchy
-     * (Stable → Fast → Theoretical), and updates all DOM elements.
-     * 
+     *
      * TDEE Hierarchy:
-     * 1. Stable TDEE (14-day regression) - preferred method
-     * 2. Fast TDEE (7-day EWMA delta) - fallback for insufficient data
-     * 3. Theoretical TDEE (BMR × Activity) - last resort using profile data
+     * 1. Stable TDEE (14-day regression)
+     * 2. Fast TDEE (7-day EWMA delta)
+     * 3. Theoretical TDEE (BMR × Activity)
      */
     function refresh() {
         try {
@@ -257,8 +253,8 @@ const Dashboard = (function () {
             _renderWeeklyChange(weeklyData);
             _renderOutlierWarning(tdeeData.stableResult);
 
-            // Render trends
-            renderTrends(data.processed, data.weightUnit);
+            const trendValues = _calculateTrendValues(data.processed, data.weightUnit);
+            renderTrends(trendValues);
         } catch (error) {
             console.error('Dashboard.refresh:', error);
             Components.showError('Failed to load dashboard stats. Please refresh.', 'Dashboard');
@@ -266,52 +262,51 @@ const Dashboard = (function () {
     }
 
     /**
-     * Render TDEE trend statistics for multiple time periods
-     * @description Displays 7-day and 14-day TDEE trends to show short-term and medium-term
-     * patterns. Uses Calculator.calculatePeriodTDEE() for each period. Trends help users
-     * understand if their TDEE is increasing, decreasing, or stable over time.
-     * 
-     * @param {Array} allEntries - Processed weight entries with EWMA weights and gaps filled
+     * Calculate TDEE trend values for 7-day and 14-day periods
+     * @param {Array} allEntries - Processed weight entries with EWMA weights
      * @param {string} weightUnit - User's weight unit preference ('kg' or 'lb')
-     * 
-     * @description Creates trend items showing:
-     * - 7-Day Trend: Reactive, shows recent changes quickly
-     * - 14-Day Trend: Stable, smoother estimate less affected by daily fluctuations
-     * 
-     * @example
-     * // Called internally by refresh()
-     * renderTrends(processedEntries, 'kg');
+     * @returns {Object} Trend values keyed by period days (e.g., { '7': number|null, '14': number|null })
      */
-    function renderTrends(allEntries, weightUnit) {
-        try {
-            // Simplified trends: Only show 7-day and 14-day periods
-            // Removed 3-day (too volatile) and 21-day (redundant with 14-day)
+    function _calculateTrendValues(allEntries, weightUnit) {
+        const today = new Date();
+        const periods = [7, 14];
+        const trends = {};
 
+        periods.forEach(days => {
+            const startDate = new Date(today);
+            startDate.setDate(today.getDate() - days + 1);
+            const startStr = Utils.formatDate(startDate);
+            const periodEntries = allEntries.filter(e => e.date >= startStr);
+
+            let tdee = null;
+            if (periodEntries.length >= 2) {
+                tdee = Calculator.calculatePeriodTDEE(periodEntries, weightUnit);
+            }
+            trends[days] = tdee;
+        });
+
+        return trends;
+    }
+
+    /**
+     * Render TDEE trend statistics for 7-day and 14-day periods
+     * @param {Object} trendValues - Pre-computed trend values (e.g., { '7': number, '14': number })
+     */
+    function renderTrends(trendValues) {
+        try {
             const trendsContainer = document.getElementById('tdee-trends-container');
             if (!trendsContainer) {
                 console.warn('Dashboard.renderTrends: trends container not found');
                 return;
             }
 
-            const periods = [7, 14]; // Simplified from [3, 7, 14, 21]
-            const today = new Date();
+            const periods = [7, 14];
 
             // Clear container
             trendsContainer.innerHTML = '';
 
             periods.forEach(days => {
-                const startDate = new Date(today);
-                startDate.setDate(today.getDate() - days + 1); // +1 to include today
-                const startStr = Utils.formatDate(startDate);
-
-                // Get entries from startDate to today
-                const periodEntries = allEntries.filter(e => e.date >= startStr);
-
-                // We need at least 2 data points with weight to calculate slope
-                let tdee = null;
-                if (periodEntries.length >= 2) {
-                    tdee = Calculator.calculatePeriodTDEE(periodEntries, weightUnit);
-                }
+                const tdee = trendValues[days];
 
                 // Create trend item element
                 const trendItem = document.createElement('div');
@@ -320,7 +315,7 @@ const Dashboard = (function () {
                 // Create label with tooltip
                 const trendLabel = document.createElement('span');
                 trendLabel.className = 'trend-label';
-                
+
                 trendLabel.textContent = `${days}-Day Trend`;
 
                 // Create value element
@@ -340,28 +335,9 @@ const Dashboard = (function () {
 
     /**
      * Calculate weekly summary statistics for all entries
-     * @description Groups entries by week and calculates comprehensive summaries including
-     * average weight, average calories, tracked days, and TDEE for each week. Applies
-     * exponential smoothing to TDEE values across weeks for stability.
-     * 
      * @param {Array} entries - Processed weight entries (gaps filled with null values)
      * @param {string} weightUnit - User's weight unit preference ('kg' or 'lb')
-     * @returns {Array} Array of weekly summary objects, each containing:
-     *   - avgWeight: Average weight for the week (or null)
-     *   - avgCalories: Average calories for the week (or null)
-     *   - trackedDays: Number of days with data
-     *   - tdee: Linear regression TDEE for the week (or null)
-     *   - smoothedTdee: Exponentially smoothed TDEE (or null)
-     * 
-     * @description TDEE Calculation:
-     * - Uses Calculator.calculateWeeklySummary() for basic stats
-     * - Uses Calculator.calculatePeriodTDEE() for linear regression TDEE
-     * - Applies Calculator.calculateSmoothedTDEE() to smooth across weeks
-     * 
-     * @example
-     * // Get weekly summaries for dashboard display
-     * const weeklyData = calculateWeeklySummaries(processedEntries, 'kg');
-     * // Returns: [{avgWeight: 82.5, avgCalories: 2200, trackedDays: 5, tdee: 2450, smoothedTdee: 2430}, ...]
+     * @returns {Array} Weekly summary objects with avgWeight, avgCalories, trackedDays, tdee, smoothedTdee
      */
     function calculateWeeklySummaries(entries, weightUnit) {
         // Group entries by week
@@ -415,21 +391,8 @@ const Dashboard = (function () {
 
     /**
      * Extract current TDEE from weekly data
-     * @description Finds the most recent week with a valid smoothed TDEE value and returns
-     * it rounded to the nearest 10 calories. Used as a fallback for displaying current TDEE.
-     * 
-     * @param {Array} weeklyData - Array of weekly summary objects with smoothedTdee property
-     * @returns {number|null} Current TDEE rounded to nearest 10, or null if no valid data
-     * 
-     * @description Search Strategy:
-     * - Iterates backwards from most recent week
-     * - Returns first week with non-null smoothedTdee
-     * - Rounds result using Calculator.mround(value, 10)
-     * 
-     * @example
-     * // Get current TDEE from weekly summaries
-     * const currentTdee = calculateCurrentTDEE(weeklyData);
-     * // Returns: 2450 (rounded to nearest 10)
+     * @param {Array} weeklyData - Weekly summary objects with smoothedTdee property
+     * @returns {number|null} Current TDEE rounded to nearest 10, or null
      */
     function calculateCurrentTDEE(weeklyData) {
         // Get the last smoothed TDEE
@@ -443,23 +406,8 @@ const Dashboard = (function () {
 
     /**
      * Calculate average weekly weight change
-     * @description Computes the average week-over-week weight change across the last 5 weeks
-     * (approximately 4 changes). This metric shows the user their rate of weight loss or gain.
-     * 
-     * @param {Array} weeklyData - Array of weekly summary objects with avgWeight property
-     * @returns {number|null} Average weekly weight change in kg (or lb), rounded to 2 decimals,
-     *   or null if insufficient data for calculation
-     * 
-     * @description Calculation Method:
-     * - Takes last 5 weeks of data
-     * - Calculates week-to-week differences (week[i] - week[i-1])
-     * - Averages all valid changes (skips weeks with null avgWeight)
-     * - Negative value = weight loss, Positive value = weight gain
-     * 
-     * @example
-     * // Calculate weekly change for dashboard display
-     * const weeklyChange = calculateWeeklyChange(weeklyData);
-     * // Returns: -0.35 (losing 0.35 kg per week on average)
+     * @param {Array} weeklyData - Weekly summary objects with avgWeight property
+     * @returns {number|null} Average weekly weight change, rounded to 2 decimals
      */
     function calculateWeeklyChange(weeklyData) {
         // Calculate average weekly weight change over last 4 weeks

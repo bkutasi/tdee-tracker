@@ -742,13 +742,13 @@ input::placeholder {
     min-width: 120px;
 }
 
-.btn-ghost {
+.btn-ghost-error {
     background: var(--color-bg-card);
     border-color: var(--color-error-subtle);
     color: var(--color-error);
 }
 
-.btn-ghost:hover:not(:disabled) {
+.btn-ghost-error:hover:not(:disabled) {
     background: var(--color-error-subtle);
 }
 

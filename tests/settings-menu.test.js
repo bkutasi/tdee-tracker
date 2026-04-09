@@ -276,7 +276,7 @@
             it('clear data button has ghost button styling', () => {
                 const clearBtn = getClearDataButton();
                 expect(clearBtn.classList.contains('btn')).toBe(true);
-                expect(clearBtn.classList.contains('btn-ghost')).toBe(true);
+                expect(clearBtn.classList.contains('btn-ghost-error')).toBe(true);
             });
 
             it('clear data button has warning confirmation', () => {

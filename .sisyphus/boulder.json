@@ -1,95 +1,52 @@
 {
-  "active_plan": "/media/nvme/projects/tdee-tracker/.sisyphus/plans/tdee-calc-debugging.md",
-  "started_at": "2026-04-02T11:27:24.270Z",
+  "active_plan": "/media/nvme/projects/tdee-tracker/.sisyphus/plans/streamline-and-simplify.md",
+  "started_at": "2026-04-09T09:50:57.319Z",
   "session_ids": [
-    "ses_2b20d4dd9ffe4XR0F3qcJ7MrBq",
-    "ses_2b20ced98ffelHg5lMYDu6YJa5",
-    "ses_2b2051cf1ffeAp61M9QkOpUHow",
-    "ses_2b15f2af6ffebs9Hj6YXIadvzn",
-    "ses_2b15d0302ffe10amZCgxzQbw42",
-    "ses_2b159f841ffeOQmLNAQRkofV0B",
-    "ses_2b153b34dffewxAdyWIYZ1DnOp",
-    "ses_2b14d31baffeY1wFZJOpy8Ci7X",
-    "ses_2b14a8fa6ffeH9nREbwVwREimt"
+    "ses_28e59174affeXaU9rSqqMgbxnK",
+    "ses_28e562fa2ffeV9YjCCSDIMyaNB",
+    "ses_28e5619a3ffeL4EI8nHRkY7Gwn",
+    "ses_28e568642ffe57G68cuKiE6dxk",
+    "ses_28e55d67bffexGoIQdh29qsYA1",
+    "ses_28e5264aaffeBDxqsqJSmbfmLn",
+    "ses_28e51ca39ffefmJE7Hk4U1pMy3",
+    "ses_28e4c2a7affeJHMGzorq1HEStU",
+    "ses_28e4472b2ffeDHt3sh0QTwSrQn",
+    "ses_28e43ea94ffeBCflyx6O8VljpD",
+    "ses_28e3cefcaffe7Uz3QZGIwxTjNN",
+    "ses_28e30e9f2ffezeO4aBJCi8rh4Q",
+    "ses_28e26e46bffe5z0DCtFjlkJSlT",
+    "ses_28e224b82ffefaIQVCG9JHocmO",
+    "ses_28e1da823ffeWNN68HNc6taE4Q",
+    "ses_28e18cb73ffe9wd508Kyx6Ybxh",
+    "ses_28e13bb5fffeciEa0RxAH27nBF",
+    "ses_28e0f20feffeiDA1I3hhlmrV1c",
+    "ses_28e0d12c1ffeunVrG004hiLR4q",
+    "ses_28e01e4a0ffeyAN1fHz5U2fo5B",
+    "ses_28dfd7978ffecqrUmSrfAvOcEo",
+    "ses_28defd8ccffePrdVM06jRIXihV",
+    "ses_28df07c6bffeSvpDOlw8NEz9HY",
+    "ses_28df03b17ffe4Ls8thpNSZEAHs"
   ],
-  "plan_name": "tdee-calc-debugging",
-  "worktree_path": null,
-  "total_tasks": 12,
-  "completed_tasks": 8,
-  "skipped_tasks": ["8"],
-  "remaining_tasks": ["10", "11", "12", "F1", "F2", "F3", "F4"],
+  "plan_name": "streamline-and-simplify",
+  "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Create Debug Script with User's Data",
-      "session_id": "ses_2b20ced98ffelHg5lMYDu6YJa5",
+      "task_title": "Fix getStatus() Async Bug",
+      "session_id": "ses_28e568642ffe57G68cuKiE6dxk",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-04-02T11:35:35.914Z"
-    },
-    "todo:2": {
-      "task_key": "todo:2",
-      "task_label": "2",
-      "task_title": "Add Research-Backed Test Scenarios (5 Scenarios)",
-      "session_id": "ses_2b2051cf1ffeAp61M9QkOpUHow",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-02T11:40:00.669Z"
-    },
-    "todo:3": {
-      "task_key": "todo:3",
-      "task_label": "3",
-      "task_title": "Analyze Current Calculation Output",
-      "session_id": "ses_2b15f2af6ffebs9Hj6YXIadvzn",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-02T14:37:36.505Z"
-    },
-    "todo:4": {
-      "task_key": "todo:4",
-      "task_label": "4",
-      "task_title": "Document Expected vs Actual Values",
-      "session_id": "ses_2b15d0302ffe10amZCgxzQbw42",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-02T14:42:35.187Z"
+      "updated_at": "2026-04-09T09:55:15.782Z"
     },
     "todo:5": {
       "task_key": "todo:5",
       "task_label": "5",
-      "task_title": "Add Water Weight Detection",
-      "session_id": "ses_2b159f841ffeOQmLNAQRkofV0B",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-02T14:49:08.952Z"
-    },
-    "todo:6": {
-      "task_key": "todo:6",
-      "task_label": "6",
-      "task_title": "Validate Against Controlled Datasets",
-      "session_id": "ses_2b14d31baffeY1wFZJOpy8Ci7X",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-02T14:59:09.737Z"
-    },
-    "todo:7": {
-      "task_key": "todo:7",
-      "task_label": "7",
-      "task_title": "Enhance Confidence Scoring (Research-Backed)",
-      "session_id": "ses_2b153b34dffewxAdyWIYZ1DnOp",
+      "task_title": "Create sync-errors.js — Extract Error Handling",
+      "session_id": "ses_28df03b17ffe4Ls8thpNSZEAHs",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-04-02T15:01:06.160Z"
-    },
-    "todo:9": {
-      "task_key": "todo:9",
-      "task_label": "9",
-      "task_title": "Run Full Test Suite, Fix Regressions",
-      "session_id": "ses_2b14a8fa6ffeH9nREbwVwREimt",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-02T15:09:25.418Z"
+      "updated_at": "2026-04-09T11:50:16.908Z"
     }
   }
 }

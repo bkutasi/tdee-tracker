@@ -7,7 +7,7 @@ const VersionManager = (function () {
     'use strict';
 
     // Version constants
-    const APP_VERSION = '1.0.4';             // Current app version - must match sw.js CACHE_VERSION
+    const APP_VERSION = '1.0.5';             // Current app version - must match sw.js CACHE_VERSION
     const UPDATE_CHECK_INTERVAL = 10000;     // 10 seconds - auto-hide delay for update notification
     const UPDATE_ANIMATION_DURATION = 500;   // 500ms - animation duration for hide
 

@@ -107,13 +107,22 @@ function resetSyncMocks() {
     mockLocalStorage.data.tdee_entries = '{}';
     mockLocalStorage.data.tdee_settings = '{}';
     
-    // Re-require Sync module to reset internal state
-    delete require.cache[require.resolve('../js/sync.js')];
-    return require('../js/sync.js');
+    // Re-require all Sync modules to reset internal state
+    delete require.cache[require.resolve('../js/sync-errors.js')];
+    delete require.cache[require.resolve('../js/sync-queue.js')];
+    delete require.cache[require.resolve('../js/sync-merge.js')];
+    delete require.cache[require.resolve('../js/sync-core.js')];
+    require('../js/sync-errors.js');
+    require('../js/sync-queue.js');
+    require('../js/sync-merge.js');
+    return require('../js/sync-core.js');
 }
 
-// Load Sync module
-const Sync = resetSyncMocks();
+// Load Sync modules
+require('../js/sync-errors.js');
+require('../js/sync-queue.js');
+require('../js/sync-merge.js');
+const Sync = require('../js/sync-core.js');
 
 console.log('\n=== Phase 1: Weight Validation (Fix #1) ===\n');
 

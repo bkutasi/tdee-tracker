@@ -73,7 +73,10 @@ global.Calculator = Calculator;
 const Storage = require('../../js/storage.js');
 global.Storage = Storage;
 
-const Sync = require('../../js/sync.js');
+require('../../js/sync-errors.js');
+require('../../js/sync-queue.js');
+require('../../js/sync-merge.js');
+const Sync = require('../../js/sync-core.js');
 global.Sync = Sync;
 
 // ============================================

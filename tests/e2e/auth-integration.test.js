@@ -78,7 +78,10 @@ global.Storage = Storage;
 const Auth = require('../../js/auth.js');
 global.Auth = Auth;
 
-const Sync = require('../../js/sync.js');
+require('../../js/sync-errors.js');
+require('../../js/sync-queue.js');
+require('../../js/sync-merge.js');
+const Sync = require('../../js/sync-core.js');
 global.Sync = Sync;
 
 // ============================================

@@ -8,19 +8,6 @@ const Settings = (function () {
 
     /**
      * Initialize the settings component
-     * @description Sets up event listeners for all settings controls, loads current settings
-     * into form fields, and displays storage usage information. Called once on app startup.
-     * 
-     * @description Initializes:
-     * - Modal open/close handlers (button, overlay click, Escape key)
-     * - Settings change auto-save handlers
-     * - Theme toggle buttons
-     * - Export/import/clear data buttons
-     * - Advanced settings toggle
-     * 
-     * @example
-     * // Called once on app startup
-     * Settings.init();
      */
     function init() {
         try {
@@ -33,25 +20,6 @@ const Settings = (function () {
         }
     }
 
-    /**
-     * Set up event listeners for settings modal and controls
-     * @description Binds all event handlers for settings interactions including modal management,
-     * settings auto-save, theme switching, data export/import, and data clearing. Includes
-     * null checks for graceful degradation if elements are missing.
-     * 
-     * @description Event Categories:
-     * - Modal: Open (settings-btn), Close (close-settings-btn, overlay click, Escape key)
-     * - Settings Auto-Save: All input change events trigger saveSettings()
-     * - Theme: Theme buttons apply theme immediately and persist to storage
-     * - Export: Pretty-print JSON (default) and compact JSON (advanced)
-     * - Import: File input handler with validation and sync queuing
-     * - Clear: Confirmation dialog before deleting all data
-     * - Advanced: Toggle visibility of advanced settings section
-     * 
-     * @example
-     * // Called internally by init()
-     * setupEventListeners();
-     */
     function setupEventListeners() {
         try {
             // Open/close modal - with null checks
@@ -156,24 +124,6 @@ const Settings = (function () {
         }
     }
 
-    /**
-     * Clear all user data with confirmation
-     * @description Prompts user for confirmation, then deletes all LocalStorage data including
-     * entries, settings, and sync queue. Refreshes all UI components to reflect empty state.
-     * This action is irreversible.
-     * 
-     * @description Clear Sequence:
-     * 1. Show confirmation dialog (browser native confirm)
-     * 2. Clear sync queue (prevents orphaned operations)
-     * 3. Clear LocalStorage (Storage.clearAll())
-     * 4. Reload settings (resets to defaults)
-     * 5. Refresh all UI components (DailyEntry, WeeklyView, Dashboard, Chart)
-     * 6. Show success toast notification
-     * 
-     * @example
-     * // Called when user clicks "Clear Data" button
-     * clearData();
-     */
     function clearData() {
         if (confirm('Are you sure you want to delete ALL data? This cannot be undone.')) {
             // Clear sync queue first (if available)
@@ -192,22 +142,6 @@ const Settings = (function () {
         }
     }
 
-    /**
-     * Load settings from storage and populate form fields
-     * @description Retrieves user settings from LocalStorage and updates all form controls
-     * to reflect current values. Also applies the current theme and updates storage info
-     * display. Uses nullish coalescing (??) to provide defaults for unset values.
-     * 
-     * @description Form Fields Populated:
-     * - user-gender, user-age, user-height, activity-level (User Profile)
-     * - starting-weight, goal-weight, target-deficit (Goals)
-     * - weight-unit, calorie-unit (Preferences)
-     * - Theme buttons (visual selection via Components.applyTheme)
-     * 
-     * @example
-     * // Called internally by init() and after clearing data
-     * loadSettings();
-     */
     function loadSettings() {
         try {
             const settings = Storage.getSettings();
@@ -251,25 +185,6 @@ const Settings = (function () {
         }
     }
 
-    /**
-     * Save settings from form to LocalStorage
-     * @description Reads all settings form values, converts to appropriate types (int/float),
-     * and persists to LocalStorage. Triggers dashboard refresh to recalculate TDEE with
-     * updated profile data. Called automatically on any settings change.
-     * 
-     * @description Type Conversion:
-     * - age, height: parseInt() → number or null if empty
-     * - activityLevel, startingWeight, goalWeight, targetDeficit: parseFloat() → number or null
-     * - gender, weightUnit, calorieUnit: string (no conversion)
-     * 
-     * @description Side Effects:
-     * - Storage.saveSettings(settings) - persists to LocalStorage
-     * - Dashboard.refresh() - recalculates TDEE with new profile data
-     * 
-     * @example
-     * // Called automatically when any settings input changes
-     * saveSettings();
-     */
     function saveSettings() {
         const settings = {
             gender: document.getElementById('user-gender').value,
@@ -287,19 +202,6 @@ const Settings = (function () {
         Dashboard.refresh();
     }
 
-    /**
-     * Update storage usage information display
-     * @description Fetches storage statistics from Storage.getStorageInfo() and displays
-     * the entry count and storage space used in the settings modal. Helps users monitor
-     * LocalStorage usage (limit is typically 5-10MB).
-     * 
-     * @description Display Format:
-     * "X entries • Y.YY KB used" (or MB if larger)
-     * 
-     * @example
-     * // Called internally by init() and loadSettings()
-     * updateStorageInfo();
-     */
     function updateStorageInfo() {
         try {
             const info = Storage.getStorageInfo();
@@ -343,29 +245,7 @@ const Settings = (function () {
 
     /**
      * Import data from JSON backup file
-     * @description Reads a JSON backup file, validates the format, and imports entries and
-     * settings using Storage.importData(). Shows appropriate toast notifications for success
-     * or failure. If authenticated, queues imported entries for sync to Supabase.
-     * 
-     * @param {Event} e - File input change event containing the selected file
-     * 
-     * @description Import Process:
-     * 1. Read file using FileReader
-     * 2. Parse JSON and validate structure
-     * 3. Import via Storage.importData() (handles merging)
-     * 4. Show toast with import results (entries imported/skipped)
-     * 5. Refresh all UI components
-     * 6. Queue for sync if authenticated (Sync.syncAll())
-     * 
-     * @description Error Handling:
-     * - File read errors → "Failed to read file" toast
-     * - Invalid JSON → Import failed toast with error message
-     * - Skipped entries → Toast shows count, details in console
-     * - Sync errors → Displayed to user via Components.showError()
-     * 
-     * @example
-     * // Called when user selects a backup file
-     * importData(event);
+     * @param {Event} e - File input change event
      */
     function importData(e) {
         const file = e.target.files?.[0];

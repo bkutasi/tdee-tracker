@@ -94,12 +94,12 @@ test('E2E: Storage has getAllEntries method', () => {
 // Sync Module Integration
 // ============================================
 
-test('E2E: Sync uses Storage.saveEntry(date, entry) signature', () => {
-    expect(syncCode).toContain('Storage.saveEntry(entry.date');
-});
-
 test('E2E: Sync uses localStorage.setItem for bulk save', () => {
     expect(syncCode).toContain('localStorage.setItem');
+});
+
+test('E2E: Sync merge invalidates Storage cache after bulk write', () => {
+    expect(syncCode).toContain('Storage.entriesCache = null');
 });
 
 test('E2E: Sync calls Auth._getSupabase() to get client', () => {
