@@ -7,11 +7,6 @@ const App = (function () {
     'use strict';
 
     async function init() {
-        // Initialize configuration (if not already loaded)
-        if (!window.SUPABASE_CONFIG) {
-            // Auth features will be disabled - no logging needed
-        }
-
         // Initialize version manager (check for SW updates)
         if (typeof VersionManager !== 'undefined') {
             await VersionManager.init();

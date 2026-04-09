@@ -18,7 +18,10 @@ const STATIC_ASSETS = [
     '/js/calculator-tdee.js',
     '/js/calculator.js',
     '/js/storage.js',
-    '/js/sync.js',
+    '/js/sync-errors.js',
+    '/js/sync-queue.js',
+    '/js/sync-merge.js',
+    '/js/sync-core.js',
     '/js/utils.js',
     '/js/version.js',
     // UI components
@@ -30,6 +33,7 @@ const STATIC_ASSETS = [
     '/js/ui/settings.js',
     '/js/ui/weeklyView.js',
     // Icons
+    '/icons/icon-32.png',
     '/icons/icon-192.png',
     '/icons/icon-512.png'
 ];
@@ -41,10 +45,6 @@ self.addEventListener('install', (event) => {
             .then((cache) => {
                 console.log('Caching static assets');
                 return cache.addAll(STATIC_ASSETS);
-            })
-            .then(() => {
-                console.log('Service worker installed, skipping waiting');
-                self.skipWaiting();
             })
     );
 });
@@ -75,7 +75,7 @@ self.addEventListener('message', (event) => {
     }
 });
 
-// Fetch: cache-first for static, network-first for dynamic
+// Fetch: cache-first for static, network-first for API
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);

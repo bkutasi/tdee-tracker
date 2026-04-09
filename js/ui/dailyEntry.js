@@ -9,7 +9,6 @@ const DailyEntry = (function () {
     // Time constants
     const DEBOUNCE_DELAY = 300;              // 300ms - debounce delay for refresh
     const MS_PER_DAY = 86400000;             // Milliseconds per day
-    const TOAST_AUTO_HIDE_DELAY = 5000;      // 5 seconds - auto-hide toast notifications (not used here, reserved)
     
     let currentDate = Utils.formatDate(new Date());
     let syncPendingCount = 0;

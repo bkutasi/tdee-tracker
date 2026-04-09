@@ -209,31 +209,9 @@ const VersionManager = (function () {
         return APP_VERSION;
     }
 
-    /**
-     * Show update indicator on version badge
-     */
-    function showUpdateIndicator() {
-        const indicator = versionBadge?.querySelector('.version-badge__indicator');
-        if (indicator) {
-            indicator.classList.remove('hidden');
-        }
-    }
-
-    /**
-     * Hide update indicator on version badge
-     */
-    function hideUpdateIndicator() {
-        const indicator = versionBadge?.querySelector('.version-badge__indicator');
-        if (indicator) {
-            indicator.classList.add('hidden');
-        }
-    }
-
     return {
         init,
         getVersion,
-        checkForUpdates,
-        showUpdateIndicator,
-        hideUpdateIndicator
+        checkForUpdates
     };
 })();
