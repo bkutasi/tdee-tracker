@@ -397,6 +397,20 @@ const Utils = (function () {
     }
 
     /**
+     * Calculate EWMA weight delta between first and last entries
+     * More robust than raw weight delta - smooths out daily fluctuations
+     * @param {Object[]} processedEntries - Array of processed entries with ewmaWeight
+     * @returns {number|null} EWMA-smoothed weight change, or null if insufficient data
+     */
+    function calculateEWMAWeightDelta(processedEntries) {
+        const withEWMA = processedEntries.filter(e => e.ewmaWeight !== null && e.ewmaWeight !== undefined);
+        if (withEWMA.length < 2) return null;
+        const firstEWMA = withEWMA[0].ewmaWeight;
+        const lastEWMA = withEWMA[withEWMA.length - 1].ewmaWeight;
+        return round(lastEWMA - firstEWMA, 3);
+    }
+
+    /**
      * Validate date format (YYYY-MM-DD)
      * @param {string} dateStr - Date string to validate
      * @returns {Result} Validation result with parsed date if valid
@@ -494,6 +508,7 @@ const Utils = (function () {
         // Math utilities (consolidated from calculator modules)
         round,
         calculateStats,
+        calculateEWMAWeightDelta,
         // Script loading
         loadScript
     };

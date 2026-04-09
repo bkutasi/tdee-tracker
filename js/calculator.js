@@ -357,8 +357,8 @@ const Calculator = (function () {
         },
         
         calculateEWMAWeightDelta: function(processedEntries) {
-            if (typeof _EWMA !== 'undefined' && _EWMA.calculateEWMAWeightDelta) {
-                return _EWMA.calculateEWMAWeightDelta(processedEntries);
+            if (typeof Utils !== 'undefined' && Utils.calculateEWMAWeightDelta) {
+                return Utils.calculateEWMAWeightDelta(processedEntries);
             }
             // Fallback inline implementation
             const withEWMA = processedEntries.filter(e => e.ewmaWeight !== null && e.ewmaWeight !== undefined);

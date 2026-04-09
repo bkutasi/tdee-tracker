@@ -72,31 +72,12 @@ const EWMA = (function () {
         return VOLATILE_ALPHA;
     }
 
-    /**
-     * Calculate EWMA weight delta between first and last entries
-     * More robust than raw weight delta - smooths out daily fluctuations
-     * @param {Object[]} processedEntries - Array of processed entries with ewmaWeight
-     * @returns {number|null} EWMA-smoothed weight change, or null if insufficient data
-     */
-    function calculateEWMAWeightDelta(processedEntries) {
-        // Find first and last entries with EWMA weight
-        const withEWMA = processedEntries.filter(e => e.ewmaWeight !== null && e.ewmaWeight !== undefined);
-
-        if (withEWMA.length < 2) return null;
-
-        const firstEWMA = withEWMA[0].ewmaWeight;
-        const lastEWMA = withEWMA[withEWMA.length - 1].ewmaWeight;
-
-        return Utils.round(lastEWMA - firstEWMA, 3);
-    }
-
     // Public API
     return {
         // Core calculations
         calculateEWMA,
         getAdaptiveAlpha,
-        calculateEWMAWeightDelta,
-        
+
         // CV calculation helpers (for use by TDEE module)
         calculateCV,
         isVolatile,
@@ -104,6 +85,7 @@ const EWMA = (function () {
         // Re-export utilities from Utils for convenience (Node.js compatible)
         calculateStats: Utils.calculateStats,
         round: Utils.round,
+        calculateEWMAWeightDelta: Utils.calculateEWMAWeightDelta,
 
         // Constants (for testing)
         DEFAULT_ALPHA,

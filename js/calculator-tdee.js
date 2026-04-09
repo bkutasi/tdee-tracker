@@ -229,24 +229,6 @@ const TDEE = (function () {
     }
 
     /**
-     * Calculate EWMA weight delta between first and last entries
-     * More robust than raw weight delta - smooths out daily fluctuations
-     * @param {Object[]} processedEntries - Array of processed entries with ewmaWeight
-     * @returns {number|null} EWMA-smoothed weight change, or null if insufficient data
-     */
-    function calculateEWMAWeightDelta(processedEntries) {
-        // Find first and last entries with EWMA weight
-        const withEWMA = processedEntries.filter(e => e.ewmaWeight !== null && e.ewmaWeight !== undefined);
-
-        if (withEWMA.length < 2) return null;
-
-        const firstEWMA = withEWMA[0].ewmaWeight;
-        const lastEWMA = withEWMA[withEWMA.length - 1].ewmaWeight;
-
-        return Utils.round(lastEWMA - firstEWMA, 3);
-    }
-
-    /**
      * Calculate "Fast" TDEE - reactive 7-day estimate for dashboard
      * Uses EWMA weight delta and requires minimum tracked days
      * @param {Object[]} entries - Array of daily entries (should be last 7+ days)
@@ -312,7 +294,7 @@ const TDEE = (function () {
         const hasOutliers = calResult.outliers.length > 0;
 
         // Calculate EWMA weight delta
-        const weightDelta = calculateEWMAWeightDelta(processed);
+        const weightDelta = Utils.calculateEWMAWeightDelta(processed);
         if (weightDelta === null) {
             return { tdee: null, confidence, trackedDays, hasOutliers };
         }
@@ -1208,7 +1190,7 @@ const TDEE = (function () {
         processEntriesWithGaps,
         excludeCalorieOutliers,
         calculateSmoothTDEEArray,
-        calculateEWMAWeightDelta,
+        calculateEWMAWeightDelta: Utils.calculateEWMAWeightDelta,
 
         // Stable TDEE helpers (exported for testing)
         detectWeightGaps,
