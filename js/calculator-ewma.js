@@ -17,34 +17,6 @@ const EWMA = (function () {
     const CV_THRESHOLD = 2;        // Coefficient of variation threshold (2%)
 
     // Use Utils module for rounding (Utils loads first in script order)
-    
-    function getCalculateStatsFn() {
-        if (typeof Utils !== 'undefined' && Utils.calculateStats) return Utils.calculateStats;
-        return function(data) {
-            if (data.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0 };
-            let sum = 0, min = Infinity, max = -Infinity;
-            for (const value of data) {
-                sum += value;
-                if (value < min) min = value;
-                if (value > max) max = value;
-            }
-            const mean = sum / data.length;
-            let sumSqDiff = 0;
-            for (const value of data) {
-                sumSqDiff += (value - mean) ** 2;
-            }
-            const variance = sumSqDiff / data.length;
-            return {
-                mean: Utils.round(mean, 4),
-                stdDev: Utils.round(Math.sqrt(variance), 4),
-                min: Utils.round(min, 4),
-                max: Utils.round(max, 4)
-            };
-        };
-    }
-    
-    // Cache the calculateStats function
-    const calculateStats = getCalculateStatsFn();
 
     /**
      * Calculate Exponentially Weighted Moving Average
@@ -68,7 +40,7 @@ const EWMA = (function () {
      */
     function calculateCV(weights) {
         if (!weights || weights.length === 0) return null;
-        const stats = calculateStats(weights);
+        const stats = Utils.calculateStats(weights);
         if (stats.mean === 0) return null;
         return Utils.round((stats.stdDev / stats.mean) * 100, 2);
     }
@@ -130,7 +102,7 @@ const EWMA = (function () {
         isVolatile,
 
         // Re-export utilities from Utils for convenience (Node.js compatible)
-        calculateStats: (typeof Utils !== 'undefined' && Utils?.calculateStats) || calculateStats,
+        calculateStats: Utils.calculateStats,
         round: Utils.round,
 
         // Constants (for testing)

@@ -102,7 +102,7 @@ const Calculator = (function () {
         
         // Check for high weight variance
         if (weightCount >= 3) {
-            const stats = calculateStats(entries.filter(e => e.weight !== null).map(e => e.weight));
+            const stats = Utils.calculateStats(entries.filter(e => e.weight !== null).map(e => e.weight));
             const cv = stats.stdDev / stats.mean;
             if (cv > WEIGHT_CV_HIGH_THRESHOLD) {
                 warnings.push('High weight variance detected - may indicate water retention');
@@ -202,7 +202,7 @@ const Calculator = (function () {
     function detectOutliers(data, threshold = OUTLIER_THRESHOLD) {
         if (data.length < 3) return data.map((v, i) => ({ value: v, index: i, isOutlier: false }));
 
-        const stats = calculateStats(data);
+        const stats = Utils.calculateStats(data);
 
         return data.map((value, index) => ({
             value,
@@ -330,49 +330,6 @@ const Calculator = (function () {
         return Math.round(value / multiple) * multiple;
     }
 
-    /**
-     * Calculate basic statistics (single pass for mean/min/max)
-     * Delegates to Utils module for consistency
-     * @param {number[]} data - Array of numbers
-     * @returns {Object} { mean, stdDev, min, max }
-     */
-    function calculateStats(data) {
-        // Use Utils module if available, otherwise use inline implementation
-        if (typeof Utils !== 'undefined' && Utils.calculateStats) {
-            return Utils.calculateStats(data);
-        }
-        
-        // Fallback inline implementation
-        if (data.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0 };
-
-        let sum = 0, min = Infinity, max = -Infinity;
-        for (const value of data) {
-            sum += value;
-            if (value < min) min = value;
-            if (value > max) max = value;
-        }
-        const mean = sum / data.length;
-
-        let sumSqDiff = 0;
-        for (const value of data) {
-            sumSqDiff += (value - mean) ** 2;
-        }
-        const variance = sumSqDiff / data.length;
-
-        const roundFn = Utils?.round || function(v, d = 2) {
-            if (v === null || v === undefined || isNaN(v)) return null;
-            const f = Math.pow(10, d);
-            return Math.round((v + Number.EPSILON) * f) / f;
-        };
-
-        return {
-            mean: roundFn(mean, 4),
-            stdDev: roundFn(Math.sqrt(variance), 4),
-            min: roundFn(min, 4),
-            max: roundFn(max, 4)
-        };
-    }
-
     // Public API - Re-export from sub-modules and local functions
     return {
         // Core calculations (re-exported from EWMA module)
@@ -394,7 +351,7 @@ const Calculator = (function () {
             }
             // Fallback inline implementation
             if (!recentWeights || recentWeights.length < 3) return DEFAULT_ALPHA;
-            const stats = calculateStats(recentWeights);
+            const stats = Utils.calculateStats(recentWeights);
             const cv = stats.stdDev / stats.mean;
             return cv > CV_THRESHOLD ? VOLATILE_ALPHA : DEFAULT_ALPHA;
         },
@@ -538,7 +495,7 @@ const Calculator = (function () {
         calculateWeeksToGoal,
         calculateWeeklySummary,
         detectOutliers,
-        calculateStats,
+        calculateStats: Utils.calculateStats,
         getDataQualityWarnings,
         calculateBMR,
         calculateTheoreticalTDEE,
