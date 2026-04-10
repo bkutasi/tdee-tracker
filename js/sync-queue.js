@@ -462,6 +462,131 @@ const SyncQueue = (function() {
         }
     }
 
+    async function saveWeightEntry(entry) {
+        if (!entry || typeof entry !== 'object') {
+            return { success: false, error: 'Entry must be an object' };
+        }
+        if (!entry.date) {
+            return { success: false, error: 'Entry must include date field' };
+        }
+
+        const hasValidWeight = entry.weight !== null && entry.weight !== undefined && entry.weight !== '' && !isNaN(entry.weight);
+        const hasCalories = entry.calories !== null && entry.calories !== undefined && entry.calories !== '';
+        const hasNotes = entry.notes !== null && entry.notes !== undefined && entry.notes !== '';
+
+        if (!hasValidWeight && !hasCalories && !hasNotes) {
+            return { success: false, error: 'Entry must include at least one of: weight, calories, or notes' };
+        }
+
+        const Storage = window.Storage;
+        if (!Storage || typeof Storage.saveEntry !== 'function') {
+            return { success: false, error: 'Storage module not available' };
+        }
+
+        Storage.saveEntry(entry.date, {
+            weight: hasValidWeight ? entry.weight : null,
+            calories: entry.calories !== undefined ? entry.calories : null,
+            notes: entry.notes || '',
+            updatedAt: new Date().toISOString()
+        });
+
+        if (hasValidWeight) {
+            const Auth = window.Auth;
+            let userId = null;
+            if (Auth && typeof Auth.isAuthenticated === 'function' && Auth.isAuthenticated()) {
+                try {
+                    const { session } = await Auth.getSession();
+                    if (session && session.user) userId = session.user.id;
+                } catch (_error) { /* Auth session check may fail gracefully */ }
+            }
+
+            queueOperation('create', 'weight_entries', {
+                user_id: userId,
+                date: entry.date,
+                weight: entry.weight,
+                calories: entry.calories || null,
+                notes: entry.notes || null
+            }, entry.date);
+        }
+
+        return { success: true, date: entry.date };
+    }
+
+    async function updateWeightEntry(entry) {
+        if (!entry || typeof entry !== 'object' || !entry.date) {
+            return { success: false, error: 'Entry must include date field' };
+        }
+
+        const Storage = window.Storage;
+        if (!Storage || typeof Storage.getEntry !== 'function' || typeof Storage.saveEntry !== 'function') {
+            return { success: false, error: 'Storage module not available' };
+        }
+
+        const existing = Storage.getEntry(entry.date);
+        if (!existing) {
+            return { success: false, error: 'Entry not found: ' + entry.date };
+        }
+
+        Storage.saveEntry(entry.date, {
+            weight: entry.weight !== undefined ? entry.weight : existing.weight,
+            calories: entry.calories !== undefined ? entry.calories : existing.calories,
+            notes: entry.notes !== undefined ? entry.notes : existing.notes,
+            updatedAt: new Date().toISOString()
+        });
+
+        const hasValidWeight = entry.weight !== null && entry.weight !== undefined && entry.weight !== '' && !isNaN(entry.weight);
+        if (hasValidWeight) {
+            queueOperation('update', 'weight_entries', {
+                date: entry.date,
+                weight: entry.weight,
+                calories: entry.calories || null,
+                notes: entry.notes || null
+            }, entry.date);
+        }
+
+        return { success: true, date: entry.date };
+    }
+
+    async function deleteWeightEntry(id) {
+        if (!id || typeof id !== 'string' || id.trim() === '') {
+            return { success: false, error: 'ID must be a non-empty string' };
+        }
+
+        const Storage = window.Storage;
+        if (!Storage || typeof Storage.deleteEntry !== 'function') {
+            return { success: false, error: 'Storage module not available' };
+        }
+
+        Storage.deleteEntry(id);
+
+        queueOperation('delete', 'weight_entries', { id }, id);
+
+        return { success: true, id };
+    }
+
+    async function fetchWeightEntries() {
+        const supabase = await getSupabase();
+        if (!supabase) {
+            return { success: false, error: 'Not authenticated', entries: [] };
+        }
+
+        try {
+            const { data: entries, error } = await supabase
+                .from('weight_entries')
+                .select('*')
+                .order('date', { ascending: false });
+
+            if (error) {
+                return { success: false, error, entries: [] };
+            }
+
+            return { success: true, entries: entries || [] };
+        } catch (error) {
+            _SyncDebug.log(`fetchWeightEntries failed: ${error.message}`, 'error', { error });
+            return { success: false, error, entries: [] };
+        }
+    }
+
     loadSyncQueue();
 
     return {
@@ -487,7 +612,11 @@ const SyncQueue = (function() {
         updateRecord,
         deleteRecord,
         getSupabase,
-        sleepWithBackoff
+        sleepWithBackoff,
+        saveWeightEntry,
+        updateWeightEntry,
+        deleteWeightEntry,
+        fetchWeightEntries
     };
 })();
 
