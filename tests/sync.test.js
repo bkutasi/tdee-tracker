@@ -869,9 +869,9 @@ describe('Import triggers sync when authenticated', () => {
             getSession: async () => ({ session: { user: { id: 'test-user' } } })
         };
 
-        const syncSpy = jest.fn(() => Promise.resolve());
+        let syncCallCount = 0;
         const originalSyncAll = Sync.syncAll;
-        Sync.syncAll = syncSpy;
+        Sync.syncAll = async () => { syncCallCount++; };
 
         const importData = {
             schemaVersion: 1,
@@ -887,7 +887,7 @@ describe('Import triggers sync when authenticated', () => {
             await Sync.syncAll();
         }
 
-        expect(syncSpy).toHaveBeenCalledTimes(1);
+        expect(syncCallCount).toBe(1);
 
         Sync.syncAll = originalSyncAll;
         delete window.Auth;
@@ -898,9 +898,9 @@ describe('Import triggers sync when authenticated', () => {
             isAuthenticated: () => false
         };
 
-        const syncSpy = jest.fn(() => Promise.resolve());
+        let syncCallCount = 0;
         const originalSyncAll = Sync.syncAll;
-        Sync.syncAll = syncSpy;
+        Sync.syncAll = async () => { syncCallCount++; };
 
         const importData = {
             schemaVersion: 1,
@@ -916,7 +916,7 @@ describe('Import triggers sync when authenticated', () => {
             await Sync.syncAll();
         }
 
-        expect(syncSpy).not.toHaveBeenCalled();
+        expect(syncCallCount).toBe(0);
 
         Sync.syncAll = originalSyncAll;
         delete window.Auth;

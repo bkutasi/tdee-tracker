@@ -37,14 +37,14 @@ const SyncMerge = (function() {
             return null;
         }
         const remoteEntries = remoteResult.entries || [];
-        _SyncDebug.info();
+        _SyncDebug.info(`Fetched ${remoteEntries.length} remote entries`);
         return remoteEntries;
     }
 
     function _mergeAndSave(remoteEntries) {
         const Storage = window.Storage;
         const mergedEntries = mergeEntries(remoteEntries);
-        _SyncDebug.info();
+        _SyncDebug.info(`Merged ${mergedEntries.length} entries total`);
 
         const allEntries = Storage.getAllEntries();
         mergedEntries.forEach(entry => {
@@ -101,7 +101,7 @@ const SyncMerge = (function() {
         }
         if (entries) {
             entries.forEach(entry => { if (entry.date) remoteDates.add(entry.date); });
-            _SyncDebug.info();
+            _SyncDebug.info(`Found ${remoteDates.size} remote dates`);
         }
         return remoteDates;
     }
@@ -131,12 +131,12 @@ const SyncMerge = (function() {
         let queuedCount = 0, skippedCount = 0, invalidCount = 0;
         localEntries.forEach(entry => {
             if (remoteDates.has(entry.date)) {
-                _SyncDebug.debug();
+                _SyncDebug.debug(`Skipping ${entry.date} - already exists remotely`);
                 skippedCount++;
                 return;
             }
             if (!_isValidEntryForSync(entry)) {
-                _SyncDebug.warn();
+                _SyncDebug.warn(`Skipping ${entry.date} - no valid weight or calories`);
                 invalidCount++;
                 return;
             }
@@ -148,11 +148,11 @@ const SyncMerge = (function() {
 
     function _showQueueNotifications(invalidCount, skippedCount) {
         if (invalidCount > 0) {
-            _SyncDebug.warn();
+            _SyncDebug.warn(`${invalidCount} invalid entries skipped during queue`);
             _showToast(`${invalidCount} invalid entrie${invalidCount === 1 ? 'y was' : 's were'} skipped`, 'info');
         }
         if (skippedCount > 0) {
-            _SyncDebug.debug();
+            _SyncDebug.debug(`${skippedCount} entries already exist remotely, skipped`);
         }
     }
 
@@ -183,11 +183,11 @@ const SyncMerge = (function() {
             _SyncDebug.info('No local entries to queue');
             return { success: true, queued: 0 };
         }
-        _SyncDebug.info();
+        _SyncDebug.info(`Found ${localEntries.length} local entries to potentially queue`);
 
         const remoteDates = await _getRemoteDates(cachedRemoteEntries);
         const { queuedCount, skippedCount, invalidCount } = _processEntriesForQueue(localEntries, remoteDates, user.id);
-        _SyncDebug.info();
+        _SyncDebug.info(`Queue processing: ${queuedCount} queued, ${skippedCount} skipped, ${invalidCount} invalid`);
         _showQueueNotifications(invalidCount, skippedCount);
 
         if (navigator.onLine) {
