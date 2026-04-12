@@ -165,7 +165,9 @@ const SyncMerge = (function() {
         }
     }
 
-    async function queueLocalEntriesForSync(cachedRemoteEntries) {
+    async function queueLocalEntriesForSync(options = {}) {
+        // Accept either an options object (from sync-core) or a direct array (legacy)
+        const cachedRemoteEntries = Array.isArray(options) ? options : null;
         const Storage = window.Storage;
         const Auth = window.Auth;
 
