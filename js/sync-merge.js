@@ -29,8 +29,13 @@ const SyncMerge = (function() {
         }
     });
 
-    async function _fetchRemoteData(fetchWeightEntriesFn) {
-        const remoteResult = await fetchWeightEntriesFn();
+    async function _fetchRemoteData() {
+        const Sync = window.Sync;
+        if (!Sync || typeof Sync.fetchWeightEntries !== 'function') {
+            _SyncDebug.error('Sync.fetchWeightEntries not available');
+            return null;
+        }
+        const remoteResult = await Sync.fetchWeightEntries();
         if (!remoteResult.success) {
             _SyncDebug.error('Failed to fetch remote data:', remoteResult.error);
             _showToast('Failed to fetch remote data. Using local data only.', 'error');
@@ -75,10 +80,11 @@ const SyncMerge = (function() {
         }));
     }
 
-    async function fetchAndMergeData(fetchWeightEntriesFn) {
+    async function fetchAndMergeData(options = {}) {
+        const { refreshUI: _refreshUI, showToast: _showToastCb } = options;
         try {
             _SyncDebug.info('Fetching remote data...');
-            const remoteEntries = await _fetchRemoteData(fetchWeightEntriesFn);
+            const remoteEntries = await _fetchRemoteData();
             if (!remoteEntries) return { success: false, remoteEntries: null };
 
             const mergedEntries = _mergeAndSave(remoteEntries);
@@ -92,12 +98,15 @@ const SyncMerge = (function() {
         }
     }
 
-    async function _getRemoteDates(cachedRemoteEntries, fetchWeightEntriesFn) {
+    async function _getRemoteDates(cachedRemoteEntries) {
         const remoteDates = new Set();
         let entries = cachedRemoteEntries;
-        if (!entries && fetchWeightEntriesFn) {
-            const remoteResult = await fetchWeightEntriesFn();
-            if (remoteResult.success && remoteResult.entries) entries = remoteResult.entries;
+        if (!entries) {
+            const Sync = window.Sync;
+            if (Sync && typeof Sync.fetchWeightEntries === 'function') {
+                const remoteResult = await Sync.fetchWeightEntries();
+                if (remoteResult.success && remoteResult.entries) entries = remoteResult.entries;
+            }
         }
         if (entries) {
             entries.forEach(entry => { if (entry.date) remoteDates.add(entry.date); });
