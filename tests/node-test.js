@@ -118,6 +118,9 @@ global.TDEE = TDEE;  // Make TDEE available as global
 const Calculator = require('../js/calculator.js');
 const Storage = require('../js/storage.js');
 
+console.log('\n=== Syntax Check ===\n');
+require('./syntax-check.js');
+
 console.log('\n=== Calculator Tests ===\n');
 
 test('round handles floating point precision', () => {
@@ -963,16 +966,8 @@ const mockSupabase = {
     })
 };
 
-// Load Sync modules (in dependency order)
-require('../js/sync-errors.js');
-require('../js/sync-queue.js');
-require('../js/sync-merge.js');
-const Sync = require('../js/sync-core.js');
-
-// Expose as globals for sync-core.js internal references
-global.SyncErrors = window.SyncErrors;
-global.SyncQueue = window.SyncQueue;
-global.SyncMerge = window.SyncMerge;
+// Load Sync module (consolidated)
+const Sync = require('../js/sync.js');
 
 // Helper to reset mock state between tests and return fresh Sync module
 function resetSyncMocks() {
@@ -988,19 +983,9 @@ function resetSyncMocks() {
     // Attach Storage to window for Sync module access
     global.window.Storage = Storage;
     
-    // Re-require all Sync modules to reset their internal state
-    delete require.cache[require.resolve('../js/sync-errors.js')];
-    delete require.cache[require.resolve('../js/sync-queue.js')];
-    delete require.cache[require.resolve('../js/sync-merge.js')];
-    delete require.cache[require.resolve('../js/sync-core.js')];
-    require('../js/sync-errors.js');
-    require('../js/sync-queue.js');
-    require('../js/sync-merge.js');
-    const syncCore = require('../js/sync-core.js');
-    global.SyncErrors = window.SyncErrors;
-    global.SyncQueue = window.SyncQueue;
-    global.SyncMerge = window.SyncMerge;
-    return syncCore;
+    // Re-require Sync module to reset internal state
+    delete require.cache[require.resolve('../js/sync.js')];
+    return require('../js/sync.js');
 }
 
 // Initialize mocks
@@ -1061,14 +1046,8 @@ test('Sync.loadSyncQueue loads from localStorage on init', () => {
     mockLocalStorage.data.tdee_sync_queue = JSON.stringify(storedQueue);
     
     // Re-require Sync to simulate app restart
-    delete require.cache[require.resolve('../js/sync-errors.js')];
-    delete require.cache[require.resolve('../js/sync-queue.js')];
-    delete require.cache[require.resolve('../js/sync-merge.js')];
-    delete require.cache[require.resolve('../js/sync-core.js')];
-    require('../js/sync-errors.js');
-    require('../js/sync-queue.js');
-    require('../js/sync-merge.js');
-    const Sync2 = require('../js/sync-core.js');
+    delete require.cache[require.resolve('../js/sync.js')];
+    const Sync2 = require('../js/sync.js');
     Sync2.init();
     
     // Verify queue was loaded from localStorage
@@ -1384,14 +1363,8 @@ test('Sync.getErrorHistory returns error entries', () => {
     mockLocalStorage.data.tdee_sync_history = JSON.stringify([errorEntry]);
     
     // Re-require to load the error history
-    delete require.cache[require.resolve('../js/sync-errors.js')];
-    delete require.cache[require.resolve('../js/sync-queue.js')];
-    delete require.cache[require.resolve('../js/sync-merge.js')];
-    delete require.cache[require.resolve('../js/sync-core.js')];
-    require('../js/sync-errors.js');
-    require('../js/sync-queue.js');
-    require('../js/sync-merge.js');
-    const Sync2 = require('../js/sync-core.js');
+    delete require.cache[require.resolve('../js/sync.js')];
+    const Sync2 = require('../js/sync.js');
     Sync2.init();
     
     const history = Sync2.getErrorHistory();
@@ -1409,14 +1382,8 @@ test('Sync.clearErrorHistory removes all errors', () => {
     ]);
     
     // Re-require to load
-    delete require.cache[require.resolve('../js/sync-errors.js')];
-    delete require.cache[require.resolve('../js/sync-queue.js')];
-    delete require.cache[require.resolve('../js/sync-merge.js')];
-    delete require.cache[require.resolve('../js/sync-core.js')];
-    require('../js/sync-errors.js');
-    require('../js/sync-queue.js');
-    require('../js/sync-merge.js');
-    const Sync2 = require('../js/sync-core.js');
+    delete require.cache[require.resolve('../js/sync.js')];
+    const Sync2 = require('../js/sync.js');
     Sync2.init();
     
     expect(Sync2.getErrorHistory()).toHaveLength(1);

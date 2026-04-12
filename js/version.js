@@ -7,13 +7,10 @@ const VersionManager = (function () {
     'use strict';
 
     // Version constants
-    const APP_VERSION = '1.0.6';             // Current app version - must match sw.js CACHE_VERSION
-    const UPDATE_CHECK_INTERVAL = 10000;     // 10 seconds - auto-hide delay for update notification
-    const UPDATE_ANIMATION_DURATION = 500;   // 500ms - animation duration for hide
+    const APP_VERSION = '1.0.7';             // Current app version - must match sw.js CACHE_VERSION
 
     // DOM elements
     let versionBadge = null;
-    let updateNotification = null;
     let registration = null;
 
     /**
@@ -61,10 +58,11 @@ const VersionManager = (function () {
         }
 
         try {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            registration = registrations.find(r => r.scope === window.location.origin + '/');
-
-            if (!registration) {
+            // Register service worker if not already registered
+            try {
+                registration = await navigator.serviceWorker.register('/sw.js');
+            } catch (_error) {
+                // SW registration failed - silently fail
                 return;
             }
 
@@ -77,22 +75,23 @@ const VersionManager = (function () {
 
                 newWorker.addEventListener('statechange', () => {
                     if (newWorker.state === 'installed') {
-                        // New SW installed but waiting
+                        // New SW installed - auto-activate by sending SKIP_WAITING
                         if (navigator.serviceWorker.controller) {
-                            // Controller exists = old SW active, new one waiting
-                            showUpdateNotification();
+                            newWorker.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                        // Update version badge indicator
+                        const indicator = versionBadge?.querySelector('.version-badge__indicator');
+                        if (indicator) {
+                            indicator.classList.remove('hidden');
+                            indicator.title = 'New version available - refreshing...';
                         }
                     }
                 });
             });
 
-            // Listen for controller change (after user accepts update)
+            // Listen for controller change (after new SW activates)
             navigator.serviceWorker.addEventListener('controllerchange', () => {
-                // SW activated successfully
-                if (updateNotification) {
-                    updateNotification.remove();
-                    updateNotification = null;
-                }
+                window.location.reload();
             });
 
         } catch (_error) {
@@ -110,94 +109,6 @@ const VersionManager = (function () {
             await registration.update();
         } catch (_error) {
             // Update check failed - silently fail
-        }
-    }
-
-    /**
-     * Show update available notification
-     */
-    function showUpdateNotification() {
-        // Update version badge indicator
-        const indicator = versionBadge?.querySelector('.version-badge__indicator');
-        if (indicator) {
-            indicator.classList.remove('hidden');
-            indicator.title = 'New version available - refresh to update';
-        }
-
-        // Create notification toast
-        updateNotification = document.createElement('div');
-        updateNotification.className = 'update-notification toast';
-        updateNotification.setAttribute('role', 'alert');
-        updateNotification.innerHTML = `
-            <svg class="update-notification__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
-            </svg>
-            <span class="update-notification__text">New version available!</span>
-            <div class="update-notification__actions">
-                <button class="btn btn-sm btn-primary" id="refresh-now-btn">Refresh now</button>
-                <button class="btn btn-sm btn-ghost" id="refresh-later-btn">Later</button>
-            </div>
-            <button class="update-notification__close" aria-label="Close">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-            </button>
-        `;
-
-        // Add event listeners
-        const refreshNowBtn = updateNotification.querySelector('#refresh-now-btn');
-        const refreshLaterBtn = updateNotification.querySelector('#refresh-later-btn');
-        const closeBtn = updateNotification.querySelector('.update-notification__close');
-
-        refreshNowBtn.addEventListener('click', () => {
-            if (registration && registration.waiting) {
-                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-            }
-            // Reload page to activate new SW
-            window.location.reload();
-        });
-
-        refreshLaterBtn.addEventListener('click', () => {
-            hideUpdateNotification();
-        });
-
-        closeBtn.addEventListener('click', () => {
-            hideUpdateNotification();
-        });
-
-        // Add to toast container
-        const toastContainer = document.getElementById('toast-container');
-        if (toastContainer) {
-            toastContainer.appendChild(updateNotification);
-
-            // Auto-hide after configured interval
-            setTimeout(() => {
-                if (updateNotification && updateNotification.parentNode) {
-                    updateNotification.style.animation = `toastOut ${UPDATE_ANIMATION_DURATION / 1000}s ease forwards`;
-                    setTimeout(() => {
-                        if (updateNotification) {
-                            updateNotification.remove();
-                            updateNotification = null;
-                        }
-                    }, UPDATE_ANIMATION_DURATION);
-                }
-            }, UPDATE_CHECK_INTERVAL);
-        }
-    }
-
-    /**
-     * Hide update notification
-     */
-    function hideUpdateNotification() {
-        if (updateNotification) {
-            updateNotification.style.animation = `toastOut ${UPDATE_ANIMATION_DURATION / 1000}s ease forwards`;
-            setTimeout(() => {
-                if (updateNotification && updateNotification.parentNode) {
-                    updateNotification.remove();
-                }
-                updateNotification = null;
-            }, UPDATE_ANIMATION_DURATION);
         }
     }
 

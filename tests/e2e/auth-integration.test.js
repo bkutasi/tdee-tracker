@@ -78,10 +78,7 @@ global.Storage = Storage;
 const Auth = require('../../js/auth.js');
 global.Auth = Auth;
 
-require('../../js/sync-errors.js');
-require('../../js/sync-queue.js');
-require('../../js/sync-merge.js');
-const Sync = require('../../js/sync-core.js');
+const Sync = require('../../js/sync.js');
 global.Sync = Sync;
 
 // ============================================
@@ -291,7 +288,7 @@ describe('E2E: Auth State Change Events', () => {
     });
 
     test('E2E: SIGNED_IN event triggers fetchAndMergeData', (done) => {
-        let fetchAndMergeCalled = false;
+        const _fetchAndMergeCalled = false;
         
         const mockSupabase = createMockSupabase();
         mockSupabase.configure({

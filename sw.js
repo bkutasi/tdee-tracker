@@ -4,7 +4,7 @@
  */
 
 // Version must be manually incremented before each deployment
-const CACHE_VERSION = '1.0.6';
+const CACHE_VERSION = '1.0.7';
 const CACHE_NAME = `tdee-tracker-v${CACHE_VERSION}`;
 const STATIC_ASSETS = [
     '/',
@@ -18,10 +18,7 @@ const STATIC_ASSETS = [
     '/js/calculator-tdee.js',
     '/js/calculator.js',
     '/js/storage.js',
-    '/js/sync-errors.js',
-    '/js/sync-queue.js',
-    '/js/sync-merge.js',
-    '/js/sync-core.js',
+    '/js/sync.js',
     '/js/utils.js',
     '/js/version.js',
     // UI components

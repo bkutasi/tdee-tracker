@@ -1,0 +1,233 @@
+
+=== Syntax Check ===
+
+Running syntax check...
+All JS files passed syntax check.
+
+Running duplicate global check...
+No duplicate globals found.
+
+=== Calculator Tests ===
+
+✓ round handles floating point precision
+✓ EWMA returns current when no previous
+✓ EWMA applies 0.3/0.7 smoothing
+✓ EWMA matches Excel progression
+✓ TDEE calculated from weight loss
+✓ TDEE calculated from weight gain
+✓ TDEE returns null for zero tracked days
+✓ Rolling TDEE calculates average
+✓ Daily target with deficit
+✓ Weight conversion kg to lb
+✓ mround to nearest 10
+
+=== Utils Tests ===
+
+✓ formatDate formats correctly
+✓ getDateRange generates dates
+✓ validateWeight accepts valid kg
+✓ validateCalories accepts valid values
+✓ validateWeight rejects invalid values
+✓ validateWeight rejects out of range
+✓ validateCalories rejects out of range
+✓ success helper creates correct result
+✓ error helper creates correct result
+
+=== Storage Sanitization Tests ===
+
+✓ sanitizeString removes HTML tags
+✓ sanitizeString removes angle brackets
+✓ sanitizeString handles null/undefined
+✓ sanitizeString handles non-string types
+✓ sanitizeString trims whitespace
+✓ sanitizeEntry sanitizes notes field
+✓ importData sanitizes imported entries
+
+=== TDEE Sanity Check Tests ===
+
+✓ Sanity: maintenance calories = stable weight → TDEE equals intake
+✓ Sanity: 1600 cal + losing 1kg/week → TDEE ~2700
+✓ Sanity: 1800 cal + losing 0.5kg/week → TDEE ~2350
+✓ Sanity: 3000 cal + gaining 0.25kg/week → TDEE ~2725
+✓ Sanity: Real data week 1 - starting weight
+✓ Sanity: Partial week 5 days tracked - adjusted correctly
+✓ Sanity: pounds - 1500 cal + losing 2lb/week → TDEE ~2500
+✓ Sanity: Adding cardio - same intake but faster weight loss → higher TDEE
+
+=== Robust TDEE Tests ===
+
+✓ EWMA weight delta smooths daily noise
+✓ Exclude calorie outliers detects cheat days
+✓ calculateFastTDEE returns null with insufficient data
+✓ calculateFastTDEE works with sufficient data (14+ days)
+✓ calculateFastTDEE high confidence with 28+ days
+✓ calculateStableTDEE detects large gaps and downgrades confidence
+✓ MIN_TRACKED_DAYS constant is exported
+
+=== Utils Date Type Safety Tests ===
+
+✓ parseDate handles string input correctly
+✓ parseDate handles Date object without throwing
+✓ parseDate handles null gracefully
+✓ parseDate handles undefined gracefully
+✓ parseDate handles empty string gracefully
+✓ formatDate formats Date object correctly
+✓ formatDate handles null gracefully
+✓ formatDate handles undefined gracefully
+✓ validateDateFormat returns success structure
+✓ validateDateFormat returns error structure for null
+✓ validateDateFormat returns INVALID_FORMAT for wrong format
+✓ validateDateRange returns nested data structure
+✓ validateDateRange returns MISSING_INPUT for null
+✓ validateDateRange returns INVALID_RANGE when start > end
+✓ validateWeight returns success with data
+✓ validateWeight returns OUT_OF_RANGE for invalid value
+✓ validateCalories returns success with data
+✓ validateCalories returns OUT_OF_RANGE for excessive value
+
+=== Storage Migration Tests ===
+
+✓ Storage migration v0 to v1 initializes defaults
+✓ Storage preserves entry structure
+✓ Storage preserves 91 entries through migration
+✓ Storage import preserves entry count
+✓ Storage getEntriesInRange validates dates
+✓ Storage saveEntry validates date format
+✓ Storage export/import round-trip preserves data
+
+=== CSP Compliance Tests ===
+
+✓ CSP meta tag exists in index.html
+✓ CSP has default-src directive
+✓ CSP script-src includes self
+✓ CSP script-src includes unsafe-inline
+✓ CSP script-src includes cdn.jsdelivr.net
+✓ CSP style-src includes self
+✓ CSP style-src includes unsafe-inline
+✓ CSP img-src includes self
+✓ CSP img-src includes data:
+✓ CSP connect-src includes self
+✓ CSP connect-src includes supabase.co
+✓ CSP does not use wildcard for script-src
+✓ CSP does not allow unsafe-eval
+✓ CSP has at least 4 directive types
+✓ HTML does NOT use X-Frame-Options meta tag (ineffective, use HTTP header)
+✓ constants.js loads before utils.js in script order
+✓ utils.js loads before calculator modules
+✓ app.js loads last in script order
+
+=== Sync Module Tests ===
+
+✓ Sync.queueOperation creates operation with correct structure
+✓ Sync.queueOperation persists to localStorage
+✓ Sync.loadSyncQueue loads from localStorage on init
+✓ Sync.clearQueue removes all operations
+✓ Sync.saveWeightEntry saves to LocalStorage immediately
+✓ Sync.saveWeightEntry returns error for missing date
+✓ Sync.saveWeightEntry queues sync operation
+✓ Sync.updateWeightEntry updates LocalStorage
+✓ Sync.updateWeightEntry queues update operation
+✓ Sync.deleteWeightEntry deletes from LocalStorage
+✓ Sync.deleteWeightEntry queues delete operation
+✓ Sync.mergeEntries combines remote and local data
+✓ Sync.mergeEntries conflict resolution: newest timestamp wins
+✓ Sync.mergeEntries keeps local when local timestamp is newer
+✓ Sync.mergeEntries preserves local-only entries
+✓ Sync.mergeEntries adds remote-only entries
+✓ Sync.mergeEntries sorts by date descending
+✓ Sync.getStatus returns correct structure
+✓ Sync.getStatus shows correct pending operations count
+✓ Sync.getQueue returns pending operations
+✓ Sync.getQueue includes operation metadata
+✓ Sync.getErrorHistory returns error entries
+✓ Sync.clearErrorHistory removes all errors
+✓ Sync.mergeEntries handles empty remote entries
+✓ Sync.saveWeightEntry handles null entry
+✓ Sync.saveWeightEntry handles undefined entry
+✓ Sync preserves data through full sync cycle
+✓ Sync handles multiple entry operations
+
+=== Auth Module Tests ===
+
+Note: Auth module tests require browser environment
+Run: open tests/test-runner.html
+
+
+=== Phase 1 Validation Tests ===
+
+
+=== Phase 1: Weight Validation (Fix #1) ===
+
+✓ accepts entry with null weight but has calories
+✓ accepts entry with undefined weight but has calories
+✓ accepts entry with NaN weight but has calories
+✓ accepts entry with valid weight
+✓ rejects entry with no weight, calories, or notes
+✓ does not queue entry with null weight when authenticated
+✓ queues entry with valid weight when authenticated
+
+=== Phase 1: ID Validation (Fix #2) ===
+
+✓ rejects delete with null ID
+✓ rejects delete with empty string ID
+✓ rejects delete with whitespace ID
+✓ accepts delete with valid string ID
+✓ does not queue delete with null ID
+
+=== Phase 1: Clear Queue Integration (Fix #4) ===
+
+✓ clears sync queue before clearing storage
+✓ handles clear data when Sync module not available
+
+=== Phase 1: Import Sync Integration (Fix #5) ===
+
+✓ imports data successfully
+✓ handles empty import data
+✓ handles invalid JSON
+✓ handles missing entries field
+
+=== Phase 1: Validation Edge Cases ===
+
+✓ handles entry with missing calories
+✓ handles delete with tab character in ID
+✓ handles delete with newline in ID
+
+=== Phase 1: Integration Tests ===
+
+✓ full workflow: create, update, delete with validation
+✓ validation prevents invalid operations
+✓ multiple valid operations queue correctly
+
+=== Config Validation Tests ===
+
+✓ config.js exists and is readable
+✓ config.js has SUPABASE_CONFIG.url defined
+✓ config.js has SUPABASE_CONFIG.anonKey defined
+✓ config.js has SUPABASE_CONFIG.siteUrl defined
+✗ config.js URL is NOT a placeholder value
+  CRITICAL: config.js URL contains placeholder "https://placeholder.supabase.co". Run `node scripts/generate-config.js` with real Supabase credentials.
+✗ config.js anonKey is NOT a placeholder value
+  CRITICAL: config.js anonKey contains placeholder "placeholder-anon-key". Run `node scripts/generate-config.js` with real Supabase credentials.
+✓ config.js siteUrl is NOT a placeholder value
+✓ config.js URL uses HTTPS protocol
+✓ config.js URL matches Supabase domain pattern
+✓ config.js anonKey has sufficient length (min 20 chars)
+✓ config.js anonKey matches expected format
+✓ generate-config.js script exists
+✓ generate-config.js validates required credentials
+✓ generate-config.js exits with error on missing credentials
+✓ generate-config.js reads from .env file for local dev
+✓ generate-config.js reads from environment variables for CI/CD
+✓ generate-config.js rejects missing credentials
+✓ generate-config.js produces valid config with real-looking credentials
+✓ .env.example exists
+✓ .env.example has SUPABASE_URL placeholder
+✓ .env.example has SUPABASE_ANON_KEY placeholder
+✓ .env.example does NOT contain real credentials
+✓ .gitignore includes js/config.js
+✓ .gitignore includes .env
+
+========================================
+Total Results: 159 passed, 2 failed
+========================================
+

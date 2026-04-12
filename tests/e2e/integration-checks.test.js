@@ -47,12 +47,8 @@ function expect(actual) {
 console.log('\n=== E2E Integration Checks ===\n');
 
 const jsDir = path.join(__dirname, '../../js');
-// Sync is now split into multiple modules (sync-core, sync-queue, sync-merge, sync-errors)
-const syncCoreCode = fs.readFileSync(path.join(jsDir, 'sync-core.js'), 'utf8');
-const syncMergeCode = fs.readFileSync(path.join(jsDir, 'sync-merge.js'), 'utf8');
-const syncQueueCode = fs.readFileSync(path.join(jsDir, 'sync-queue.js'), 'utf8');
-// Combined sync code for cross-module checks
-const syncCode = syncCoreCode + '\n' + syncMergeCode + '\n' + syncQueueCode;
+// Sync module (consolidated from sync-core, sync-queue, sync-merge, sync-errors)
+const syncCode = fs.readFileSync(path.join(jsDir, 'sync.js'), 'utf8');
 const authCode = fs.readFileSync(path.join(jsDir, 'auth.js'), 'utf8');
 const storageCode = fs.readFileSync(path.join(jsDir, 'storage.js'), 'utf8');
 

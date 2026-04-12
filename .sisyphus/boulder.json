@@ -1,53 +1,67 @@
 {
-  "active_plan": "/media/nvme/projects/tdee-tracker/.sisyphus/plans/streamline-and-simplify.md",
-  "started_at": "2026-04-09T09:50:57.319Z",
+  "active_plan": "/media/nvme/projects/tdee-tracker/.sisyphus/plans/fix-sync-module-and-testing.md",
+  "started_at": "2026-04-12T18:13:39.673Z",
   "session_ids": [
-    "ses_28e59174affeXaU9rSqqMgbxnK",
-    "ses_28e562fa2ffeV9YjCCSDIMyaNB",
-    "ses_28e5619a3ffeL4EI8nHRkY7Gwn",
-    "ses_28e568642ffe57G68cuKiE6dxk",
-    "ses_28e55d67bffexGoIQdh29qsYA1",
-    "ses_28e5264aaffeBDxqsqJSmbfmLn",
-    "ses_28e51ca39ffefmJE7Hk4U1pMy3",
-    "ses_28e4c2a7affeJHMGzorq1HEStU",
-    "ses_28e4472b2ffeDHt3sh0QTwSrQn",
-    "ses_28e43ea94ffeBCflyx6O8VljpD",
-    "ses_28e3cefcaffe7Uz3QZGIwxTjNN",
-    "ses_28e30e9f2ffezeO4aBJCi8rh4Q",
-    "ses_28e26e46bffe5z0DCtFjlkJSlT",
-    "ses_28e224b82ffefaIQVCG9JHocmO",
-    "ses_28e1da823ffeWNN68HNc6taE4Q",
-    "ses_28e18cb73ffe9wd508Kyx6Ybxh",
-    "ses_28e13bb5fffeciEa0RxAH27nBF",
-    "ses_28e0f20feffeiDA1I3hhlmrV1c",
-    "ses_28e0d12c1ffeunVrG004hiLR4q",
-    "ses_28e01e4a0ffeyAN1fHz5U2fo5B",
-    "ses_28dfd7978ffecqrUmSrfAvOcEo",
-    "ses_28defd8ccffePrdVM06jRIXihV",
-    "ses_28df07c6bffeSvpDOlw8NEz9HY",
-    "ses_28df03b17ffe4Ls8thpNSZEAHs",
-    "ses_28db23713ffee5RUXZy0slL13d"
+    "ses_27d19c554ffeqPcyU6Kuj7fYBS",
+    "ses_27cfbfb17ffeKyIGUAyG3NssLv",
+    "ses_27cfba9c2ffeCGPF7ctBrzadjp",
+    "ses_27cfb39d6ffeEnwLfimlKpP4iy",
+    "ses_27cfacb55ffeVLyEClAzzXoh0n"
   ],
-  "plan_name": "streamline-and-simplify",
+  "session_origins": {
+    "ses_27d19c554ffeqPcyU6Kuj7fYBS": "direct",
+    "ses_27cfbfb17ffeKyIGUAyG3NssLv": "appended",
+    "ses_27cfba9c2ffeCGPF7ctBrzadjp": "appended",
+    "ses_27cfb39d6ffeEnwLfimlKpP4iy": "appended",
+    "ses_27cfacb55ffeVLyEClAzzXoh0n": "appended"
+  },
+  "plan_name": "fix-sync-module-and-testing",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Fix getStatus() Async Bug",
-      "session_id": "ses_28e568642ffe57G68cuKiE6dxk",
+      "task_title": "Consolidate 5 Sync Files into Single `js/sync.js`",
+      "session_id": "ses_27d17649cffeYt1TyjczoTqJbu",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-12T18:26:41.829Z"
+    },
+    "todo:3": {
+      "task_key": "todo:3",
+      "task_label": "3",
+      "task_title": "Register Service Worker with Auto-Activate",
+      "session_id": "ses_27d09ef1dffeXEbXWIWi1ATeBW",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-04-09T09:55:15.782Z"
+      "updated_at": "2026-04-12T18:33:20.040Z"
     },
-    "todo:5": {
-      "task_key": "todo:5",
-      "task_label": "5",
-      "task_title": "Create sync-errors.js — Extract Error Handling",
-      "session_id": "ses_28df03b17ffe4Ls8thpNSZEAHs",
+    "todo:6": {
+      "task_key": "todo:6",
+      "task_label": "6",
+      "task_title": "Enhance Syntax Check with Duplicate Global Detection",
+      "session_id": "ses_27d051143ffedCIWSK007xCIl6",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-12T18:39:04.996Z"
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "Pre-Commit Hook Setup",
+      "session_id": "ses_27cffa999ffexPjYT6Ljhsqwqo",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-12T18:43:58.107Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "ses_27cfb39d6ffeEnwLfimlKpP4iy",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-04-09T11:50:16.908Z"
+      "updated_at": "2026-04-12T18:53:56.630Z"
     }
   }
 }

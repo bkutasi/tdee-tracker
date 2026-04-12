@@ -9,6 +9,7 @@
 
 'use strict';
 
+// eslint-disable-next-line no-unused-vars
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -119,6 +120,7 @@ function loadModule(filePath) {
     const code = fs.readFileSync(filePath, 'utf8');
     const patched = code
         .replace(/if \(typeof module !== 'undefined' && module\.exports\)/g, 'if (false)');
+    // eslint-disable-next-line no-eval
     eval(patched);
 }
 
@@ -137,8 +139,8 @@ const Storage = global.Storage;
 const mockSupabase = {
     from: (table) => ({
         select: () => ({ order: () => ({ data: [], error: null }) }),
-        insert: (data) => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'test-id' }, error: null }) }) }),
-        update: (data) => ({ eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: {}, error: null }) }) }) }),
+        insert: (_data) => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'test-id' }, error: null }) }) }),
+        update: (_data) => ({ eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: {}, error: null }) }) }) }),
         delete: () => ({ eq: () => ({ data: null, error: null }) })
     })
 };
@@ -156,14 +158,8 @@ const Auth = {
 global.window.Auth = Auth;
 global.window.Storage = Storage;
 
-loadModule(path.join(jsDir, 'sync-errors.js'));
-loadModule(path.join(jsDir, 'sync-queue.js'));
-loadModule(path.join(jsDir, 'sync-merge.js'));
-loadModule(path.join(jsDir, 'sync-core.js'));
+loadModule(path.join(jsDir, 'sync.js'));
 
-global.SyncErrors = global.window.SyncErrors;
-global.SyncQueue = global.window.SyncQueue;
-global.SyncMerge = global.window.SyncMerge;
 global.Sync = global.window.Sync;
 
 const Sync = global.Sync;

@@ -1,0 +1,9 @@
+
+/media/nvme/projects/tdee-tracker/js/calculator-tdee.js
+  1004:15  warning  'rSquared' is assigned a value but never used. Allowed unused vars must match /^_|^Sync$|^TOAST_|^emailInput$|^sendLinkButton$|^logoutButton$|^chartWidth$|^windowDays$|^weightSum$|^weeklyChangeEl$|^migrated$|^App$|^VersionManager$|^calculateCurrentTDEE$|^removeStuckOperations$/u  no-unused-vars
+
+/media/nvme/projects/tdee-tracker/js/sync.js
+  531:5  warning  Async function 'saveWeightEntry' has a complexity of 28. Maximum allowed is 25  complexity
+
+✖ 2 problems (0 errors, 2 warnings)
+

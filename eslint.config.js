@@ -113,7 +113,7 @@ module.exports = [
       "no-unused-vars": ["warn", { 
         "argsIgnorePattern": "^(_)?(event|e|error|user|type|weightUnit|windowDays)$",  // Common event handler params (with optional underscore)
         "caughtErrorsIgnorePattern": "^_",  // Allow unused catch params with underscore
-        "varsIgnorePattern": "^_|^TOAST_|^emailInput$|^sendLinkButton$|^logoutButton$|^chartWidth$|^windowDays$|^weightSum$|^weeklyChangeEl$|^migrated$|^App$|^VersionManager$|^calculateCurrentTDEE$|^removeStuckOperations$"  // Allow common unused vars
+        "varsIgnorePattern": "^_|^Sync$|^TOAST_|^emailInput$|^sendLinkButton$|^logoutButton$|^chartWidth$|^windowDays$|^weightSum$|^weeklyChangeEl$|^migrated$|^App$|^VersionManager$|^calculateCurrentTDEE$|^removeStuckOperations$"  // Allow common unused vars
       }],
       
       // Function complexity (warnings only) - RELAXED for vanilla JS
