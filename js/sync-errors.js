@@ -16,32 +16,32 @@
 
 'use strict';
 
-function _getSyncDebug() {
-    if (typeof module !== 'undefined' && module.exports) {
-        try {
-            return require('./sync-debug.js');
-        } catch (_) {
-            return null;
-        }
-    }
-    if (typeof window !== 'undefined' && window.SyncDebug) {
-        return window.SyncDebug;
-    }
-    return null;
-}
-
-const _SyncDebug = new Proxy({}, {
-    get: function(target, prop) {
-        const debug = _getSyncDebug();
-        if (debug && debug[prop]) {
-            return debug[prop];
-        }
-        return function() { return null; };
-    }
-});
-
 const SyncErrors = (function() {
     'use strict';
+
+    function _getSyncDebug() {
+        if (typeof module !== 'undefined' && module.exports) {
+            try {
+                return require('./sync-debug.js');
+            } catch (_) {
+                return null;
+            }
+        }
+        if (typeof window !== 'undefined' && window.SyncDebug) {
+            return window.SyncDebug;
+        }
+        return null;
+    }
+
+    const _SyncDebug = new Proxy({}, {
+        get: function(target, prop) {
+            const debug = _getSyncDebug();
+            if (debug && debug[prop]) {
+                return debug[prop];
+            }
+            return function() { return null; };
+        }
+    });
 
     var AppConstants;
 
