@@ -36,7 +36,27 @@ jobs:
         env:
           CI: true
 
-  # Job 2: Run tests (blocks deployment if fails)
+  # Job 2: Check version consistency (blocks deployment if mismatch)
+  version-check:
+    name: Version Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify version consistency
+        run: node scripts/check-versions.js
+        env:
+          CI: true
+
+  # Job 3: Run tests (blocks deployment if fails)
   test:
     name: Run Tests
     runs-on: ubuntu-latest
@@ -73,7 +93,7 @@ jobs:
           path: tests/results/
           retention-days: 7
 
-  # Job 3: Run E2E tests with Playwright
+  # Job 4: Run E2E tests with Playwright
   e2e:
     name: Run E2E Tests
     runs-on: ubuntu-latest
@@ -124,7 +144,7 @@ jobs:
   deploy:
     name: Deploy to Cloudflare Pages
     runs-on: ubuntu-latest
-    needs: [lint, test, e2e]
+    needs: [lint, test, e2e, version-check]
     if: success()
     
     steps:

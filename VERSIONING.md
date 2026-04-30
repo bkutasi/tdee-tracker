@@ -54,7 +54,7 @@ VersionManager.init()
 
 **Format**: Semantic versioning (MAJOR.MINOR.PATCH)
 
-**Current Version**: `1.0.0`
+**Current Version**: `1.0.7`
 
 **Update Process**:
 1. Before each deployment, increment version in **BOTH** files:
@@ -72,6 +72,9 @@ const CACHE_VERSION = '1.1.0'; // Incremented
 const APP_VERSION = '1.1.0'; // Must match sw.js
 ```
 
+**Version Consistency Check**:
+Run `node scripts/check-versions.js` before each deployment to verify that `CACHE_VERSION` in `sw.js` matches `APP_VERSION` in `js/version.js`. The script exits with code 0 if they match, or 1 if they differ. This is also enforced in the pre-commit hook.
+
 ---
 
 ## Service Worker Lifecycle
@@ -81,8 +84,13 @@ const APP_VERSION = '1.1.0'; // Must match sw.js
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => cache.addAll(STATIC_ASSETS))
-            .then(() => self.skipWaiting()) // Force immediate activation
+            .then((cache) => {
+                console.log('Caching static assets');
+                return cache.addAll(STATIC_ASSETS);
+            })
+            .then(() => {
+                return self.skipWaiting(); // Force immediate activation
+            })
     );
 });
 ```
@@ -113,6 +121,13 @@ self.addEventListener('message', (event) => {
 });
 ```
 
+### iOS Safari Considerations
+
+iOS Safari handles service workers more aggressively than other browsers:
+
+- **Aggressive cache eviction**: iOS may evict service worker caches under memory pressure. The cache-first strategy ensures the app still works offline after reinstallation.
+- **skipWaiting behavior**: On iOS, `skipWaiting()` in the install event ensures the new service worker activates immediately. Without it, the user may remain on the old version until all tabs are closed.
+- **Controller change reload**: The `controllerchange` event listener in `js/version.js` triggers a page reload when a new service worker takes control. This ensures the new version loads without requiring a manual refresh.
 ---
 
 ## Version Badge
@@ -122,7 +137,7 @@ self.addEventListener('message', (event) => {
 **Appearance**:
 ```
 ┌─────────────────────┐
-│ Version 1.0.0 ●     │
+│ Version 1.0.7 ●     │
 └─────────────────────┘
 ```
 
@@ -303,6 +318,6 @@ caches.keys().then(names => Promise.all(names.map(n => caches.delete(n))));
 
 ---
 
-**Last Updated**: 2026-03-13  
-**Version**: 1.0.0  
+**Last Updated**: 2026-04-30
+**Version**: 1.0.7
 **Status**: Production Ready

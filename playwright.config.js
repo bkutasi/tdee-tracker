@@ -6,6 +6,10 @@ module.exports = {
         browserName: 'chromium',
         headless: true
     },
+    projects: [
+        { name: 'chromium', use: { browserName: 'chromium' } },
+        { name: 'webkit',   use: { browserName: 'webkit'   } }
+    ],
     webServer: {
         command: 'npx serve . -p 8765',
         port: 8765,

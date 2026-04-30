@@ -91,6 +91,37 @@ const VersionManager = (function () {
 
             // Listen for controller change (after new SW activates)
             navigator.serviceWorker.addEventListener('controllerchange', () => {
+                // Guard: check for unsaved form data before reloading
+                if (typeof Storage !== 'undefined' && typeof DailyEntry !== 'undefined') {
+                    const currentDate = DailyEntry.getCurrentDate();
+                    const savedEntry = Storage.getEntry(currentDate);
+                    const weightEl = document.getElementById('weight-input');
+                    const caloriesEl = document.getElementById('calories-input');
+                    const notesEl = document.getElementById('notes-input');
+
+                    const currentWeight = weightEl?.value ?? '';
+                    const currentCalories = caloriesEl?.value ?? '';
+                    const currentNotes = notesEl?.value ?? '';
+
+                    const savedWeight = savedEntry?.weight ?? '';
+                    const savedCalories = savedEntry?.calories ?? '';
+                    const savedNotes = savedEntry?.notes ?? '';
+
+                    // Normalize: treat null and empty string as equivalent
+                    const normalize = (val) => (val === null || val === undefined || val === '') ? '' : String(val);
+
+                    const hasUnsavedChanges =
+                        normalize(currentWeight) !== normalize(savedWeight) ||
+                        normalize(currentCalories) !== normalize(savedCalories) ||
+                        normalize(currentNotes) !== normalize(savedNotes);
+
+                    if (hasUnsavedChanges) {
+                        const shouldReload = window.confirm(
+                            'A new version is ready, but you have unsaved changes. Reload and lose those changes?'
+                        );
+                        if (!shouldReload) return;
+                    }
+                }
                 window.location.reload();
             });
 
