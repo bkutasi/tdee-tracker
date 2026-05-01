@@ -48,6 +48,9 @@ tdee-tracker/
 │       └── modal.test.js   # Modal rendering (45+ tests)
 ├── css/
 │   └── styles.css          # All styles (2.3k lines)
+├── scripts/
+│   ├── generate-config.js  # Supabase config generator
+│   └── check-versions.js   # Version consistency check (sw.js ↔ version.js)
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml      # CI/CD: test + deploy to Cloudflare Pages
@@ -414,6 +417,35 @@ wrangler pages deploy . --project-name=tdee-tracker
 - Users can refresh immediately or defer
 - See `VERSIONING.md` for complete documentation
 
+### iOS Service Worker Activation
+
+**Problem**: iOS Safari (and some Android browsers) do **not** activate updated service workers automatically. The new SW stays in `waiting` state until all tabs are closed, leaving users stuck on stale versions indefinitely.
+
+**Solution**: Call `self.skipWaiting()` in the `install` event after cache population:
+
+```javascript
+// sw.js — inside install event handler
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(cache => cache.addAll(STATIC_ASSETS))
+            .then(() => self.skipWaiting())  // ← Force immediate activation
+    );
+});
+```
+
+**Key Points:**
+- `skipWaiting()` must be called **after** cache population succeeds
+- The page still needs a reload to get the new SW controller
+- Guard against data loss: check for unsaved form data before reloading
+- Add WebKit to Playwright config for iOS-like E2E testing
+
+**Version Consistency Enforcement:**
+- `scripts/check-versions.js` — zero-dependency Node script that compares `CACHE_VERSION` (sw.js) and `APP_VERSION` (js/version.js)
+- CI gate: `.github/workflows/deploy.yml` runs the check before deployment
+- Pre-commit hook: `.git/hooks/pre-commit` blocks commits on mismatch
+- Exit code 0 = match, exit code 1 = mismatch with descriptive error
+
 ### CI/CD Setup
 
 **GitHub Secrets Required:**
@@ -480,6 +512,8 @@ TTL: 3600
 | Test failures | Assertion errors | Run `node tests/node-test.js` locally |
 | Project not found | Wrong project name | Verify `--project-name` matches exactly |
 | Permission denied | Token lacks permissions | Regenerate with Account → Pages → Edit |
+| Git push 403 (workflow) | OAuth token missing `workflow` scope | Run `gh auth refresh --scopes workflow` and re-authorize |
+| Git push 403 (repo) | Wrong account credentials cached | Clear `~/.git-credentials` and re-run `gh auth switch` |
 
 See `DEPLOYMENT.md` for complete deployment guide.
 
@@ -1006,6 +1040,7 @@ node tests/node-test.js
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **v3.0.2** | 2026-05-01 | iOS SW activation, version consistency checks, E2E tests, CI gating |
 | **v3.0.1** | 2026-03-16 | Phase 1 critical fixes: validation, race conditions, sync queue |
 | **v3.0** | 2026-03-13 | Supabase sync, Auth, CI/CD, 155+ tests, Context System |
 | **v2.0** | 2026-02-26 | 80+ tests, Cloudflare Pages deployment, PWA |
@@ -1021,10 +1056,12 @@ node tests/node-test.js
 - **`.tmp/`**: Build artifacts, should be `.gitignore`d
 - **calculator.js:412**: NOTE comment about day index mapping — verify if improvement needed
 - **No LSP**: TypeScript language server not installed — rely on tests for validation
+- **sw-ios-fix (2026-05-01)**: `skipWaiting()` added to sw.js install event after being removed as "dead code" in commit `d85aa10` (Apr 9). Always verify iOS Safari behavior after SW changes.
+- **Git credential scope**: Pushing `.github/workflows/deploy.yml` requires `workflow` OAuth scope. If `gh auth switch` doesn't fix 403 errors, check `git config credential.helper` and `~/.git-credentials` for stale tokens.
 
 ---
 
-**Last Updated**: 2026-03-16  
-**Version**: 3.0.1  
-**Tests**: 155+ passing  
+**Last Updated**: 2026-05-01
+**Version**: 3.0.2
+**Tests**: 155+ passing
 **Dependencies**: 0
